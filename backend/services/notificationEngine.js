@@ -158,6 +158,44 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
   }
 };
 
+const dispatchOrderTransactionEmails = async (orderId) => {
+  try {
+    const orderRes = await db.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+    if (orderRes.rows.length === 0) {
+      console.error(`❌ dispatchOrderTransactionEmails: Order #${orderId} not found.`);
+      return;
+    }
+    const order = orderRes.rows[0];
+
+    const customerRes = await db.query('SELECT name, email FROM users WHERE id = $1', [order.customer_id]);
+    if (customerRes.rows.length === 0) {
+      console.error(`❌ dispatchOrderTransactionEmails: Customer #${order.customer_id} not found.`);
+      return;
+    }
+    const customer = customerRes.rows[0];
+
+    const shopRes = await db.query('SELECT shop_name, owner_id FROM shops WHERE id = $1', [order.shop_id]);
+    if (shopRes.rows.length === 0) {
+      console.error(`❌ dispatchOrderTransactionEmails: Shop #${order.shop_id} not found.`);
+      return;
+    }
+    const shop = shopRes.rows[0];
+
+    const sellerRes = await db.query('SELECT name, email FROM users WHERE id = $1', [shop.owner_id]);
+    if (sellerRes.rows.length === 0) {
+      console.error(`❌ dispatchOrderTransactionEmails: Seller owner #${shop.owner_id} not found.`);
+      return;
+    }
+    const seller = sellerRes.rows[0];
+
+    await emailService.sendOrderTransactionEmails(order, customer, shop, seller);
+    console.log(`📬 dispatchOrderTransactionEmails: Successfully sent transaction emails for Order #${orderId} [Status: ${order.order_status}]`);
+  } catch (err) {
+    console.error('❌ dispatchOrderTransactionEmails error:', err.message);
+  }
+};
+
 module.exports = {
-  dispatchNotification
+  dispatchNotification,
+  dispatchOrderTransactionEmails
 };

@@ -181,6 +181,9 @@ const createOrder = async (req, res) => {
       }
     );
 
+    // Send transactional emails to both customer and seller
+    await notificationEngine.dispatchOrderTransactionEmails(order.id);
+
     return res.status(201).json(order);
   } catch (err) {
     console.error('Create order error:', err);
@@ -424,6 +427,13 @@ const updateOrderStatus = async (req, res) => {
           customerName: order.customer_name || 'Customer'
         }
       );
+
+      // Send transactional emails to both customer and seller
+      await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id);
+    } else {
+      // Even if no specific single notification was targeted, always send transaction update email to both
+      const notificationEngine = require('../services/notificationEngine');
+      await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id);
     }
 
     // Emit live status update to both channels
@@ -536,6 +546,9 @@ const uploadBill = async (req, res) => {
       }
     );
 
+    // Send transactional emails to both customer and seller
+    await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id);
+
     socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
 
     return res.status(200).json(updatedOrder);
@@ -617,6 +630,9 @@ const confirmOrder = async (req, res) => {
         paymentMethod: payment_method
       }
     );
+
+    // Send transactional emails to both customer and seller
+    await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id);
 
     socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
 

@@ -1,25 +1,56 @@
-require('dotenv').config();
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
 
-const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
-const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
-const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER || 'whatsapp:+14155238886'; // Twilio sandbox number
+let clientReady = false;
 
-let client = null;
-
-// Initialize Twilio client if keys are present
-if (twilioAccountSid && twilioAuthToken) {
-  try {
-    const twilio = require('twilio');
-    client = twilio(twilioAccountSid, twilioAuthToken);
-    console.log('💬 WhatsApp Service: Twilio API client initialized.');
-  } catch (err) {
-    console.error('❌ Failed to load twilio SDK:', err.message);
+// Initialize WhatsApp Web Client using LocalAuth (stores session to avoid re-scans)
+const client = new Client({
+  authStrategy: new LocalAuth({
+    dataPath: './whatsapp_session'
+  }),
+  puppeteer: {
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu'
+    ]
   }
-} else {
-  console.log('💬 WhatsApp Service: Twilio credentials not found in env. Running in Sandbox Visual Logger Mode.');
-}
+});
 
-// Log a nice ascii template box on backend terminal
+// Event hook: Generate QR code in the terminal logs when starting up
+client.on('qr', (qr) => {
+  console.log('\n💬 [WHATSAPP GATEWAY] SCAN THIS QR CODE WITH YOUR PHONE LINKED DEVICES:');
+  qrcode.generate(qr, { small: true });
+});
+
+// Event hook: Log when client is connected and ready to send messages
+client.on('ready', () => {
+  clientReady = true;
+  console.log('\n🟢 [WHATSAPP GATEWAY] Client is fully authenticated and ready to dispatch messages!\n');
+});
+
+// Event hook: handle authentication failures
+client.on('auth_failure', (msg) => {
+  console.error('❌ [WHATSAPP GATEWAY] Authentication failure:', msg);
+});
+
+client.on('disconnected', (reason) => {
+  clientReady = false;
+  console.log('🔴 [WHATSAPP GATEWAY] Client was disconnected:', reason);
+});
+
+// Initialize client
+console.log('💬 [WHATSAPP GATEWAY] Initializing browser-automation engine...');
+client.initialize().catch(err => {
+  console.error('❌ [WHATSAPP GATEWAY] Failed to initialize client:', err.message);
+});
+
+// Log a nice ascii template box on backend terminal as a visual fallback
 const logVisualWhatsApp = (to, title, message) => {
   const border = '═'.repeat(60);
   const timeStr = new Date().toLocaleTimeString();
@@ -45,24 +76,22 @@ const sendWhatsAppMessage = async (to, title, bodyText) => {
   const cleanPhone = to.replace(/\D/g, '');
   // Default India country code if not specified
   const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-  const whatsappTo = `whatsapp:+${formattedPhone}`;
+  const whatsappTo = `${formattedPhone}@c.us`; // target formatted phone JID
 
-  if (client) {
+  const messageBody = `*${title.toUpperCase()}*\n\n${bodyText}\n\nSent via Kiranam.in`;
+
+  if (clientReady) {
     try {
-      const response = await client.messages.create({
-        from: twilioPhoneNumber,
-        to: whatsappTo,
-        body: `${title.toUpperCase()}\n\n${bodyText}\n\nSent via Kiranam.in`
-      });
-      console.log(`💬 Twilio WhatsApp message sent: ${response.sid}`);
-      return { success: true, sid: response.sid };
+      await client.sendMessage(whatsappTo, messageBody);
+      console.log(`💬 Unofficial WhatsApp message sent to ${formattedPhone}`);
+      return { success: true, mock: false };
     } catch (err) {
-      console.error('❌ Twilio WhatsApp Error:', err.message);
-      // Fallback to log visual
+      console.error(`❌ Unofficial WhatsApp Error sending to ${formattedPhone}:`, err.message);
       logVisualWhatsApp(formattedPhone, title, bodyText);
       return { success: false, error: err.message, fallback: true };
     }
   } else {
+    console.log(`ℹ️ [WHATSAPP GATEWAY] Client not logged in yet. Logging visually to terminal.`);
     logVisualWhatsApp(formattedPhone, title, bodyText);
     return { success: true, mock: true };
   }

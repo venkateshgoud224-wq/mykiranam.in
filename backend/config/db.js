@@ -254,6 +254,11 @@ const mockQuery = async (text, params = []) => {
         const user = mockDb.users.find(u => Number(u.id) === Number(id));
         return { rows: user ? [user] : [] };
       }
+      if (normalizedText.includes('where reset_token =')) {
+        const token = params[0];
+        const user = mockDb.users.find(u => u.reset_token === token);
+        return { rows: user ? [user] : [] };
+      }
       return { rows: mockDb.users };
     }
 
@@ -452,6 +457,31 @@ const mockQuery = async (text, params = []) => {
   if (normalizedText.startsWith('update')) {
     isMockDbDirty = true;
     if (normalizedText.includes('update users')) {
+      if (normalizedText.includes('set reset_token =') || normalizedText.includes('reset_token =')) {
+        const resetToken = params[0];
+        const resetTokenExpiry = params[1];
+        const identifier = params[2];
+        const user = mockDb.users.find(u => 
+          Number(u.id) === Number(identifier) || 
+          (typeof identifier === 'string' && u.email === identifier)
+        );
+        if (user) {
+          user.reset_token = resetToken;
+          user.reset_token_expiry = resetTokenExpiry;
+        }
+        return { rows: user ? [user] : [] };
+      }
+      if (normalizedText.includes('set password =') && normalizedText.includes('reset_token =')) {
+        const password = params[0];
+        const userId = params[1];
+        const user = mockDb.users.find(u => Number(u.id) === Number(userId));
+        if (user) {
+          user.password = password;
+          user.reset_token = null;
+          user.reset_token_expiry = null;
+        }
+        return { rows: user ? [user] : [] };
+      }
       if (normalizedText.includes('set role =')) {
         const role = params[0];
         const userId = params[1];
@@ -745,6 +775,10 @@ const initDb = async () => {
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP WITH TIME ZONE;');
+    
+    // Add reset password tokens columns
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255);');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP WITH TIME ZONE;');
     
     // Phase 5 migrations for digital / hybrid chitti updates
     await pool.query('ALTER TABLE orders ALTER COLUMN original_chitti DROP NOT NULL;');

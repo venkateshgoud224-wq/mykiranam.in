@@ -317,6 +317,24 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                       </button>
                     </div>
 
+                    {order.item_change_history && (
+                      <div className="p-3.5 bg-blue-50 border border-blue-200/55 rounded-xl text-xs space-y-1">
+                        <span className="font-extrabold text-blue-900 block">📝 Customer Revision Request:</span>
+                        <p className="text-blue-955 italic font-semibold bg-white p-2.5 rounded-lg border border-blue-100">
+                          "{(() => {
+                            try {
+                              const hist = typeof order.item_change_history === 'string'
+                                ? JSON.parse(order.item_change_history)
+                                : order.item_change_history;
+                              return hist.requested_changes || order.item_change_history;
+                            } catch (e) {
+                              return order.item_change_history;
+                            }
+                          })()}"
+                        </p>
+                      </div>
+                    )}
+
                     {error && <div className="text-crimson text-xs font-semibold">{error}</div>}
 
                     <form onSubmit={(e) => handleAcceptSubmit(e, order)} className="space-y-4">

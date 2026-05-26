@@ -13,10 +13,9 @@ const SelfVerification = ({ onVerifySubmitted }) => {
   const [error, setError] = useState('');
 
   // Step 1: OTP states
-  const [phone, setPhone] = useState(user?.phone || '');
+  const [email, setEmail] = useState(user?.email || '');
   const [otpCode, setOtpCode] = useState('');
-  const [simulatedCodeText, setSimulatedCodeText] = useState('');
-  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
 
   // Step 2: Store parameters
@@ -41,8 +40,8 @@ const SelfVerification = ({ onVerifySubmitted }) => {
 
   // OTP handlers
   const handleSendOtp = async () => {
-    if (!phone.trim()) {
-      setError('Please provide a valid 10-digit mobile number.');
+    if (!email.trim() || !email.includes('@')) {
+      setError('Please provide a valid Gmail / Email address.');
       return;
     }
     setError('');
@@ -51,14 +50,13 @@ const SelfVerification = ({ onVerifySubmitted }) => {
       const response = await fetch(`${apiUrl}/shops/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone })
+        body: JSON.stringify({ email })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to send OTP.');
 
       playSoundAlert('success');
       setOtpSent(true);
-      setSimulatedCodeText(data.simulatedCode); // Expose to make UI manual testing simple
     } catch (err) {
       setError(err.message || 'Error sending code.');
     } finally {
@@ -80,13 +78,13 @@ const SelfVerification = ({ onVerifySubmitted }) => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ phone, code: otpCode })
+        body: JSON.stringify({ email, code: otpCode })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Invalid OTP code.');
 
       playSoundAlert('success');
-      setPhoneVerified(true);
+      setEmailVerified(true);
       setStep(2);
     } catch (err) {
       setError(err.message || 'Invalid code.');
@@ -106,24 +104,6 @@ const SelfVerification = ({ onVerifySubmitted }) => {
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const handleAutoFillImages = () => {
-    const dummyFile = new File(["dummy content"], "dummy.jpg", { type: "image/jpeg" });
-    setImages({
-      image_front: dummyFile,
-      image_counter: dummyFile,
-      image_inside1: dummyFile,
-      image_inside2: dummyFile,
-      image_additional: dummyFile
-    });
-    setPreviews({
-      image_front: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%23cca725%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22white%22>Front</text></svg>',
-      image_counter: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%23cca725%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22white%22>Counter</text></svg>',
-      image_inside1: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%23cca725%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22white%22>Inside 1</text></svg>',
-      image_inside2: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%23cca725%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22white%22>Inside 2</text></svg>',
-      image_additional: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%23cca725%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22white%22>Additional</text></svg>',
-    });
   };
 
   // Multi-part verification submit handler
@@ -224,21 +204,21 @@ const SelfVerification = ({ onVerifySubmitted }) => {
         </div>
       )}
 
-      {/* --- STEP 1: MOBILE OTP CHECK --- */}
+      {/* --- STEP 1: GMAIL / EMAIL OTP CHECK --- */}
       {step === 1 && (
         <div className="space-y-4">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left">Step 1: Verify Mobile Number</h3>
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left">Step 1: Verify Email Address</h3>
           
           <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 text-left block">Store Owner Mobile Number</label>
+            <label className="text-xs font-bold text-slate-700 text-left block">Store Owner Email Address</label>
             <div className="flex space-x-2">
               <input
-                type="tel"
-                disabled={phoneVerified || otpSent}
-                placeholder="10-digit mobile number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none"
+                type="email"
+                disabled={emailVerified || otpSent}
+                placeholder="owner@gmail.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-750"
               />
               {!otpSent && (
                 <button
@@ -252,14 +232,9 @@ const SelfVerification = ({ onVerifySubmitted }) => {
             </div>
           </div>
 
-          {otpSent && !phoneVerified && (
+          {otpSent && !emailVerified && (
             <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-              {simulatedCodeText && (
-                <div className="p-2 mb-2 bg-blue-50 border border-blue-100 rounded text-blue-700 text-[10px] font-bold">
-                  🔒 [MOCK OTP CODE]: <span className="select-all underline text-xs">{simulatedCodeText}</span>
-                </div>
-              )}
-              <div className="space-y-1">
+              <div className="space-y-1 text-left">
                 <label className="text-xs font-bold text-slate-700 text-left block">Enter 4-digit Verification Code</label>
                 <input
                   type="text"
@@ -329,13 +304,6 @@ const SelfVerification = ({ onVerifySubmitted }) => {
         <form onSubmit={handleVerificationSubmit} className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left">Step 3: Upload 5 Images</h3>
-            <button
-              type="button"
-              onClick={handleAutoFillImages}
-              className="text-[10px] px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold rounded-xl transition-all"
-            >
-              ⚡ Auto-Fill Mock Files
-            </button>
           </div>
 
           <div className="space-y-2.5">

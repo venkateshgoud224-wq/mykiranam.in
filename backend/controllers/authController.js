@@ -2,6 +2,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const whatsappService = require('../services/whatsappService');
+const crypto = require('crypto');
+const emailService = require('../services/emailService');
 require('dotenv').config();
 
 const otpStore = new Map();
@@ -136,14 +138,27 @@ const googleLogin = async (req, res) => {
     let email = googleEmail || '';
     let name = googleName || '';
 
-    if (credential.startsWith('mock_token_')) {
+    if (credential && !credential.startsWith('mock_token_')) {
+      try {
+        // Real Google Token Verification via Google's tokeninfo API
+        const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+        if (response.ok) {
+          const googleData = await response.json();
+          email = googleData.email;
+          name = googleData.name || googleData.given_name || name;
+        } else {
+          return res.status(400).json({ error: 'Invalid Google ID token.' });
+        }
+      } catch (fetchErr) {
+        console.warn('Google ID token verification failed, falling back to request params:', fetchErr.message);
+        email = googleEmail || 'googleuser@kiranam.in';
+        name = googleName || 'Google User';
+      }
+    } else if (credential && credential.startsWith('mock_token_')) {
       const parts = credential.split('_');
       email = parts[3] || parts[2] || googleEmail || 'googleuser@kiranam.in';
       name = (typeof email === 'string' && email.includes('@')) ? email.split('@')[0] : 'GoogleUser';
       name = name.charAt(0).toUpperCase() + name.slice(1);
-    } else {
-      email = googleEmail || 'googleuser@kiranam.in';
-      name = googleName || 'Google User';
     }
 
     // Check if user exists
@@ -189,6 +204,15 @@ const updateRole = async (req, res) => {
   }
 
   try {
+    const userCheck = await db.query('SELECT role FROM users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    const currentRole = userCheck.rows[0].role;
+    if (currentRole !== 'pending') {
+      return res.status(400).json({ error: 'Role has already been set and cannot be changed.' });
+    }
+
     const result = await db.query('UPDATE users SET role = $1 WHERE id = $2 RETURNING id, role, name, email, phone', [role, userId]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'User not found.' });
@@ -370,11 +394,10 @@ const sendWhatsAppOTP = async (req, res) => {
     // Dispatch OTP over WhatsApp
     await whatsappService.sendWhatsAppOTP(whatsappNumber, otp);
 
-    // Return success, including OTP in response for easier local testing/OTP fills!
+    // Return success
     return res.status(200).json({ 
       message: 'OTP sent to WhatsApp.', 
-      whatsappNumber,
-      debugOTP: otp // Expose to frontend so user has easy fallback out-of-the-box
+      whatsappNumber
     });
   } catch (err) {
     console.error('Send WhatsApp OTP error:', err);
@@ -426,6 +449,95 @@ const verifyWhatsAppOTP = async (req, res) => {
   }
 };
 
+// 3.b Forgot Password Handler
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email address is required.' });
+  }
+
+  try {
+    // Look up user
+    const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No account with this email address exists.' });
+    }
+
+    const user = result.rows[0];
+
+    // Generate secure random token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 3600000); // 1 hour expiry
+
+    // Save token in database
+    await db.query(
+      'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE id = $3',
+      [token, expiry, user.id]
+    );
+
+    // If database is persistent mock in-memory, force save
+    if (db.getIsMock && db.getIsMock()) {
+      db.markMockDbDirty();
+    }
+
+    // Construct reset link
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetLink = `${frontendUrl}/?resetToken=${token}`;
+
+    // Send reset email via business SMTP
+    await emailService.sendPasswordResetEmail(user.email, user.name, resetLink);
+
+    return res.status(200).json({ message: 'Password reset link has been sent to your email.' });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    return res.status(500).json({ error: 'Server error during forgot password.' });
+  }
+};
+
+// 3.c Reset Password Handler
+const resetPassword = async (req, res) => {
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    return res.status(400).json({ error: 'Token and new password are required.' });
+  }
+
+  try {
+    // Find user by reset token
+    const result = await db.query('SELECT * FROM users WHERE reset_token = $1', [token]);
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid or expired password reset token.' });
+    }
+
+    const user = result.rows[0];
+
+    // Check expiry
+    if (new Date(user.reset_token_expiry) < new Date()) {
+      return res.status(400).json({ error: 'Password reset token has expired.' });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Update password and clear reset token columns
+    await db.query(
+      'UPDATE users SET password = $1, reset_token = NULL, reset_token_expiry = NULL WHERE id = $2',
+      [hashedPassword, user.id]
+    );
+
+    // If database is persistent mock in-memory, force save
+    if (db.getIsMock && db.getIsMock()) {
+      db.markMockDbDirty();
+    }
+
+    return res.status(200).json({ message: 'Password has been reset successfully.' });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    return res.status(500).json({ error: 'Server error during password reset.' });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -434,5 +546,7 @@ module.exports = {
   getProfile,
   updateSettings,
   sendWhatsAppOTP,
-  verifyWhatsAppOTP
+  verifyWhatsAppOTP,
+  forgotPassword,
+  resetPassword
 };

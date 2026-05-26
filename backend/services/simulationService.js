@@ -167,6 +167,9 @@ const generateMockOrder = async (targetShopId = null) => {
       }
     ).catch(err => console.error('Simulated seller notify error:', err.message));
 
+    // Send transactional emails to both customer and seller for simulated order
+    notificationEngine.dispatchOrderTransactionEmails(order.id).catch(err => console.error('Simulated order placement email error:', err.message));
+
     addLog(`🛒 Simulated Order #${order.custom_order_id || order.id} placed by ${customer.name} at ${shop.shop_name}`);
   } catch (err) {
     console.error('Error generating mock order:', err);
@@ -313,6 +316,9 @@ const progressQueues = async () => {
               amount: order.amount
             }
           ).catch(err => console.error('Simulated customer notify error:', err.message));
+
+          // Send transactional emails to both customer and seller for simulated progression
+          notificationEngine.dispatchOrderTransactionEmails(order.id).catch(err => console.error('Simulated order progress email error:', err.message));
         }
       }
     }

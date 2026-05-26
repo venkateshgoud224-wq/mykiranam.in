@@ -347,7 +347,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
 
               {/* Hybrid Review Action Layout */}
               <div className="flex flex-wrap justify-end gap-2 w-full sm:w-auto">
-                {isDigital && (
+                {isDigital && order.order_status !== 'Ready For Pickup' && (
                   <>
                     <button
                       onClick={handleRejectModifications}

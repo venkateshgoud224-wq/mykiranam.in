@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const socketService = require('../services/socketService');
 const { uploadImage } = require('../services/storageService');
+const emailService = require('../services/emailService');
 
 // Haversine Distance Formula (Returns Distance in Kilometers)
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -268,40 +269,46 @@ const updateShopPayment = async (req, res) => {
 // OTP Simulation memory
 const activeOtps = new Map(); // phone -> OTP code
 
-// Send Simulated OTP
+// Send Email verification OTP
 const sendOtp = async (req, res) => {
-  const { phone } = req.body;
-  if (!phone) {
-    return res.status(400).json({ error: 'Phone number is required.' });
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email address is required.' });
   }
 
   // Generate a random 4-digit code
   const code = Math.floor(1000 + Math.random() * 9000).toString();
-  activeOtps.set(phone, code);
+  activeOtps.set(email, code);
   
-  console.log(`📱 [OTP SIMULATOR] Code for ${phone} is: ${code}`);
+  console.log(`✉️ [EMAIL OTP SIMULATOR] Code for ${email} is: ${code}`);
+
+  try {
+    // Send all verification OTP emails directly to mykiranam.in@gmail.com as requested
+    await emailService.sendAccountVerificationEmail('mykiranam.in@gmail.com', code);
+  } catch (err) {
+    console.error('Error dispatching verification email:', err);
+  }
 
   return res.status(200).json({
-    message: 'Simulated OTP sent. Check server/backend console logs.',
-    simulatedCode: code // Expose in response body for easy UI verification testing
+    message: 'Verification OTP code has been sent to your email.'
   });
 };
 
-// Verify OTP
+// Verify Email OTP
 const verifyOtp = async (req, res) => {
-  const { phone, code } = req.body;
+  const { email, code } = req.body;
   const sellerId = req.user.id;
 
-  if (!phone || !code) {
-    return res.status(400).json({ error: 'Phone and OTP code are required.' });
+  if (!email || !code) {
+    return res.status(400).json({ error: 'Email and OTP code are required.' });
   }
 
-  const expectedCode = activeOtps.get(phone);
+  const expectedCode = activeOtps.get(email);
   if (expectedCode === code) {
-    // Success: mark phone as verified by seller
-    activeOtps.delete(phone);
+    // Success: mark email as verified by seller
+    activeOtps.delete(email);
     await db.query('UPDATE shops SET verified_by_seller = true WHERE owner_id = $1', [sellerId]);
-    return res.status(200).json({ success: true, message: 'Mobile verification successful.' });
+    return res.status(200).json({ success: true, message: 'Email verification successful.' });
   } else {
     return res.status(400).json({ error: 'Invalid verification OTP code. Please retry.' });
   }

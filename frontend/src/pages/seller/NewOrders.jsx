@@ -51,6 +51,18 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
     return `${apiUrl.replace('/api', '')}${path}`;
   };
 
+  const getRevisionInfo = (order) => {
+    if (!order.item_change_history) return null;
+    try {
+      const history = typeof order.item_change_history === 'string'
+        ? JSON.parse(order.item_change_history)
+        : order.item_change_history;
+      return history.requested_changes || null;
+    } catch (e) {
+      return typeof order.item_change_history === 'string' ? order.item_change_history : null;
+    }
+  };
+
   return (
     <div className="space-y-4">
       {newOrders.length === 0 ? (
@@ -63,80 +75,98 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {newOrders.map((order) => (
-            <div
-              key={order.id}
-              className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium flex flex-col justify-between animate-fadeIn"
-            >
-              <div className="space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-extrabold text-sm text-slate-900">
-                      Customer: {order.customer_name}
-                    </h3>
-                    <span className="text-[10px] text-slate-400">Order #{order.custom_order_id || order.id} • {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
-                  <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded text-[9px] font-bold">
-                    Pending
-                  </span>
-                </div>
-
-                <div className="flex items-center space-x-3 bg-slate-50 p-2.5 rounded-2xl">
-                  {order.order_type === 'digital' || !order.original_chitti || order.original_chitti === 'digital' ? (
-                    <div className="w-14 h-14 bg-amber-50 border border-amber-100 text-amber-600 rounded-xl flex flex-col items-center justify-center flex-shrink-0">
-                      <ListOrdered className="w-6 h-6" />
-                      <span className="text-[8px] font-black uppercase">{order.order_type === 'digital' ? 'Digital' : 'No Chitti'}</span>
+          {newOrders.map((order) => {
+            const revisionNotes = getRevisionInfo(order);
+            return (
+              <div
+                key={order.id}
+                className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium flex flex-col justify-between animate-fadeIn"
+              >
+                <div className="space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-extrabold text-sm text-slate-900">
+                        Customer: {order.customer_name}
+                      </h3>
+                      <span className="text-[10px] text-slate-400">Order #{order.custom_order_id || order.id} • {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                  ) : (
-                    <img
-                      src={getFullImageUrl(order.original_chitti)}
-                      alt="Chitti preview"
-                      className="w-14 h-14 object-cover rounded-xl border border-slate-200 bg-white"
-                    />
+                    {revisionNotes ? (
+                      <span className="px-2 py-0.5 bg-crimson/15 text-crimson border border-crimson/30 rounded text-[9px] font-extrabold uppercase animate-pulse">
+                        REVISION REQUESTED
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded text-[9px] font-bold">
+                        Pending
+                      </span>
+                    )}
+                  </div>
+
+                  {revisionNotes && (
+                    <div className="bg-crimson/5 border border-crimson/10 rounded-2xl p-3 text-xs">
+                      <span className="font-extrabold text-crimson block mb-0.5">⚠️ Revision Requested:</span>
+                      <p className="text-slate-750 italic leading-relaxed">
+                        "{revisionNotes}"
+                      </p>
+                    </div>
                   )}
-                  <div className="min-w-0 text-xs flex-1">
-                    <span className="block font-semibold text-slate-700 max-w-[150px] truncate">
-                      Notes: {order.notes || 'None'}
-                    </span>
-                    <span className="block text-[10px] text-slate-400 mt-1">
-                      🕒 Pickup: {order.preferred_pickup_time || 'Flexible'}
-                    </span>
+
+                  <div className="flex items-center space-x-3 bg-slate-50 p-2.5 rounded-2xl">
+                    {order.order_type === 'digital' || !order.original_chitti || order.original_chitti === 'digital' ? (
+                      <div className="w-14 h-14 bg-amber-50 border border-amber-100 text-amber-600 rounded-xl flex flex-col items-center justify-center flex-shrink-0">
+                        <ListOrdered className="w-6 h-6" />
+                        <span className="text-[8px] font-black uppercase">{order.order_type === 'digital' ? 'Digital' : 'No Chitti'}</span>
+                      </div>
+                    ) : (
+                      <img
+                        src={getFullImageUrl(order.original_chitti)}
+                        alt="Chitti preview"
+                        className="w-14 h-14 object-cover rounded-xl border border-slate-200 bg-white"
+                      />
+                    )}
+                    <div className="min-w-0 text-xs flex-1">
+                      <span className="block font-semibold text-slate-700 max-w-[150px] truncate">
+                        Notes: {order.notes || 'None'}
+                      </span>
+                      <span className="block text-[10px] text-slate-400 mt-1">
+                        🕒 Pickup: {order.preferred_pickup_time || 'Flexible'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <button
+                    onClick={() => { setSelectedOrder(order); setShowRejectForm(false); }}
+                    className="px-3.5 py-2 text-xs font-semibold rounded-xl text-slate-655 hover:bg-slate-50 transition-all flex items-center space-x-1"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>Open Details</span>
+                  </button>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setSelectedOrder(order);
+                        setShowRejectForm(true);
+                      }}
+                      className="p-2 text-crimson hover:bg-crimson/5 rounded-xl transition-all border border-slate-100 hover:border-crimson/10"
+                      title="Reject Order"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleAcceptOrder(order.id)}
+                      disabled={loading}
+                      className="px-4 py-2 bg-kirana-500 hover:bg-kirana-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-kirana-500/10 transition-all flex items-center space-x-1"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Accept Order</span>
+                    </button>
                   </div>
                 </div>
               </div>
-
-              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <button
-                  onClick={() => { setSelectedOrder(order); setShowRejectForm(false); }}
-                  className="px-3.5 py-2 text-xs font-semibold rounded-xl text-slate-655 hover:bg-slate-50 transition-all flex items-center space-x-1"
-                >
-                  <Eye className="w-4 h-4" />
-                  <span>Open Details</span>
-                </button>
-
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => {
-                      setSelectedOrder(order);
-                      setShowRejectForm(true);
-                    }}
-                    className="p-2 text-crimson hover:bg-crimson/5 rounded-xl transition-all border border-slate-100 hover:border-crimson/10"
-                    title="Reject Order"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleAcceptOrder(order.id)}
-                    disabled={loading}
-                    className="px-4 py-2 bg-kirana-500 hover:bg-kirana-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-kirana-500/10 transition-all flex items-center space-x-1"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>Accept Order</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -166,12 +196,26 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
 
             {/* Scrollable Modal Content */}
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-              
+
+              {getRevisionInfo(selectedOrder) && (
+                <div className="bg-crimson/10 border border-crimson/25 rounded-2xl p-4 text-xs text-slate-900 space-y-2">
+                  <span className="font-extrabold text-crimson text-sm flex items-center space-x-1">
+                    <span>⚠️ Customer Requested Order Revisions</span>
+                  </span>
+                  <p className="bg-white p-3 rounded-xl border border-crimson/10 italic text-slate-805 font-semibold">
+                    "{getRevisionInfo(selectedOrder)}"
+                  </p>
+                  <p className="text-[10px] text-slate-500 font-semibold">
+                    Please click **Accept Order** to move it back to your Active Queue, where you can modify items and send the updated invoice.
+                  </p>
+                </div>
+              )}
+
               {/* Handwritten Image Viewer OR Digital Item List Checklist */}
               {selectedOrder.order_type === 'digital' ? (
                 <div className="border border-slate-200 bg-amber-50/10 rounded-2xl p-4 relative overflow-hidden">
                   <div className="absolute left-6 top-0 bottom-0 w-[1px] bg-red-200/50" />
-                  <span className="block text-[10px] text-slate-450 uppercase font-black tracking-wider mb-3 pl-4 flex items-center space-x-1">
+                  <span className="block text-[10px] text-slate-455 uppercase font-black tracking-wider mb-3 pl-4 flex items-center space-x-1">
                     <ClipboardList className="w-3.5 h-3.5 text-amber-600" />
                     <span>Customer Grocery Chitti</span>
                   </span>

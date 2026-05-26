@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { User, Mail, Phone, ShoppingBag, ShieldAlert, Award, Star, History, ArrowRightLeft, Clock, Bell, Volume2, MessageSquare, CheckCircle2, AlertCircle } from 'lucide-react';
+import { User, Mail, Phone, ShoppingBag, ShieldAlert, Award, Star, History, Clock, Bell, Volume2, MessageSquare, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const Profile = () => {
-  const { user, extraData, refreshProfile, updateRole } = useAuth();
+  const { user, extraData, refreshProfile } = useAuth();
   const { playSoundAlert } = useSocket();
-  const [switching, setSwitching] = useState(false);
 
   // Notification Preferences state
   const [preferences, setPreferences] = useState({
@@ -20,7 +19,6 @@ const Profile = () => {
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-  const [debugOtp, setDebugOtp] = useState('');
   const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [whatsappError, setWhatsappError] = useState('');
   const [whatsappSuccess, setWhatsappSuccess] = useState('');
@@ -41,18 +39,7 @@ const Profile = () => {
     }
   }, [user]);
 
-  const handleRoleToggle = async () => {
-    setSwitching(true);
-    try {
-      const nextRole = user.role === 'customer' ? 'seller' : 'customer';
-      await updateRole(nextRole);
-      playSoundAlert('success');
-    } catch (err) {
-      console.error('Error switching roles:', err);
-    } finally {
-      setSwitching(false);
-    }
-  };
+
 
   const handleToggleChange = async (key) => {
     const updatedPrefs = { ...preferences, [key]: !preferences[key] };
@@ -98,10 +85,7 @@ const Profile = () => {
       const data = await response.json();
       if (response.ok) {
         setOtpSent(true);
-        setWhatsappSuccess('Simulated OTP sent to WhatsApp! Input code below.');
-        if (data.debugOTP) {
-          setDebugOtp(data.debugOTP);
-        }
+        setWhatsappSuccess('OTP sent successfully to your WhatsApp number!');
       } else {
         setWhatsappError(data.error || 'Failed to send OTP.');
       }
@@ -137,7 +121,6 @@ const Profile = () => {
       if (response.ok) {
         setOtpSent(false);
         setOtpCode('');
-        setDebugOtp('');
         setWhatsappSuccess('WhatsApp number verified and linked successfully!');
         playSoundAlert('success');
         refreshProfile(); // reload database values
@@ -315,21 +298,7 @@ const Profile = () => {
             </div>
           )}
 
-          {/* Dynamic role switching options */}
-          <div className="bg-slate-50 border border-slate-200/60 rounded-3xl p-5 text-center space-y-3">
-            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Testing & Demo controls</h4>
-            <p className="text-[10px] text-slate-550 leading-normal max-w-sm mx-auto">
-              Instantly shift user views to simulate the buyer's upload chitti flow or the store owner's manual billing workspace:
-            </p>
-            <button
-              onClick={handleRoleToggle}
-              disabled={switching}
-              className="w-full py-3 bg-white hover:bg-slate-50 border border-slate-205 hover:border-amber-500 text-slate-900 hover:text-amber-600 text-xs font-extrabold rounded-xl transition-all shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50 active:scale-[0.99]"
-            >
-              <ArrowRightLeft className="w-4 h-4" />
-              <span>{switching ? 'Switching Workspaces...' : `Switch to ${user?.role === 'customer' ? 'Seller Workspace' : 'Customer Workspace'}`}</span>
-            </button>
-          </div>
+
         </div>
 
         {/* COLUMN 2: Settings, Preferences & Operational Metrics Dashboard */}
@@ -418,18 +387,6 @@ const Profile = () => {
                         {whatsappLoading ? 'Verifying...' : 'Verify OTP'}
                       </button>
                     </div>
-                    {debugOtp && (
-                      <div className="p-3 bg-amber-50 border border-amber-100 rounded-2xl text-center space-y-1">
-                        <span className="block text-[10px] text-amber-800 font-bold uppercase tracking-wider">Demo OTP Code (Auto-Fill)</span>
-                        <span className="block text-lg font-black text-amber-900 select-all tracking-widest">{debugOtp}</span>
-                        <button
-                          onClick={() => setOtpCode(debugOtp)}
-                          className="text-[9px] font-bold text-amber-700 hover:text-amber-900 underline block mx-auto"
-                        >
-                          Apply Code
-                        </button>
-                      </div>
-                    )}
                     <button
                       onClick={() => setOtpSent(false)}
                       className="text-[10px] font-bold text-slate-400 hover:text-slate-655"

@@ -10,6 +10,7 @@ import SellerDashboard from './pages/seller/SellerDashboard';
 import SellerSettings from './pages/seller/SellerSettings';
 import AdminDashboard from './pages/admin/AdminDashboard'; // Import Admin Panel
 import Profile from './pages/Profile';
+import WhatsAppVerificationRequired from './pages/WhatsAppVerificationRequired';
 import Navbar from './components/common/Navbar';
 import BottomNavigation from './components/common/BottomNavigation';
 import { Store, ShoppingBag, User, Settings, Layers, Bell, ShieldAlert } from 'lucide-react';
@@ -156,26 +157,9 @@ const DashboardContent = () => {
 };
 
 const App = () => {
-  const { user, loading, login } = useAuth();
-  const [silentLoggingIn, setSilentLoggingIn] = useState(false);
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    const performSilentLogin = async () => {
-      if (!loading && !user && !sessionStorage.getItem('explicit_logout')) {
-        setSilentLoggingIn(true);
-        try {
-          await login('arjun@gmail.com', 'password');
-        } catch (err) {
-          console.error("Silent login failed:", err);
-        } finally {
-          setSilentLoggingIn(false);
-        }
-      }
-    };
-    performSilentLogin();
-  }, [user, loading, login]);
-
-  if (loading || silentLoggingIn) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-3 text-slate-100 select-none">
         <div className="w-10 h-10 border-4 border-kirana-500 border-t-transparent rounded-full animate-spin"></div>
@@ -190,6 +174,10 @@ const App = () => {
 
   if (user.role === 'pending') {
     return <RoleSelection />;
+  }
+
+  if (!user.verified_whatsapp && user.role !== 'admin') {
+    return <WhatsAppVerificationRequired />;
   }
 
   return <DashboardContent />;

@@ -86,10 +86,8 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Registration failed.');
 
-      localStorage.setItem('token', data.token);
-      setToken(data.token);
-      setUser(data.user);
-      return data.user;
+      // Return data successfully without automatically logging in
+      return data;
     } catch (err) {
       throw err;
     }
