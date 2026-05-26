@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Store, Mail, Lock, User, Phone, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Store, Mail, Lock, User, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 const Home = () => {
   const { login, googleLogin, register, apiUrl } = useAuth();
@@ -12,8 +12,8 @@ const Home = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [role, setRole] = useState('customer');
+
+  const [role] = useState('pending');
 
   // Eye icon toggles
   const [showPassword, setShowPassword] = useState(false);
@@ -24,9 +24,7 @@ const Home = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Simulated google testing states
-  const [showGoogleMock, setShowGoogleMock] = useState(false);
-  const [mockGoogleEmail, setMockGoogleEmail] = useState('');
+
 
   // Check for reset password token in query parameters
   useEffect(() => {
@@ -45,7 +43,7 @@ const Home = () => {
     if (window.google) {
       try {
         window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "1028308493028-xxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com",
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "129128617735-mqj7usoj69vcep7ar08u1anpga3o2cvu.apps.googleusercontent.com",
           callback: async (response) => {
             setError('');
             setSuccessMessage('');
@@ -59,14 +57,6 @@ const Home = () => {
             }
           }
         });
-
-        const targetBtn = document.getElementById("googleGsiButton");
-        if (targetBtn) {
-          window.google.accounts.id.renderButton(
-            targetBtn,
-            { theme: "outline", size: "large", width: "100%", shape: "rectangular" }
-          );
-        }
       } catch (gsiErr) {
         console.warn('Google Identity Services initialization warning:', gsiErr);
       }
@@ -81,7 +71,7 @@ const Home = () => {
 
     try {
       if (activeForm === 'signup') {
-        await register(name, email, password, phone, role);
+        await register(name, email, password, '', role);
         setSuccessMessage('Registration successful! Please sign in with your credentials.');
         setActiveForm('signin');
         setPassword('');
@@ -155,24 +145,7 @@ const Home = () => {
     }
   };
 
-  const handleMockGoogleLogin = async (e) => {
-    e.preventDefault();
-    if (!mockGoogleEmail.includes('@')) {
-      setError('Please enter a valid simulated Google email.');
-      return;
-    }
-    setLoading(true);
-    setShowGoogleMock(false);
-    try {
-      const mockCred = `mock_token_${Date.now()}_${mockGoogleEmail}`;
-      const nameFromEmail = mockGoogleEmail.split('@')[0];
-      await googleLogin(mockCred, nameFromEmail, mockGoogleEmail);
-    } catch (err) {
-      setError(err.message || 'Google Login failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const renderFormContent = () => {
     switch (activeForm) {
@@ -329,21 +302,7 @@ const Home = () => {
               </div>
             </div>
 
-            {activeForm === 'signup' && (
-              <div className="space-y-1 text-left">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block ml-1">Mobile Number</label>
-                <div className="relative">
-                  <Phone className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-400" />
-                  <input
-                    type="tel"
-                    placeholder="9876543210 (Optional)"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 rounded-xl text-sm font-semibold outline-none text-slate-900 placeholder:text-slate-400 transition-all"
-                  />
-                </div>
-              </div>
-            )}
+
 
             <div className="space-y-1 text-left">
               <div className="flex justify-between items-center px-1">
@@ -378,19 +337,7 @@ const Home = () => {
               </div>
             </div>
 
-            {activeForm === 'signup' && (
-              <div className="space-y-1 text-left">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block ml-1">Register As</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-white border border-slate-300 focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 rounded-xl text-xs font-black outline-none text-slate-900 transition-all cursor-pointer"
-                >
-                  <option value="customer">Customer (Buy Provisions)</option>
-                  <option value="seller">Seller (Store Merchant)</option>
-                </select>
-              </div>
-            )}
+
 
             <button
               type="submit"
@@ -430,18 +377,18 @@ const Home = () => {
       <main className="flex-1 flex flex-col items-center justify-center max-w-md w-full mx-auto px-4 z-10 overflow-hidden py-4 sm:py-6">
         
         {/* Sleek Intro block */}
-        <div className="text-center mb-3 space-y-0.5 flex-shrink-0">
-          <h1 className="text-3xl font-black tracking-tight text-slate-950">
-            mykiranam<span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-emerald-600">.in</span>
+        <div className="text-center mb-3 space-y-1 flex-shrink-0">
+          <h1 className="text-5xl font-black tracking-tight text-slate-950" style={{fontWeight: 900, letterSpacing: '-0.03em'}}>
+            <span style={{color: '#1a1a1a'}}>mykiranam</span><span style={{background: 'linear-gradient(135deg, #d97706, #059669)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text'}}>.in</span>
           </h1>
-          <p className="text-slate-500 text-[11px] font-extrabold tracking-wide uppercase">
-            Our kiranam store in mykiranam.in
+          <p className="text-slate-500 text-[11px] font-extrabold tracking-widest uppercase">
+            Our Kiranam Store
           </p>
         </div>
 
         {/* Central Stable-Height Auth Container */}
         <div className="w-full flex-shrink-0">
-          <div className="bg-white border border-slate-200 px-5 sm:px-8 py-5 rounded-[36px] shadow-2xl relative overflow-hidden flex flex-col justify-between w-full h-[470px] max-h-[470px] transition-all duration-300">
+          <div className="bg-white border border-slate-200 px-5 sm:px-8 py-5 rounded-[36px] shadow-2xl relative overflow-hidden flex flex-col justify-between w-full h-auto min-h-[420px] transition-all duration-300">
             <div className="absolute top-0 right-0 transform translate-x-6 -translate-y-6 w-24 h-24 rounded-full bg-amber-500/5 blur-xl pointer-events-none" />
             
             {/* Header Tabs (only visible on regular signin/signup forms) */}
@@ -499,22 +446,27 @@ const Home = () => {
                   <div className="relative flex justify-center text-[9px] font-black uppercase"><span className="bg-white px-3 text-slate-400">Or continue with</span></div>
                 </div>
 
-                <div className="flex flex-col space-y-1.5">
-                  {/* Google Real OAuth GSI Button Container */}
-                  <div id="googleGsiButton" className="w-full flex justify-center min-h-[40px]"></div>
-
-                  {/* Fallback Sim Button for local dev testing */}
+                <div className="flex justify-center">
+                  {/* Google G-only circular button */}
                   <button
-                    onClick={() => { setShowGoogleMock(true); setError(''); setSuccessMessage(''); }}
-                    className="w-full flex items-center justify-center space-x-2 py-1.5 border border-slate-200 hover:bg-slate-50 rounded-xl active:scale-[0.99] transition-all bg-white"
+                    type="button"
+                    id="googleGsiButton"
+                    onClick={() => {
+                      if (window.google) {
+                        window.google.accounts.id.prompt();
+                      } else {
+                        setError('Google Sign-In is not available. Please try again.');
+                      }
+                    }}
+                    className="w-14 h-14 rounded-full border-2 border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 hover:shadow-lg active:scale-95 transition-all duration-200 flex items-center justify-center shadow-md"
+                    title="Continue with Google"
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.9h6.69a5.74 5.74 0 0 1-2.5 3.77v3.13h4.05c2.37-2.18 3.5-5.4 3.5-9.73z"/>
-                      <path fill="#34A853" d="M12 24c3.24 0 5.97-1.08 7.96-2.91l-3.88-3.02c-1.08.72-2.45 1.16-4.08 1.16-3.15 0-5.81-2.13-6.76-5.01H1.14v3.23C3.12 21.39 7.24 24 12 24z"/>
-                      <path fill="#FBBC05" d="M5.24 14.22a7.12 7.12 0 0 1 0-4.44V6.55H1.14a11.94 11.94 0 0 0 0 10.9l4.1-3.23z"/>
-                      <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.22 0 12 0 7.24 0 3.12 2.61 1.14 6.55l4.1 3.23c.95-2.88 3.61-5.03 6.76-5.03z"/>
+                    <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.54 5.54 0 0 1-2.4 3.64v3.01h3.89c2.28-2.1 3.59-5.19 3.59-8.89z"/>
+                      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.89-3.01c-1.07.72-2.45 1.15-4.04 1.15-3.11 0-5.74-2.1-6.68-4.92H1.27v3.1C3.26 21.3 7.31 24 12 24z"/>
+                      <path fill="#FBBC05" d="M5.32 14.31A7.17 7.17 0 0 1 4.95 12c0-.81.14-1.59.37-2.31V6.59H1.27A11.94 11.94 0 0 0 0 12c0 1.93.46 3.75 1.27 5.41l4.05-3.1z"/>
+                      <path fill="#EA4335" d="M12 4.77c1.76 0 3.33.6 4.57 1.8l3.42-3.42C17.95 1.19 15.23 0 12 0 7.31 0 3.26 2.7 1.27 6.59l4.05 3.1C6.26 6.87 8.89 4.77 12 4.77z"/>
                     </svg>
-                    <span className="text-xs font-black text-slate-700">Simulate Google Account (Dev Mode)</span>
                   </button>
                 </div>
               </div>
@@ -525,50 +477,7 @@ const Home = () => {
 
       </main>
 
-      {/* Google Mock Modal */}
-      {showGoogleMock && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl p-6 border border-slate-200 text-slate-900 text-left">
-            <div className="flex items-center space-x-2.5 mb-4">
-              <svg className="w-6 h-6" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.9h6.69a5.74 5.74 0 0 1-2.5 3.77v3.13h4.05c2.37-2.18 3.5-5.4 3.5-9.73z"/>
-                <path fill="#34A853" d="M12 24c3.24 0 5.97-1.08 7.96-2.91l-3.88-3.02c-1.08.72-2.45 1.16-4.08 1.16-3.15 0-5.81-2.13-6.76-5.01H1.14v3.23C3.12 21.39 7.24 24 12 24z"/>
-                <path fill="#FBBC05" d="M5.24 14.22a7.12 7.12 0 0 1 0-4.44V6.55H1.14a11.94 11.94 0 0 0 0 10.9l4.1-3.23z"/>
-                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.22 0 12 0 7.24 0 3.12 2.61 1.14 6.55l4.1 3.23c.95-2.88 3.61-5.03 6.76-5.03z"/>
-              </svg>
-              <span className="font-extrabold text-sm text-slate-800">Sign in with Google (Dev Mode)</span>
-            </div>
-            <p className="text-xs text-slate-500 mb-4 font-semibold leading-relaxed">
-              Enter your email to simulate Google popup selection on your local development server:
-            </p>
-            <form onSubmit={handleMockGoogleLogin} className="space-y-4">
-              <input
-                type="email"
-                required
-                placeholder="yourname@gmail.com"
-                value={mockGoogleEmail}
-                onChange={(e) => setMockGoogleEmail(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-sm font-semibold focus:border-amber-500 focus:outline-none text-slate-900 bg-white"
-              />
-              <div className="flex space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setShowGoogleMock(false)}
-                  className="flex-1 py-2.5 text-xs font-black rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 text-xs font-black rounded-xl bg-slate-900 hover:bg-slate-950 text-white transition-all"
-                >
-                  Select Account
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+
 
       {/* Footer */}
       <footer className="py-4 border-t border-slate-200 bg-white/50 backdrop-blur-md text-center text-[10px] font-black text-slate-400 z-20 flex-shrink-0">

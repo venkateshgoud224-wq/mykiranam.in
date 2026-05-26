@@ -26,7 +26,6 @@ export default {
           amber: '#f59e0b',
         },
         crimson: '#e11d48',
-        emerald: '#10b981',
       },
       fontFamily: {
         sans: ['Outfit', 'Inter', 'sans-serif'],

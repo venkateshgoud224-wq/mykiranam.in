@@ -176,9 +176,10 @@ const App = () => {
     return <RoleSelection />;
   }
 
-  if (!user.verified_whatsapp && user.role !== 'admin') {
-    return <WhatsAppVerificationRequired />;
-  }
+  // WhatsApp verification is now optional and can be completed in the profile section
+  // if (!user.verified_whatsapp && user.role !== 'admin') {
+  //   // return <WhatsAppVerificationRequired />;
+  // }
 
   return <DashboardContent />;
 };

@@ -299,6 +299,9 @@ const updateOrderStatus = async (req, res) => {
       }
     }
 
+    // Save the original status to detect transitions (e.g. revision request)
+    const originalStatus = order.order_status;
+
     let timestampColumn = '';
     if (status === 'Accepted') timestampColumn = ', accepted_at = CURRENT_TIMESTAMP';
     else if (status === 'Packing Started') timestampColumn = ', packing_started_at = CURRENT_TIMESTAMP';
@@ -374,52 +377,33 @@ const updateOrderStatus = async (req, res) => {
     }
 
     // Trigger Notification setup
-    let notifyUserId, notifyMessage, notifType, notifTitle;
+    const notificationEngine = require('../services/notificationEngine');
 
-    if (role === 'seller') {
-      notifyUserId = order.customer_id;
-      notifType = status === 'Ready For Pickup' ? 'pickup_ready' : 'order_status';
-      notifTitle = `Order Update: ${status}`;
-      if (status === 'Accepted') {
-        notifyMessage = `Your order at ${order.shop_name} has been Accepted! Rewriting bill now...`;
-      } else if (status === 'Packing Started') {
-        notifyMessage = `${order.shop_name} has started packing your order.`;
-      } else if (status === 'Packing Completed') {
-        notifyMessage = `Packing complete for your order at ${order.shop_name}.`;
-      } else if (status === 'Ready For Pickup') {
-        notifyMessage = `🎉 Your order at ${order.shop_name} is Ready For Pickup!`;
-        notifTitle = 'Ready For Pickup';
-      } else if (status === 'Cancelled') {
-        notifyMessage = `Your order at ${order.shop_name} was cancelled by the seller. Reason: ${reason || 'None specified'}`;
-        notifTitle = 'Order Cancelled';
-      } else {
-        notifyMessage = `Your order status at ${order.shop_name} is now: ${status}`;
-      }
-    } else {
-      // Customer actions
-      notifyUserId = order.seller_user_id;
-      if (status === 'Packing Started') {
-        notifType = 'order_approved';
-        notifTitle = 'Order Approved';
-        notifyMessage = `Customer approved the digital invoice for Order #${order.custom_order_id || order.id}! You can start packing.`;
-      } else if (status === 'Waiting For Seller') {
-        notifType = 'revision_requested';
-        notifTitle = 'Revision Requested';
-        notifyMessage = `Customer requested item modifications for Order #${order.custom_order_id || order.id}. Please review items.`;
-      } else {
-        notifType = 'order_cancelled';
-        notifTitle = 'Order Cancelled';
-        notifyMessage = `Order #${order.custom_order_id || order.id} was cancelled by the customer.`;
-      }
-    }
-
-    if (notifyUserId) {
-      const notificationEngine = require('../services/notificationEngine');
+    if (status === 'Cancelled') {
+      // 1. Dispatch to Customer
       await notificationEngine.dispatchNotification(
-        notifyUserId,
-        notifTitle,
-        notifyMessage,
-        notifType,
+        order.customer_id,
+        'Order Cancelled',
+        role === 'seller'
+          ? `Your order at ${order.shop_name} was cancelled by the seller. Reason: ${reason || 'None specified'}`
+          : `Your order at ${order.shop_name} has been cancelled successfully.`,
+        'order_cancelled',
+        {
+          orderId: order.id,
+          customOrderId: order.custom_order_id,
+          shopName: order.shop_name,
+          customerName: order.customer_name || 'Customer'
+        }
+      );
+
+      // 2. Dispatch to Seller
+      await notificationEngine.dispatchNotification(
+        order.seller_user_id,
+        'Order Cancelled',
+        role === 'customer'
+          ? `Order #${order.custom_order_id || order.id} was cancelled by the customer.`
+          : `You cancelled Order #${order.custom_order_id || order.id}. Reason: ${reason || 'None specified'}`,
+        'order_cancelled',
         {
           orderId: order.id,
           customOrderId: order.custom_order_id,
@@ -429,11 +413,52 @@ const updateOrderStatus = async (req, res) => {
       );
 
       // Send transactional emails to both customer and seller
-      await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id);
+      await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id, originalStatus);
     } else {
-      // Even if no specific single notification was targeted, always send transaction update email to both
-      const notificationEngine = require('../services/notificationEngine');
-      await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id);
+      let notifyUserId, notifyMessage, notifType, notifTitle;
+
+      if (role === 'seller') {
+        notifyUserId = order.customer_id;
+        if (status === 'Ready For Pickup') {
+          notifType = 'pickup_ready';
+          notifTitle = 'Ready For Pickup';
+          notifyMessage = `🎉 Your order at ${order.shop_name} is Ready For Pickup!`;
+        } else if (status === 'Delivered') {
+          notifType = 'order_delivered';
+          notifTitle = 'Order Delivered';
+          notifyMessage = `Your order at ${order.shop_name} has been delivered. Thank you!`;
+        }
+      } else {
+        // Customer actions
+        notifyUserId = order.seller_user_id;
+        if (status === 'Packing Started') {
+          notifType = 'order_confirmed';
+          notifTitle = 'Order Confirmed';
+          notifyMessage = `Customer approved the digital invoice for Order #${order.custom_order_id || order.id}! You can start packing.`;
+        } else if (status === 'Waiting For Seller') {
+          notifType = 'revision_requested';
+          notifTitle = 'Revision Requested';
+          notifyMessage = `Customer requested item modifications for Order #${order.custom_order_id || order.id}. Please review items.`;
+        }
+      }
+
+      if (notifyUserId && notifType) {
+        await notificationEngine.dispatchNotification(
+          notifyUserId,
+          notifTitle,
+          notifyMessage,
+          notifType,
+          {
+            orderId: order.id,
+            customOrderId: order.custom_order_id,
+            shopName: order.shop_name,
+            customerName: order.customer_name || 'Customer'
+          }
+        );
+      }
+      
+      // Send transactional emails to both customer and seller
+      await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id, originalStatus);
     }
 
     // Emit live status update to both channels
@@ -527,17 +552,19 @@ const uploadBill = async (req, res) => {
 
     const updatedOrder = result.rows[0];
 
+    const originalStatus = order.order_status;
+
     // Send notifications to Customer
     const message = isDigital 
-      ? `Invoice updated for your digital order at ${order.shop_name}! Packing has started. You will pay when it is ready.`
-      : `Bill uploaded for your order at ${order.shop_name}! Packing has started. You will pay when it is ready.`;
+      ? `Invoice updated for your digital order at ${order.shop_name}! Total amount: ₹${amount}.`
+      : `Bill uploaded for your order at ${order.shop_name}! Total amount: ₹${amount}.`;
 
     const notificationEngine = require('../services/notificationEngine');
     await notificationEngine.dispatchNotification(
       order.customer_id,
-      'Packing Started',
+      'Bill Generated',
       message,
-      'packing_started',
+      'bill_uploaded',
       {
         orderId: order.id,
         customOrderId: order.custom_order_id,
@@ -547,7 +574,7 @@ const uploadBill = async (req, res) => {
     );
 
     // Send transactional emails to both customer and seller
-    await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id);
+    await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id, originalStatus);
 
     socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
 
@@ -603,6 +630,8 @@ const confirmOrder = async (req, res) => {
       }
     }
 
+    const originalStatus = order.order_status;
+
     // Transition status to Confirmed (Seller must perform final delivered confirmation)
     const result = await db.query(
       `UPDATE orders 
@@ -632,7 +661,7 @@ const confirmOrder = async (req, res) => {
     );
 
     // Send transactional emails to both customer and seller
-    await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id);
+    await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id, originalStatus);
 
     socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
 

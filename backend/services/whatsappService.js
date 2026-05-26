@@ -46,6 +46,32 @@ const initWhatsAppClient = () => {
       console.log('───────────────────────────────────────────────────────────────\n');
       qrcode.generate(qr, { small: true });
       console.log('───────────────────────────────────────────────────────────────\n');
+
+      // Save QR code as PNG to both backend directory and artifacts directory
+      try {
+        const QRCodeLib = require('qrcode');
+        const fs = require('fs');
+        const path = require('path');
+        
+        // Save to backend folder
+        const localPath = path.join(__dirname, '../whatsapp_qr.png');
+        QRCodeLib.toFile(localPath, qr, { width: 300, margin: 2 }, (err) => {
+          if (err) console.error('❌ Error saving QR PNG locally:', err.message);
+          else console.log('💾 WhatsApp QR code saved as PNG to backend/whatsapp_qr.png');
+        });
+
+        // Save to artifacts folder
+        const artifactDir = 'C:/Users/Navi/.gemini/antigravity-ide/brain/0d703475-f244-4790-8220-9bd275e8fc48';
+        if (fs.existsSync(artifactDir)) {
+          const artifactPath = path.join(artifactDir, 'whatsapp_qr.png');
+          QRCodeLib.toFile(artifactPath, qr, { width: 300, margin: 2 }, (err) => {
+            if (err) console.error('❌ Error saving QR PNG to artifacts:', err.message);
+            else console.log('💾 WhatsApp QR code saved to artifacts folder for display!');
+          });
+        }
+      } catch (err) {
+        console.error('❌ Error generating QR PNG:', err.message);
+      }
     });
 
     client.on('ready', () => {
@@ -81,6 +107,7 @@ const initWhatsAppClient = () => {
 
 // Start initialization in background (non-blocking)
 // Wrapped in setImmediate so it doesn't block server boot
+// Force restart trigger: 2026-05-26T20:50:00
 setImmediate(() => {
   initWhatsAppClient();
 });

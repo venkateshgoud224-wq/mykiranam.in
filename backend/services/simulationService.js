@@ -318,7 +318,7 @@ const progressQueues = async () => {
           ).catch(err => console.error('Simulated customer notify error:', err.message));
 
           // Send transactional emails to both customer and seller for simulated progression
-          notificationEngine.dispatchOrderTransactionEmails(order.id).catch(err => console.error('Simulated order progress email error:', err.message));
+          notificationEngine.dispatchOrderTransactionEmails(order.id, order.order_status).catch(err => console.error('Simulated order progress email error:', err.message));
         }
       }
     }

@@ -40,3 +40,10 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# WhatsApp Session Cache & Logs
+backend/whatsapp_session/
+backend/.wwebjs_cache/
+backend/whatsapp_qr.png
+backend/backend.log
+

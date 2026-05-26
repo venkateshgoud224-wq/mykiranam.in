@@ -59,41 +59,83 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
       }
     }
 
-    // 3. WhatsApp: Always send if user has a verified WhatsApp number
-    if (user.whatsapp_number && user.verified_whatsapp) {
+    // 3. WhatsApp: Always send if user has a verified WhatsApp number and the event is one of the 5 key events (or cancellation/revision/OTP)
+    const allowedWhatsAppTypes = [
+      'new_order',
+      'bill_uploaded',
+      'order_confirmed',
+      'pickup_ready',
+      'order_delivered',
+      'order_cancelled',
+      'revision_requested'
+    ];
+
+    if (user.whatsapp_number && user.verified_whatsapp && allowedWhatsAppTypes.includes(type)) {
       channelsUsed.push('WhatsApp');
       
-      // Pick appropriate template/handler based on metadata & type
       let waPromise;
       const displayOrderId = metadata.customOrderId || metadata.orderId;
-      if (type === 'new_order' && metadata.orderId && metadata.customerName) {
+      const orderIdStr = metadata.customOrderId || (metadata.orderId ? `KRN${metadata.orderId}` : '');
+      const customerName = metadata.customerName || 'Customer';
+      const shopName = metadata.shopName || 'Shop';
+      const amount = metadata.amount || '0.00';
+
+      if (type === 'new_order') {
         waPromise = whatsappService.sendSellerNewOrderWhatsApp(
           user.whatsapp_number,
           displayOrderId,
-          metadata.customerName,
+          customerName,
           new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         );
-      } else if (type === 'bill_uploaded' && metadata.orderId && metadata.amount && metadata.shopName) {
+      } else if (type === 'bill_uploaded') {
         waPromise = whatsappService.sendCustomerBillUploadedWhatsApp(
           user.whatsapp_number,
           displayOrderId,
-          metadata.amount,
-          metadata.shopName
+          amount,
+          shopName
         );
-      } else {
-        // General status update templates
-        const orderIdStr = metadata.customOrderId || (metadata.orderId ? `KRN${metadata.orderId}` : '');
-        const text = `Order Update: ${title}\nOrder ID: ${orderIdStr}\n${message}\n\nPlease check Kiranam.in dashboard.`;
-        waPromise = whatsappService.sendCustomerUpdateWhatsApp(
+      } else if (type === 'order_confirmed') {
+        const text = `Order Confirmed!\n\n📦 Order ID: ${orderIdStr}\n👤 Customer: ${customerName}\n\nPlease proceed to pack the groceries and mark the order as "Ready for Pickup" when completed.`;
+        waPromise = whatsappService.sendWhatsAppMessage(
           user.whatsapp_number,
-          displayOrderId || 'Update',
-          type,
+          '✅ Order Confirmed',
+          text
+        );
+      } else if (type === 'pickup_ready') {
+        const text = `Your grocery bag is packed and waiting for you at ${shopName}!\n\n📦 Order ID: ${orderIdStr}\n🏪 Status: Ready for Pickup\n\nPlease present your Order ID at the counter to skip the queue.`;
+        waPromise = whatsappService.sendWhatsAppMessage(
+          user.whatsapp_number,
+          '🎒 Ready for Pickup',
+          text
+        );
+      } else if (type === 'order_delivered') {
+        const text = `Thank you for shopping through Kiranam.in!\n\n📦 Order ID: ${orderIdStr}\n🏪 Shop: ${shopName}\n💰 Paid Amount: ₹${amount}\n\nYour order has been successfully collected and marked as delivered.`;
+        waPromise = whatsappService.sendWhatsAppMessage(
+          user.whatsapp_number,
+          '🛍️ Order Delivered',
+          text
+        );
+      } else if (type === 'order_cancelled') {
+        const text = `Order Cancelled!\n\n📦 Order ID: ${orderIdStr}\n🏪 Shop: ${shopName}\n👤 Customer: ${customerName}\n\nThis transaction has been cancelled.`;
+        waPromise = whatsappService.sendWhatsAppMessage(
+          user.whatsapp_number,
+          '❌ Order Cancelled',
+          text
+        );
+      } else if (type === 'revision_requested') {
+        const text = `Revision Requested!\n\n📦 Order ID: ${orderIdStr}\n👤 Customer: ${customerName}\n\nThe customer has requested revision/modifications to their order. Please review items and update the bill.`;
+        waPromise = whatsappService.sendWhatsAppMessage(
+          user.whatsapp_number,
+          '🔄 Revision Requested',
           text
         );
       }
-      dispatches.push(waPromise);
+
+      if (waPromise) {
+        dispatches.push(waPromise);
+      }
     } else {
-      console.log(`ℹ️ WhatsApp Dispatch skipped for User #${uid}. Number: ${user.whatsapp_number}, Verified: ${user.verified_whatsapp}`);
+      console.log(`ℹ️ WhatsApp Dispatch skipped/unsupported for User #${uid}. Type: ${type}, Number: ${user.whatsapp_number}, Verified: ${user.verified_whatsapp}`);
     }
 
     // 4. Email fallback: Send if offline
@@ -158,7 +200,7 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
   }
 };
 
-const dispatchOrderTransactionEmails = async (orderId) => {
+const dispatchOrderTransactionEmails = async (orderId, originalStatus) => {
   try {
     const orderRes = await db.query('SELECT * FROM orders WHERE id = $1', [orderId]);
     if (orderRes.rows.length === 0) {
@@ -188,8 +230,8 @@ const dispatchOrderTransactionEmails = async (orderId) => {
     }
     const seller = sellerRes.rows[0];
 
-    await emailService.sendOrderTransactionEmails(order, customer, shop, seller);
-    console.log(`📬 dispatchOrderTransactionEmails: Successfully sent transaction emails for Order #${orderId} [Status: ${order.order_status}]`);
+    await emailService.sendOrderTransactionEmails(order, customer, shop, seller, originalStatus);
+    console.log(`📬 dispatchOrderTransactionEmails: Successfully sent transaction emails for Order #${orderId} [Status: ${order.order_status}, Original Status: ${originalStatus || 'none'}]`);
   } catch (err) {
     console.error('❌ dispatchOrderTransactionEmails error:', err.message);
   }
