@@ -1,0 +1,496 @@
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
+import { ShoppingBag, Calendar, User, Clock, AlertTriangle, Eye, CheckCircle2, ChevronRight } from 'lucide-react';
+import OrderVerification from './OrderVerification';
+
+const MyOrders = () => {
+  const { token, apiUrl } = useAuth();
+  const { socket } = useSocket();
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [verifyingOrder, setVerifyingOrder] = useState(null);
+  const [trackingOrder, setTrackingOrder] = useState(null);
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${apiUrl}/orders`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setOrders(data);
+      }
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  // Listen for realtime updates to orders on the socket
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('order_status_updated', (updatedOrder) => {
+      setOrders(prev =>
+        prev.map(o => (o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o))
+      );
+      // Update verifying order details if open
+      if (verifyingOrder && verifyingOrder.id === updatedOrder.id) {
+        setVerifyingOrder(updatedOrder);
+      }
+      if (trackingOrder && trackingOrder.id === updatedOrder.id) {
+        setTrackingOrder(updatedOrder);
+      }
+    });
+
+    return () => {
+      socket.off('order_status_updated');
+    };
+  }, [socket, verifyingOrder, trackingOrder]);
+
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+    try {
+      const response = await fetch(`${apiUrl}/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          status: 'Cancelled',
+          reason: 'Cancelled by customer'
+        })
+      });
+      if (response.ok) {
+        fetchOrders();
+      }
+    } catch (err) {
+      console.error('Error cancelling order:', err);
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Waiting For Seller':
+        return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'Accepted':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'Bill Uploaded':
+      case 'Waiting For Customer Confirmation':
+        return 'bg-kirana-100 text-kirana-800 border-kirana-200 animate-pulse';
+      case 'Confirmed':
+        return 'bg-slate-100 text-slate-800 border-slate-200';
+      case 'Packing Started':
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      case 'Packing Completed':
+        return 'bg-teal-100 text-teal-800 border-teal-200';
+      case 'Ready For Pickup':
+        return 'bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20 font-bold';
+      case 'Delivered':
+        return 'bg-slate-100 text-slate-500 border-slate-200';
+      case 'Cancelled':
+        return 'bg-crimson/10 text-crimson border-crimson/20';
+      default:
+        return 'bg-slate-100 text-slate-700';
+    }
+  };
+
+  const getFullImageUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    return `${apiUrl.replace('/api', '')}${path}`;
+  };
+
+  if (verifyingOrder) {
+    const isPaymentOnly = verifyingOrder.order_status === 'Ready For Pickup';
+    return (
+      <OrderVerification
+        order={verifyingOrder}
+        initialViewState={isPaymentOnly ? 'pay' : 'review'}
+        onBack={() => setVerifyingOrder(null)}
+        onVerifySuccess={() => {
+          setVerifyingOrder(null);
+          fetchOrders();
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6 pb-20 max-w-lg mx-auto md:max-w-4xl px-2">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-extrabold text-slate-900 flex items-center space-x-2">
+          <span>My Orders</span>
+          <span className="text-xs font-normal text-slate-500">({orders.length} total)</span>
+        </h2>
+        <button
+          onClick={fetchOrders}
+          className="text-xs font-bold text-kirana-600 hover:text-kirana-700"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="py-12 text-center text-xs font-bold text-slate-400 animate-pulse">
+          Loading order history...
+        </div>
+      ) : orders.length === 0 ? (
+        <div className="py-12 bg-white rounded-3xl border border-slate-100 p-8 text-center shadow-sm">
+          <ShoppingBag className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <h4 className="text-sm font-bold text-slate-800">No Orders Found</h4>
+          <p className="text-xs text-slate-500 mt-1">Place an order at nearby stores to populate details.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {orders.map((order) => {
+            const isBillAvailable = order.amount !== null && order.amount !== undefined;
+            const hasSelectedPayment = order.payment_method !== null && order.payment_method !== undefined;
+            const isVerificationAwaiting = ['Bill Uploaded', 'Waiting For Customer Confirmation'].includes(order.order_status) && !hasSelectedPayment;
+            const isPaymentAwaiting = order.order_status === 'Ready For Pickup' && !hasSelectedPayment;
+            const isCancellable = ['Waiting For Seller'].includes(order.order_status);
+            
+            return (
+              <div
+                key={order.id}
+                className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium space-y-4 transition-all"
+              >
+                {/* Order header details */}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-extrabold text-sm text-slate-900">{order.shop_name}</h3>
+                    <div className="flex items-center space-x-1.5 mt-1 text-[10px] text-slate-400">
+                      <span>Order #{order.custom_order_id || order.id}</span>
+                      <span>•</span>
+                      <span>{new Date(order.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  </div>
+
+                  {/* Status Badge */}
+                  <span className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border ${getStatusColor(order.order_status)}`}>
+                    {order.order_status}
+                  </span>
+                </div>
+
+                {/* Amount / Note display */}
+                <div className="flex items-center justify-between text-xs border-t border-b border-slate-50 py-3">
+                  <div>
+                    <span className="block text-[10px] text-slate-400">Bill Amount</span>
+                    <span className="font-extrabold text-slate-800 text-sm">
+                      {order.amount ? `₹${order.amount}` : 'Calculating...'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="block text-[10px] text-slate-400">Payment Status</span>
+                    <span className="font-semibold text-slate-700">
+                      {order.payment_method ? `${order.payment_method} (${order.payment_status})` : 'Pending Bill'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action buttons based on active state */}
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    {order.preferred_pickup_time && (
+                      <p className="text-[10px] text-slate-500">
+                        🕒 Pickup: <strong>{order.preferred_pickup_time}</strong>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center space-x-2 ml-auto">
+                    {/* Cancellation Button */}
+                    {isCancellable && (
+                      <button
+                        onClick={() => handleCancelOrder(order.id)}
+                        className="px-3.5 py-2 text-xs font-semibold rounded-xl text-crimson hover:bg-crimson/5 border border-transparent hover:border-crimson/10 transition-all"
+                      >
+                        Cancel
+                      </button>
+                    )}
+
+                    {/* Verification Button */}
+                    {isVerificationAwaiting ? (
+                      <button
+                        onClick={() => setVerifyingOrder(order)}
+                        className="px-4 py-2.5 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-kirana-500/10 hover:shadow-kirana-500/20 active:scale-[0.99] transition-all flex items-center space-x-1"
+                      >
+                        <span>Verify Bill</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    ) : isPaymentAwaiting ? (
+                      <button
+                        onClick={() => setVerifyingOrder(order)}
+                        className="px-4 py-2.5 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-kirana-500/10 hover:shadow-kirana-500/20 active:scale-[0.99] transition-all flex items-center space-x-1"
+                      >
+                        <span>Pay Now</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setTrackingOrder(trackingOrder?.id === order.id ? null : order)}
+                        className="px-4 py-2 bg-slate-900 hover:bg-slate-950 text-white text-xs font-bold rounded-xl transition-all"
+                      >
+                        {trackingOrder?.id === order.id ? 'Close Details' : 'Track Order'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tracking Progress Timeline Details */}
+                {trackingOrder?.id === order.id && (
+                  <div className="mt-4 pt-4 border-t border-slate-105 bg-slate-50/50 p-4 rounded-2xl space-y-4">
+                    <div className="flex justify-between items-center flex-wrap gap-2">
+                      <h4 className="text-xs font-bold text-slate-800">Timeline Progress</h4>
+                      <span className="text-[10px] text-slate-400 font-bold bg-white px-2 py-0.5 rounded-lg border border-slate-100">
+                        Placed: {new Date(order.created_at).toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    
+                    {/* Visual Status Line */}
+                    <div className="relative pl-5 space-y-4 border-l border-slate-200 ml-1 text-xs">
+                      {(() => {
+                        const formatTimeDetail = (timestamp) => {
+                          if (!timestamp) return null;
+                          return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        };
+
+                        const steps = [
+                          { label: 'Order Placed', active: true, time: order.created_at },
+                          { label: 'Order Accepted', active: ['Accepted', 'Packing Started', 'Ready For Pickup', 'Confirmed', 'Delivered'].includes(order.order_status), time: order.accepted_at },
+                          { label: 'Packing Started', active: ['Packing Started', 'Ready For Pickup', 'Confirmed', 'Delivered'].includes(order.order_status), time: order.packing_started_at },
+                          { label: 'Ready For Pickup / Delivery', active: ['Ready For Pickup', 'Confirmed', 'Delivered'].includes(order.order_status), time: order.ready_for_pickup_at },
+                          { label: 'Payment Completed', active: ['Confirmed', 'Delivered'].includes(order.order_status) || (order.payment_method !== null && order.payment_method !== undefined), time: order.confirmed_at }
+                        ];
+
+                        if (order.order_status === 'Cancelled') {
+                          steps.push({ label: 'Order Cancelled', active: true, time: order.updated_at, isCancelled: true });
+                        } else {
+                          steps.push({ label: 'Completed (Delivered)', active: order.order_status === 'Delivered', time: order.delivered_at });
+                        }
+
+                        return steps.map((step, idx) => (
+                          <div key={idx} className="relative flex justify-between items-center pr-2">
+                            <div className="flex items-center space-x-2">
+                              <span className={`absolute -left-[25px] top-1 flex h-2.5 w-2.5 items-center justify-center rounded-full ring-4 ring-white ${
+                                step.isCancelled ? 'bg-crimson' : (step.active ? 'bg-kirana-500' : 'bg-slate-200')
+                              }`} />
+                              <span className={`font-semibold ${step.isCancelled ? 'text-crimson' : (step.active ? 'text-slate-800' : 'text-slate-400')}`}>
+                                {step.label}
+                              </span>
+                            </div>
+                            {step.active && step.time && (
+                              <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded-lg border border-slate-100 font-medium">
+                                {formatTimeDetail(step.time)}
+                              </span>
+                            )}
+                          </div>
+                        ));
+                      })()}
+                    </div>
+
+                    {/* Image details inside tracker */}
+                    <div className={`grid ${order.original_chitti && order.original_chitti !== 'digital' && order.modified_bill ? 'grid-cols-2' : 'grid-cols-1'} gap-3 pt-2 text-[10px]`}>
+                      {order.original_chitti && order.original_chitti !== 'digital' && (
+                        <div>
+                          <span className="block text-slate-450 font-bold mb-1.5 flex justify-between items-center">
+                            <span>Original Chitti</span>
+                            <a
+                              href={getFullImageUrl(order.original_chitti)}
+                              download={`original_chitti_${order.id}.jpg`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-kirana-600 hover:underline font-extrabold"
+                            >
+                              Download
+                            </a>
+                          </span>
+                          <img
+                            src={getFullImageUrl(order.original_chitti)}
+                            alt="Chitti"
+                            className="max-h-24 w-full rounded border border-slate-200 object-contain bg-white p-0.5"
+                          />
+                        </div>
+                      )}
+                      {order.modified_bill && (
+                        <div>
+                          <span className="block text-slate-450 font-bold mb-1.5 flex justify-between items-center">
+                            <span>Rewritten Bill</span>
+                            <a
+                              href={getFullImageUrl(order.modified_bill)}
+                              download={`rewritten_bill_${order.id}.jpg`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-kirana-600 hover:underline font-extrabold"
+                            >
+                              Download
+                            </a>
+                          </span>
+                          <img
+                            src={getFullImageUrl(order.modified_bill)}
+                            alt="Bill"
+                            className="max-h-24 w-full rounded border border-slate-200 object-contain bg-white p-0.5"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Digital Grocery & Invoice Items comparison */}
+                    {order.order_type === 'digital' && (
+                      <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-xs font-bold text-slate-800">Grocery List & Priced Invoice</h4>
+                          {order.amount && (
+                            <span className="text-[11px] font-black text-slate-900 bg-kirana-100 border border-kirana-200/50 px-2 py-0.5 rounded-lg">
+                              Grand Total: ₹{parseFloat(order.amount).toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {/* Original List (Left Column) */}
+                          {(() => {
+                            let originalItems = [];
+                            try {
+                              originalItems = JSON.parse(order.digital_item_list || '[]');
+                            } catch (e) {
+                              console.error('Error parsing digital list', e);
+                            }
+
+                            return (
+                              <div className="border border-slate-200/80 rounded-2xl p-4 bg-slate-50/50 relative overflow-hidden">
+                                <div className="absolute left-4 top-0 bottom-0 w-[1px] bg-red-200/40" />
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-slate-200 text-slate-700 uppercase tracking-wide mb-3 ml-2">
+                                  📄 Original Chitti List
+                                </span>
+
+                                <div className="space-y-2 pl-2 max-h-48 overflow-y-auto pr-1">
+                                  {originalItems.length === 0 ? (
+                                    <p className="text-[10px] text-slate-400 italic">No items found</p>
+                                  ) : (
+                                    originalItems.map((item, idx) => (
+                                      <div key={item.id || idx} className="pb-1.5 border-b border-dashed border-slate-200 text-[11px] flex justify-between items-baseline text-slate-750">
+                                        <span className="font-semibold text-slate-800">{idx + 1}. {item.name}</span>
+                                        <span className="px-1.5 py-0.5 bg-amber-50 text-amber-905 border border-amber-200/70 rounded text-[9px] font-black uppercase">
+                                          {item.quantity} {item.unit}
+                                        </span>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Final Priced Billed Items (Right Column) */}
+                          {(() => {
+                            let modifiedItems = null;
+                            if (order.modified_item_list) {
+                              try {
+                                modifiedItems = JSON.parse(order.modified_item_list);
+                              } catch (e) {
+                                console.error('Error parsing modified list', e);
+                              }
+                            }
+
+                            return (
+                              <div className="border border-slate-205 rounded-2xl p-4 bg-amber-50/5 relative overflow-hidden">
+                                <div className="absolute left-4 top-0 bottom-0 w-[1px] bg-red-200/40" />
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black bg-kirana-500 text-slate-950 uppercase tracking-wide mb-3 ml-2">
+                                  🛒 Final Billed Items
+                                </span>
+
+                                <div className="space-y-2.5 pl-2 max-h-48 overflow-y-auto pr-1">
+                                  {!modifiedItems ? (
+                                    <div className="py-8 text-center text-slate-400 italic text-[10px]">
+                                      Awaiting seller pricing & invoice generation...
+                                    </div>
+                                  ) : modifiedItems.length === 0 ? (
+                                    <p className="text-[10px] text-slate-400 italic">No billed items</p>
+                                  ) : (
+                                    modifiedItems.map((item, idx) => {
+                                      const isRemoved = item.status === 'removed';
+                                      const isAdded = item.status === 'added';
+                                      const isReplaced = item.status === 'replaced';
+                                      const isModified = item.status === 'modified';
+
+                                      let bgClass = 'bg-white';
+                                      let badge = null;
+
+                                      if (isRemoved) {
+                                        bgClass = 'bg-red-50/30 line-through text-red-500/60 opacity-60';
+                                        badge = <span className="px-1.5 py-0.5 bg-red-100 text-red-750 border border-red-200 rounded text-[8px] font-bold uppercase">Unavailable</span>;
+                                      } else if (isAdded) {
+                                        bgClass = 'bg-emerald-50/20 border-emerald-100/50';
+                                        badge = <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-855 border border-emerald-250 rounded text-[8px] font-bold uppercase font-black">Added</span>;
+                                      } else if (isReplaced) {
+                                        bgClass = 'bg-indigo-50/20 border-indigo-100/50';
+                                        badge = <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-855 border border-indigo-250 rounded text-[8px] font-bold uppercase font-black">Substituted</span>;
+                                      } else if (isModified) {
+                                        bgClass = 'bg-amber-50/20 border-amber-100/50';
+                                        badge = <span className="px-1.5 py-0.5 bg-amber-100 text-amber-855 border border-amber-250 rounded text-[8px] font-bold uppercase font-black">Qty Adj</span>;
+                                      }
+
+                                      return (
+                                        <div key={item.id || idx} className={`p-2 rounded-xl border border-slate-150 flex justify-between items-start transition-all ${bgClass}`}>
+                                          <div className="min-w-0 pr-1 text-[11px]">
+                                            <span className="font-bold block text-slate-800">
+                                              {idx + 1}. {item.name}
+                                            </span>
+
+                                            <div className="flex items-center space-x-1.5 mt-1 flex-wrap gap-y-1">
+                                              <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded border border-slate-200/50">
+                                                {item.quantity} {item.unit}
+                                              </span>
+                                              {badge}
+                                            </div>
+
+                                            {item.notes && (
+                                              <span className="block text-[9px] text-slate-500 italic mt-1">• {item.notes}</span>
+                                            )}
+                                          </div>
+
+                                          <div className="text-right flex-shrink-0 text-[11px] min-w-[50px]">
+                                            {!isRemoved ? (
+                                              <>
+                                                <span className="font-extrabold text-slate-900 block">₹{((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)}</span>
+                                                <span className="text-[8px] text-slate-400 font-semibold block">₹{item.price}/{item.unit}</span>
+                                              </>
+                                            ) : (
+                                              <span className="text-[10px] font-bold text-red-500">₹0.00</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default MyOrders;
