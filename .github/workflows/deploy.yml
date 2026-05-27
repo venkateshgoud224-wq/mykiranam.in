@@ -86,7 +86,7 @@ jobs:
 
           # Copy scripts directory
           mkdir -p deploy_package/scripts
-          cp -r scripts/ deploy_package/scripts/
+          cp -r scripts/* deploy_package/scripts/
 
       - name: Transfer files to EC2
         run: |
