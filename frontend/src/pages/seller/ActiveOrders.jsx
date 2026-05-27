@@ -378,10 +378,17 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                             onClick={() => setPreviewImage(getFullImageUrl(order.payment_proof_image))}
                           />
                           <div className="flex space-x-2 pt-1 text-[10px]">
-                            {['Confirmed', 'Ready For Pickup', 'Packing Started'].includes(order.order_status) ? (
+                            {['Confirmed', 'Packing Started'].includes(order.order_status) ? (
+                              <button
+                                onClick={() => handleProgress(order.id, 'Ready For Pickup')}
+                                className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded text-center transition-all"
+                              >
+                                Verify Payment & Ready for Pickup
+                              </button>
+                            ) : order.order_status === 'Ready For Pickup' ? (
                               <button
                                 onClick={() => handleProgress(order.id, 'Delivered')}
-                                className="flex-1 py-1.5 bg-gradient-to-r from-kirana-500 to-amber-500 text-slate-950 font-extrabold rounded text-center"
+                                className="flex-1 py-1.5 bg-gradient-to-r from-kirana-500 to-amber-500 text-slate-950 font-extrabold rounded text-center transition-all"
                               >
                                 Accept Payment & Deliver
                               </button>
