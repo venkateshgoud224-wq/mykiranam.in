@@ -53,7 +53,7 @@ const register = async (req, res) => {
       assignedRole = 'admin';
     }
     const result = await db.query(
-      'INSERT INTO users (role, name, email, password, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id, role, name, email, phone',
+      'INSERT INTO users (role, name, email, password, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id, role, name, email, phone, whatsapp_number, verified_whatsapp',
       [assignedRole, name, email, hashedPassword, phone || null]
     );
 
@@ -117,7 +117,7 @@ const login = async (req, res) => {
     }
 
     const token = generateToken(user);
-    const responseUser = { id: user.id, role: user.role, name: user.name, email: user.email, phone: user.phone, profile_image: user.profile_image };
+    const responseUser = { id: user.id, role: user.role, name: user.name, email: user.email, phone: user.phone, profile_image: user.profile_image, whatsapp_number: user.whatsapp_number, verified_whatsapp: user.verified_whatsapp };
     
     return res.status(200).json({ user: responseUser, token });
   } catch (err) {
@@ -185,7 +185,7 @@ const googleLogin = async (req, res) => {
     }
 
     const token = generateToken(user);
-    const responseUser = { id: user.id, role: user.role, name: user.name, email: user.email, phone: user.phone, profile_image: user.profile_image };
+    const responseUser = { id: user.id, role: user.role, name: user.name, email: user.email, phone: user.phone, profile_image: user.profile_image, whatsapp_number: user.whatsapp_number, verified_whatsapp: user.verified_whatsapp };
     
     return res.status(200).json({ user: responseUser, token });
   } catch (err) {
@@ -213,7 +213,7 @@ const updateRole = async (req, res) => {
       return res.status(400).json({ error: 'Role has already been set and cannot be changed.' });
     }
 
-    const result = await db.query('UPDATE users SET role = $1 WHERE id = $2 RETURNING id, role, name, email, phone', [role, userId]);
+    const result = await db.query('UPDATE users SET role = $1 WHERE id = $2 RETURNING id, role, name, email, phone, whatsapp_number, verified_whatsapp', [role, userId]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'User not found.' });
     }

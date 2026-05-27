@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { ShoppingBag, Calendar, User, Clock, AlertTriangle, Eye, CheckCircle2, ChevronRight, RefreshCcw } from 'lucide-react';
 import OrderVerification from './OrderVerification';
+import ImageModal from '../../components/common/ImageModal';
 
 const MyOrders = () => {
   const { token, apiUrl } = useAuth();
@@ -11,6 +12,8 @@ const MyOrders = () => {
   const [loading, setLoading] = useState(true);
   const [verifyingOrder, setVerifyingOrder] = useState(null);
   const [trackingOrder, setTrackingOrder] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [activeTab, setActiveTab] = useState('active');
 
   const fetchOrders = async () => {
     try {
@@ -126,6 +129,19 @@ const MyOrders = () => {
     );
   }
 
+  const revisionOrders = orders.filter(o => o.order_status === 'Waiting For Seller' && !!o.item_change_history);
+  const completedOrders = orders.filter(o => ['Delivered', 'Cancelled'].includes(o.order_status));
+  const activeOrders = orders.filter(o => !['Delivered', 'Cancelled'].includes(o.order_status) && !(o.order_status === 'Waiting For Seller' && !!o.item_change_history));
+
+  const getFilteredOrders = () => {
+    if (activeTab === 'active') return activeOrders;
+    if (activeTab === 'revision') return revisionOrders;
+    if (activeTab === 'completed') return completedOrders;
+    return orders;
+  };
+
+  const displayedOrders = getFilteredOrders();
+
   return (
     <div className="space-y-6 pb-20 w-full">
       <div className="flex justify-between items-center">
@@ -141,19 +157,62 @@ const MyOrders = () => {
         </button>
       </div>
 
+      {/* Tabs */}
+      <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 max-w-full overflow-x-auto no-scrollbar mx-auto">
+        <button
+          onClick={() => setActiveTab('active')}
+          className={`flex-1 min-w-[90px] py-2 px-1 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+            activeTab === 'active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-755'
+          }`}
+        >
+          <Clock className="w-3.5 h-3.5" />
+          <span>Active</span>
+          {activeOrders.length > 0 && (
+            <span className="px-1.5 py-0.5 bg-slate-800 text-white text-[9px] font-bold rounded-full leading-none flex items-center justify-center min-w-[16px] h-[16px]">
+              {activeOrders.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('revision')}
+          className={`flex-1 min-w-[90px] py-2 px-1 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+            activeTab === 'revision' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-755'
+          }`}
+        >
+          <span className="text-sm">⚠️</span>
+          <span>Revisions</span>
+          {revisionOrders.length > 0 && (
+            <span className="px-1.5 py-0.5 bg-crimson text-white text-[9px] font-black rounded-full leading-none flex items-center justify-center min-w-[16px] h-[16px]">
+              {revisionOrders.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('completed')}
+          className={`flex-1 min-w-[90px] py-2 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+            activeTab === 'completed' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-755'
+          }`}
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          <span>Completed</span>
+        </button>
+      </div>
+
       {loading ? (
         <div className="py-12 text-center text-xs font-bold text-slate-400 animate-pulse">
           Loading order history...
         </div>
-      ) : orders.length === 0 ? (
+      ) : displayedOrders.length === 0 ? (
         <div className="py-12 bg-white rounded-3xl border border-slate-100 p-8 text-center shadow-sm">
           <ShoppingBag className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <h4 className="text-sm font-bold text-slate-800">No Orders Found</h4>
-          <p className="text-xs text-slate-500 mt-1">Place an order at nearby stores to populate details.</p>
+          <h4 className="text-sm font-bold text-slate-800">No {activeTab} orders</h4>
+          <p className="text-xs text-slate-500 mt-1">There are no orders in this category.</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {orders.map((order) => {
+          {displayedOrders.map((order) => {
             const isBillAvailable = order.amount !== null && order.amount !== undefined;
             const hasSelectedPayment = order.payment_method !== null && order.payment_method !== undefined;
             const isVerificationAwaiting = ['Bill Uploaded', 'Waiting For Customer Confirmation'].includes(order.order_status) && !hasSelectedPayment;
@@ -290,7 +349,7 @@ const MyOrders = () => {
 
                         steps.push(
                           { label: 'Order Accepted & Billed', active: ['Accepted', 'Bill Uploaded', 'Waiting For Customer Confirmation', 'Confirmed', 'Packing Started', 'Packing Completed', 'Ready For Pickup', 'Delivered'].includes(order.order_status), time: order.accepted_at || order.confirmed_at || order.packing_started_at || order.ready_for_pickup_at || order.updated_at },
-                          { label: 'Payment Completed', active: ['Confirmed', 'Packing Started', 'Packing Completed', 'Ready For Pickup', 'Delivered'].includes(order.order_status) || (order.payment_method !== null && order.payment_method !== undefined), time: order.confirmed_at || order.packing_started_at || order.ready_for_pickup_at || order.updated_at },
+                          { label: ['Pay During Pickup', 'Manual UPI Payment'].includes(order.payment_method) ? 'Payment at pickup' : 'Payment Completed', active: ['Confirmed', 'Packing Started', 'Packing Completed', 'Ready For Pickup', 'Delivered'].includes(order.order_status) || (order.payment_method !== null && order.payment_method !== undefined), time: order.confirmed_at || order.packing_started_at || order.ready_for_pickup_at || order.updated_at },
                           { label: 'Packing Started', active: ['Packing Started', 'Packing Completed', 'Ready For Pickup', 'Delivered'].includes(order.order_status), time: order.packing_started_at || order.ready_for_pickup_at || order.updated_at },
                           { label: 'Ready For Pickup / Delivery', active: ['Ready For Pickup', 'Delivered'].includes(order.order_status), time: order.ready_for_pickup_at || order.delivered_at || order.updated_at }
                         );
@@ -329,7 +388,7 @@ const MyOrders = () => {
                             <span>Original Chitti</span>
                             <a
                               href={getFullImageUrl(order.original_chitti)}
-                              download={`original_chitti_${order.id}.jpg`}
+                              download={`original_chitti_${order.id}.${order.original_chitti.split('.').pop()}`}
                               target="_blank"
                               rel="noreferrer"
                               className="text-kirana-600 hover:underline font-extrabold"
@@ -340,7 +399,8 @@ const MyOrders = () => {
                           <img
                             src={getFullImageUrl(order.original_chitti)}
                             alt="Chitti"
-                            className="max-h-24 w-full rounded border border-slate-200 object-contain bg-white p-0.5"
+                            className="max-h-24 w-full rounded border border-slate-200 object-contain bg-white p-0.5 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setPreviewImage(getFullImageUrl(order.original_chitti))}
                           />
                         </div>
                       )}
@@ -350,7 +410,7 @@ const MyOrders = () => {
                             <span>Rewritten Bill</span>
                             <a
                               href={getFullImageUrl(order.modified_bill)}
-                              download={`rewritten_bill_${order.id}.jpg`}
+                              download={`rewritten_bill_${order.id}.${order.modified_bill.split('.').pop()}`}
                               target="_blank"
                               rel="noreferrer"
                               className="text-kirana-600 hover:underline font-extrabold"
@@ -361,7 +421,8 @@ const MyOrders = () => {
                           <img
                             src={getFullImageUrl(order.modified_bill)}
                             alt="Bill"
-                            className="max-h-24 w-full rounded border border-slate-200 object-contain bg-white p-0.5"
+                            className="max-h-24 w-full rounded border border-slate-200 object-contain bg-white p-0.5 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setPreviewImage(getFullImageUrl(order.modified_bill))}
                           />
                         </div>
                       )}
@@ -509,6 +570,13 @@ const MyOrders = () => {
             );
           })}
         </div>
+      )}
+
+      {previewImage && (
+        <ImageModal
+          imageUrl={previewImage}
+          onClose={() => setPreviewImage(null)}
+        />
       )}
     </div>
   );

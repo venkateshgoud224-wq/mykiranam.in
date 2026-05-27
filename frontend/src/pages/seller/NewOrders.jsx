@@ -3,9 +3,10 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { ShoppingBag, Eye, Check, X, BellRing, Clock, Download, ListOrdered, ClipboardList } from 'lucide-react';
 import BillingForm from './BillingForm';
+import ImageModal from '../../components/common/ImageModal';
 
-const NewOrders = ({ newOrders, onUpdateStatus }) => {
-  const { token, apiUrl } = useAuth();
+const NewOrders = ({ newOrders, onUpdateStatus, onTabChange }) => {
+  const { token, apiUrl, user } = useAuth();
   const { playSoundAlert } = useSocket();
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -13,6 +14,7 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
   const [showBillingForm, setShowBillingForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [previewImage, setPreviewImage] = useState(null);
 
   const handleAcceptSuccess = async () => {
     // Refresh the order list from parent
@@ -85,22 +87,24 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
                 className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium flex flex-col justify-between animate-fadeIn"
               >
                 <div className="space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-extrabold text-sm text-slate-900">
+                  <div className="flex flex-wrap justify-between items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-extrabold text-sm text-slate-900 truncate">
                         Customer: {order.customer_name}
                       </h3>
-                      <span className="text-[10px] text-slate-400">Order #{order.custom_order_id || order.id} • {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="text-[10px] text-slate-400 block truncate">Order #{order.custom_order_id || order.id} • {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    {revisionNotes ? (
-                      <span className="px-2 py-0.5 bg-crimson/15 text-crimson border border-crimson/30 rounded text-[9px] font-extrabold uppercase animate-pulse">
-                        REVISION REQUESTED
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded text-[9px] font-bold">
-                        Pending
-                      </span>
-                    )}
+                    <div className="flex-shrink-0">
+                      {revisionNotes ? (
+                        <span className="px-2 py-0.5 bg-crimson/15 text-crimson border border-crimson/30 rounded text-[9px] font-extrabold uppercase animate-pulse whitespace-nowrap">
+                          REVISION REQUESTED
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded text-[9px] font-bold whitespace-nowrap">
+                          Pending
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {getRevisionInfo(order) && getRevisionInfo(order).text && (() => {
@@ -131,7 +135,11 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
                       <img
                         src={getFullImageUrl(order.original_chitti)}
                         alt="Chitti preview"
-                        className="w-14 h-14 object-cover rounded-xl border border-slate-200 bg-white"
+                        className="w-14 h-14 object-cover rounded-xl border border-slate-200 bg-white cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewImage(getFullImageUrl(order.original_chitti));
+                        }}
                       />
                     )}
                     <div className="min-w-0 text-xs flex-1">
@@ -145,28 +153,33 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
                   <button
                     onClick={() => { setSelectedOrder(order); setShowRejectForm(false); setShowBillingForm(false); }}
-                    className="px-3.5 py-2 text-xs font-semibold rounded-xl text-slate-655 hover:bg-slate-50 transition-all flex items-center space-x-1"
+                    className="px-3.5 py-2 text-xs font-semibold rounded-xl text-slate-655 hover:bg-slate-50 transition-all flex items-center justify-center sm:justify-start space-x-1 border border-slate-100 sm:border-transparent"
                   >
                     <Eye className="w-4 h-4" />
                     <span>Open Details</span>
                   </button>
 
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
                     <button
                       onClick={() => {
                         setSelectedOrder(order);
                         setShowRejectForm(true);
                       }}
-                      className="p-2 text-crimson hover:bg-crimson/5 rounded-xl transition-all border border-slate-100 hover:border-crimson/10"
+                      className="p-2 text-crimson hover:bg-crimson/5 rounded-xl transition-all border border-slate-100 hover:border-crimson/10 flex-shrink-0"
                       title="Reject Order"
                     >
                       <X className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => {
+                        if (!user?.verified_whatsapp) {
+                          sessionStorage.setItem('whatsapp_mandatory_alert', 'true');
+                          if (onTabChange) onTabChange('profile');
+                          return;
+                        }
                         setSelectedOrder(order);
                         setShowBillingForm(true);
                       }}
@@ -187,12 +200,12 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="w-full max-w-lg bg-white rounded-3xl overflow-hidden shadow-2xl p-6 border border-slate-100 text-slate-900 flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">
+            <div className="flex justify-between items-start gap-2 mb-4">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-extrabold text-slate-900 truncate">
                   New Order Details: #{selectedOrder.custom_order_id || selectedOrder.id}
                 </h3>
-                <p className="text-xs text-slate-500">Customer: {selectedOrder.customer_name} ({selectedOrder.customer_phone || 'No phone'})</p>
+                <p className="text-xs text-slate-500 truncate">Customer: {selectedOrder.customer_name} ({selectedOrder.customer_phone || 'No phone'})</p>
               </div>
               <button
                 onClick={() => {
@@ -202,7 +215,7 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
                   setRejectionReason('');
                   setError('');
                 }}
-                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-all"
+                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-all flex-shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -264,13 +277,14 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
                   <img
                     src={getFullImageUrl(selectedOrder.original_chitti)}
                     alt="Original Chitti View"
-                    className="max-h-[320px] object-contain rounded-xl shadow-sm hover:scale-125 transition-transform duration-350 cursor-zoom-in"
+                    className="max-h-[320px] object-contain rounded-xl shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => setPreviewImage(getFullImageUrl(selectedOrder.original_chitti))}
                   />
                   
                   {/* Download Button */}
                   <a
                     href={getFullImageUrl(selectedOrder.original_chitti)}
-                    download={`chitti_order_${selectedOrder.id}.jpg`}
+                    download={`chitti_order_${selectedOrder.id}.${selectedOrder.original_chitti.split('.').pop()}`}
                     target="_blank"
                     rel="noreferrer"
                     className="absolute bottom-3 right-3 p-2 bg-slate-900/70 hover:bg-slate-900/90 text-white rounded-lg transition-all flex items-center space-x-1 text-[10px] font-semibold backdrop-blur-sm"
@@ -329,16 +343,23 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
                   onSuccess={handleAcceptSuccess} 
                 />
               ) : (
-                <div className="flex space-x-2.5 pt-2">
+                <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
                   <button
                     onClick={() => setShowRejectForm(true)}
-                    className="flex-1 py-3 border border-crimson/20 hover:border-crimson text-crimson text-xs font-bold hover:bg-crimson/5 rounded-xl transition-all"
+                    className="w-full sm:flex-1 py-3 border border-crimson/20 hover:border-crimson text-crimson text-xs font-bold hover:bg-crimson/5 rounded-xl transition-all"
                   >
                     Reject Order
                   </button>
                   <button
-                    onClick={() => setShowBillingForm(true)}
-                    className="flex-[2] py-3 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 text-xs font-black rounded-xl shadow-lg active:scale-[0.99] transition-all flex items-center justify-center space-x-1.5"
+                    onClick={() => {
+                      if (!user?.verified_whatsapp) {
+                        sessionStorage.setItem('whatsapp_mandatory_alert', 'true');
+                        if (onTabChange) onTabChange('profile');
+                        return;
+                      }
+                      setShowBillingForm(true);
+                    }}
+                    className="w-full sm:flex-[2] py-3 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 text-xs font-black rounded-xl shadow-lg active:scale-[0.99] transition-all flex items-center justify-center space-x-1.5"
                   >
                     <Check className="w-4 h-4" />
                     <span>Accept & Prepare Bill</span>
@@ -348,6 +369,13 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {previewImage && (
+        <ImageModal
+          imageUrl={previewImage}
+          onClose={() => setPreviewImage(null)}
+        />
       )}
     </div>
   );

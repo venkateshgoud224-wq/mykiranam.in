@@ -25,8 +25,22 @@ const Navbar = ({ onSetCoords, currentCoords }) => {
     setGpsError(null);
 
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        onSetCoords(pos.coords.latitude, pos.coords.longitude, 'My Real Coordinates');
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        let addressName = 'My Real Coordinates';
+
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+          const data = await response.json();
+          if (data && data.address) {
+            addressName = data.address.neighbourhood || data.address.suburb || data.address.city || data.address.town || data.address.village || data.address.county || 'My Real Coordinates';
+          }
+        } catch (error) {
+          console.error("Reverse geocoding failed:", error);
+        }
+
+        onSetCoords(lat, lon, addressName);
         setShowLocationModal(false);
         setGpsLoading(false);
       },

@@ -25,11 +25,25 @@ export const useGeolocation = () => {
     }
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        let addressName = "Current GPS Location";
+
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+          const data = await response.json();
+          if (data && data.address) {
+            addressName = data.address.neighbourhood || data.address.suburb || data.address.city || data.address.town || data.address.village || data.address.county || "Current GPS Location";
+          }
+        } catch (error) {
+          console.error("Reverse geocoding failed:", error);
+        }
+
         const newCoords = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          address: "Current GPS Location"
+          latitude: lat,
+          longitude: lon,
+          address: addressName
         };
         localStorage.setItem('user_coords', JSON.stringify(newCoords));
         setCoords(newCoords);

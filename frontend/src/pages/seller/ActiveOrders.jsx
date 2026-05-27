@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { FileSpreadsheet, Eye, Play, CheckCircle2, User, ChevronDown, PackageCheck, AlertCircle, Trash2, Send, Download, ListOrdered, Plus, Minus, FileText, ClipboardList } from 'lucide-react';
 import BillingForm from './BillingForm';
+import ImageModal from '../../components/common/ImageModal';
 
 const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
   const { token, apiUrl } = useAuth();
@@ -13,6 +14,9 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
 
   // Billing state for orders in 'Accepted' state
   const [billingOrderId, setBillingOrderId] = useState(null);
+
+  // Image preview state
+  const [previewImage, setPreviewImage] = useState(null);
 
   const handleProgress = async (orderId, nextStatus) => {
     try {
@@ -57,33 +61,33 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                 className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium space-y-4 transition-all"
               >
                 {/* Active queue header */}
-                <div className="flex justify-between items-start">
-                  <div>
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+                  <div className="flex-1 min-w-0">
                     <span className="inline-flex items-center space-x-1.5 text-[10px] font-extrabold uppercase tracking-wider text-kirana-600 bg-kirana-50 px-2 py-0.5 rounded-md mb-1.5">
                       <span>Queue Pos #{idx + 1}</span>
                     </span>
-                    <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-1.5">
-                      <span>Customer: {order.customer_name}</span>
+                    <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-1.5 truncate">
+                      <span className="truncate">Customer: {order.customer_name}</span>
                     </h3>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Order #{order.custom_order_id || order.id} • Tel: {order.customer_phone}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">Order #{order.custom_order_id || order.id} • Tel: {order.customer_phone}</p>
                   </div>
 
-                  <div className="flex flex-col items-end space-y-1.5">
+                  <div className="flex flex-row sm:flex-col items-center sm:items-end flex-wrap gap-2 sm:gap-0 sm:space-y-1.5 w-full sm:w-auto">
                     {/* Status Badge */}
-                    <span className="px-2.5 py-1 rounded-xl text-[10px] font-extrabold border bg-slate-100 text-slate-700">
+                    <span className="px-2.5 py-1 rounded-xl text-[10px] font-extrabold border bg-slate-100 text-slate-700 whitespace-nowrap">
                       {order.order_status}
                     </span>
                     {/* Payment Status Badge */}
                     {order.payment_method ? (
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${
-                        order.payment_method === 'Cash / Pay at Store' 
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border whitespace-nowrap ${
+                        ['Pay During Pickup', 'Manual UPI Payment'].includes(order.payment_method)
                           ? 'bg-amber-50 text-amber-700 border-amber-200' 
                           : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       }`}>
-                        {order.payment_method === 'Cash / Pay at Store' ? 'To Pay at Store' : `Paid: ${order.payment_method}`}
+                        {['Pay During Pickup', 'Manual UPI Payment'].includes(order.payment_method) ? 'Payment at pickup' : `Paid: ${order.payment_method}`}
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-50 text-slate-500 border border-slate-200">
+                      <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-50 text-slate-500 border border-slate-200 whitespace-nowrap">
                         Payment Pending
                       </span>
                     )}
@@ -91,20 +95,20 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                 </div>
 
                 {/* Queue flow action controls */}
-                <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-55 flex-wrap">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-55">
                   <button
                     onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
-                    className="text-xs font-semibold text-slate-550 flex items-center space-x-1 hover:text-slate-755"
+                    className="text-xs font-semibold text-slate-550 flex items-center justify-center sm:justify-start space-x-1 hover:text-slate-755 border border-slate-100 sm:border-transparent py-2 sm:py-0 rounded-xl"
                   >
                     <span>View Details</span>
                     <ChevronDown className={`w-4 h-4 transform ${isExpanded ? 'rotate-180' : ''} transition-transform`} />
                   </button>
 
-                  <div className="flex items-center space-x-2 ml-auto">
+                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
                     {['Bill Uploaded', 'Waiting For Customer Confirmation'].includes(order.order_status) && billingOrderId !== order.id && (
                       <button
                         onClick={() => handleStartBilling(order)}
-                        className="px-4 py-2 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all"
+                        className="px-4 py-2 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all flex-1 sm:flex-none text-center whitespace-nowrap"
                       >
                         Edit Bill & Invoice
                       </button>
@@ -113,7 +117,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                     {showReadyForDelivery && (
                       <button
                         onClick={() => handleProgress(order.id, 'Ready For Pickup')}
-                        className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition-all flex items-center space-x-1"
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl transition-all flex items-center justify-center space-x-1 flex-1 sm:flex-none whitespace-nowrap"
                       >
                         <CheckCircle2 className="w-4 h-4" />
                         <span>Ready For Delivery</span>
@@ -125,7 +129,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                     {showDeliverOrder && (
                       <button
                         onClick={() => handleProgress(order.id, 'Delivered')}
-                        className="px-4 py-2.5 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg active:scale-[0.99] transition-all flex items-center space-x-1"
+                        className="px-4 py-2 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg active:scale-[0.99] transition-all flex items-center justify-center space-x-1 flex-1 sm:flex-none whitespace-nowrap"
                       >
                         <CheckCircle2 className="w-4 h-4" />
                         <span>Deliver Order</span>
@@ -138,7 +142,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                         const r = prompt('Reason for cancelling order:');
                         if (r !== null) onUpdateStatus(order.id, 'Cancelled', r);
                       }}
-                      className="p-2 text-slate-400 hover:text-crimson hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-xl transition-all"
+                      className="p-2 text-slate-400 hover:text-crimson hover:bg-slate-50 border border-slate-100 rounded-xl transition-all flex-shrink-0"
                       title="Cancel Order"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -185,7 +189,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                           const displayNames = {
                             'Waiting For Seller': '1. New Order',
                             'Bill Uploaded': '2. Billed & Waiting',
-                            'Packing Started': '3. Paid & Packing',
+                            'Packing Started': ['Pay During Pickup', 'Manual UPI Payment'].includes(order.payment_method) ? '3. Payment at pickup & Packing' : '3. Paid & Packing',
                             'Ready For Pickup': '4. Ready'
                           };
 
@@ -266,7 +270,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                             <a
                               href={getFullImageUrl(order.original_chitti)}
                               target="_blank"
-                              download={`original_chitti_${order.id}.jpg`}
+                              download={`original_chitti_${order.id}.${order.original_chitti.split('.').pop()}`}
                               rel="noreferrer"
                               className="text-kirana-600 hover:underline font-extrabold flex items-center space-x-1"
                             >
@@ -277,7 +281,8 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                           <img
                             src={getFullImageUrl(order.original_chitti)}
                             alt="Original"
-                            className="max-h-56 w-full object-contain rounded-xl border border-slate-200 bg-white p-1"
+                            className="max-h-56 w-full object-contain rounded-xl border border-slate-200 bg-white p-1 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setPreviewImage(getFullImageUrl(order.original_chitti))}
                           />
                         </div>
                       ) : null}
@@ -319,7 +324,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                                 <a
                                   href={getFullImageUrl(order.modified_bill)}
                                   target="_blank"
-                                  download={`rewritten_bill_${order.id}.jpg`}
+                                  download={`rewritten_bill_${order.id}.${order.modified_bill.split('.').pop()}`}
                                   rel="noreferrer"
                                   className="text-kirana-600 hover:underline font-extrabold flex items-center space-x-1"
                                 >
@@ -330,7 +335,8 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                               <img
                                 src={getFullImageUrl(order.modified_bill)}
                                 alt="Modified Bill"
-                                className="max-h-56 w-full object-contain rounded-xl border border-slate-200 bg-white p-1"
+                                className="max-h-56 w-full object-contain rounded-xl border border-slate-200 bg-white p-1 cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => setPreviewImage(getFullImageUrl(order.modified_bill))}
                               />
                             </div>
                           ) : (
@@ -368,7 +374,8 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                           <img
                             src={getFullImageUrl(order.payment_proof_image)}
                             alt="Receipt proof"
-                            className="max-h-24 object-contain rounded border border-slate-100 mx-auto"
+                            className="max-h-24 object-contain rounded border border-slate-100 mx-auto cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setPreviewImage(getFullImageUrl(order.payment_proof_image))}
                           />
                           <div className="flex space-x-2 pt-1 text-[10px]">
                             {['Confirmed', 'Ready For Pickup', 'Packing Started'].includes(order.order_status) ? (
@@ -399,6 +406,14 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
             );
           })}
         </div>
+      )}
+      
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <ImageModal 
+          imageUrl={previewImage} 
+          onClose={() => setPreviewImage(null)} 
+        />
       )}
     </div>
   );

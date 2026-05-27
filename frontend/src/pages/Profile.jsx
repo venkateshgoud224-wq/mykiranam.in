@@ -22,9 +22,25 @@ const Profile = () => {
   const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [whatsappError, setWhatsappError] = useState('');
   const [whatsappSuccess, setWhatsappSuccess] = useState('');
+  
+  // Mandatory Alert State
+  const [showMandatoryAlert, setShowMandatoryAlert] = useState(false);
 
   useEffect(() => {
     refreshProfile();
+    // Check for mandatory alert flag
+    if (sessionStorage.getItem('whatsapp_mandatory_alert')) {
+      setShowMandatoryAlert(true);
+      sessionStorage.removeItem('whatsapp_mandatory_alert');
+      
+      // Auto-scroll to WhatsApp section for emphasis
+      setTimeout(() => {
+        const waSection = document.getElementById('whatsapp-linker');
+        if (waSection) {
+          waSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500);
+    }
   }, []);
 
   useEffect(() => {
@@ -145,41 +161,59 @@ const Profile = () => {
   };
 
   return (
-    <div className="w-full space-y-6 pb-24 px-2">
+    <div className="w-full max-w-6xl mx-auto space-y-6 pb-24 px-2 sm:px-4">
+      
+      {showMandatoryAlert && (
+        <div className="bg-red-50 border-2 border-red-200 text-red-700 p-4 rounded-2xl flex items-start space-x-3 shadow-sm animate-bounce-short">
+          <AlertCircle className="w-6 h-6 flex-shrink-0 mt-0.5 text-red-600" />
+          <div>
+            <h3 className="font-black text-sm text-red-800">Action Required: WhatsApp Verification is Mandatory</h3>
+            <p className="text-xs font-semibold mt-1">
+              You must verify your WhatsApp number below before you can place or accept any orders on Kiranam.in.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Grid container: two columns on desktop, one column on mobile */}
-      <div className="flex flex-col md:grid md:grid-cols-2 gap-6 space-y-6 md:space-y-0">
+      <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 space-y-6 lg:space-y-0">
         
         {/* COLUMN 1: Primary Profile & Financial Analytics Dashboard */}
-        <div className="space-y-6">
+        <div className="lg:col-span-4 space-y-6">
           {/* Profile Header Block */}
-          <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-md text-center space-y-4 relative overflow-hidden">
+          <div className="bg-white border border-slate-100 rounded-3xl shadow-md text-center relative overflow-hidden group">
             <div className="absolute top-0 right-0 transform translate-x-3 -translate-y-3 w-16 h-16 rounded-full bg-amber-500/10 blur-xl pointer-events-none" />
+            <div className="h-28 bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 w-full absolute top-0 left-0 transition-transform duration-500 group-hover:scale-105" />
             
-            {/* Avatar */}
-            <div className="flex justify-center">
-              <div className={`w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-extrabold shadow-md ${getProfileImage()}`}>
-                {user?.name?.charAt(0).toUpperCase()}
+            <div className="p-6 relative pt-12 mt-4 space-y-4">
+              {/* Avatar */}
+              <div className="flex justify-center">
+                <div className={`w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl font-extrabold shadow-xl border-4 border-white z-10 relative ${getProfileImage()}`}>
+                  {user?.name?.charAt(0).toUpperCase()}
+                </div>
               </div>
-            </div>
-
-            {/* User Details */}
-            <div>
-              <h2 className="text-lg font-black text-slate-900 flex items-center justify-center space-x-1.5 animate-fade-in">
-                <span>{user?.name}</span>
-                <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-bold uppercase tracking-wider">
-                  {getRoleIcon()} {user?.role}
-                </span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-1 flex items-center justify-center space-x-1">
-                <Mail className="w-3.5 h-3.5" />
-                <span>{user?.email}</span>
-              </p>
-              {user?.phone && (
-                <p className="text-xs text-slate-400 mt-1 flex items-center justify-center space-x-1">
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>{user?.phone}</span>
-                </p>
-              )}
+              
+              {/* User Details */}
+              <div className="relative z-10">
+                <h2 className="text-xl font-black text-slate-900 flex flex-col items-center justify-center space-y-2 animate-fade-in">
+                  <span>{user?.name}</span>
+                  <span className="text-xs px-3 py-1 bg-amber-100 text-amber-800 rounded-full font-bold uppercase tracking-wider inline-flex items-center shadow-sm">
+                    {getRoleIcon()} <span className="ml-1">{user?.role}</span>
+                  </span>
+                </h2>
+                <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                  <p className="text-xs text-slate-500 flex items-center justify-center space-x-2">
+                    <Mail className="w-4 h-4 text-slate-400" />
+                    <span className="font-medium">{user?.email}</span>
+                  </p>
+                  {user?.phone && (
+                    <p className="text-xs text-slate-500 flex items-center justify-center space-x-2">
+                      <Phone className="w-4 h-4 text-slate-400" />
+                      <span className="font-medium">{user?.phone}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -299,9 +333,12 @@ const Profile = () => {
         </div>
 
         {/* COLUMN 2: Settings, Preferences & Operational Metrics Dashboard */}
-        <div className="space-y-6">
+        <div className="lg:col-span-8 space-y-6">
           {/* --- WHATSAPP LINKING PANEL --- */}
-          <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-md space-y-4">
+          <div id="whatsapp-linker" className={`bg-white border ${showMandatoryAlert ? 'border-red-300 shadow-red-500/20 shadow-lg ring-4 ring-red-50' : 'border-slate-100'} rounded-3xl p-5 shadow-md relative overflow-hidden transition-all duration-500`}>
+            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+              <MessageSquare className="w-32 h-32" />
+            </div>
             <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400 flex items-center space-x-1.5">
               <MessageSquare className="w-4 h-4 text-amber-500" />
               <span>WhatsApp Linking</span>

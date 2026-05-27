@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { Store, MessageSquare, ArrowRight, Lock, CheckCircle2, AlertCircle, LogOut } from 'lucide-react';
 
-const WhatsAppVerificationRequired = () => {
+const WhatsAppVerificationRequired = ({ onSkip }) => {
   const { user, refreshProfile, logout, apiUrl } = useAuth();
   const { playSoundAlert } = useSocket();
 
@@ -184,6 +184,16 @@ const WhatsAppVerificationRequired = () => {
                     <span>{loading ? 'Sending Code...' : 'Send OTP via WhatsApp'}</span>
                     {!loading && <ArrowRight className="w-4 h-4" />}
                   </button>
+                  {onSkip && (
+                    <button
+                      type="button"
+                      onClick={onSkip}
+                      disabled={loading}
+                      className="w-full py-2 text-center text-[11px] font-bold text-slate-400 hover:text-slate-700 active:scale-[0.98] transition-all"
+                    >
+                      Skip for now
+                    </button>
+                  )}
                 </form>
               ) : (
                 /* STEP 2: VERIFY OTP */
@@ -235,6 +245,16 @@ const WhatsAppVerificationRequired = () => {
                   >
                     Didn't receive code? Resend OTP
                   </button>
+                  {onSkip && (
+                    <button
+                      type="button"
+                      onClick={onSkip}
+                      disabled={loading}
+                      className="w-full py-1 text-center text-[11px] font-bold text-slate-400 hover:text-slate-700 active:scale-[0.98] transition-all"
+                    >
+                      Skip for now
+                    </button>
+                  )}
                 </form>
               )}
             </div>

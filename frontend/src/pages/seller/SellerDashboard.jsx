@@ -176,9 +176,9 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
   const renderActiveTabContent = () => {
     switch (activeTab) {
       case 'seller-new':
-        return <NewOrders newOrders={freshOrders} onUpdateStatus={handleUpdateStatus} />;
+        return <NewOrders newOrders={freshOrders} onUpdateStatus={handleUpdateStatus} onTabChange={onTabChange} />;
       case 'seller-revisions':
-        return <NewOrders newOrders={revisionOrders} onUpdateStatus={handleUpdateStatus} />;
+        return <NewOrders newOrders={revisionOrders} onUpdateStatus={handleUpdateStatus} onTabChange={onTabChange} />;
       case 'seller-active':
         return <ActiveOrders activeOrders={activeQueue} onUpdateStatus={handleUpdateStatus} />;
       case 'seller-completed':
@@ -227,15 +227,15 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
       )}
 
       {/* Tabs */}
-      <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 max-w-full overflow-x-auto no-scrollbar mx-auto">
+      <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 w-full mx-auto overflow-hidden">
         <button
           onClick={() => onTabChange('seller-new')}
-          className={`flex-1 min-w-[80px] py-2 px-1 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+          className={`flex-1 py-2 px-0.5 text-center text-[10px] sm:text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 sm:space-x-1 ${
             activeTab === 'seller-new' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-750'
           }`}
         >
-          <Bell className="w-3.5 h-3.5" />
-          <span>New</span>
+          <Bell className="w-3.5 h-3.5 hidden sm:block" />
+          <span className="truncate">New</span>
           {freshOrders.length > 0 && (
             <span className="px-1.5 py-0.2 bg-kirana-500 text-slate-950 text-[9px] font-black rounded-full leading-none">
               {freshOrders.length}
@@ -245,12 +245,12 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
 
         <button
           onClick={() => onTabChange('seller-active')}
-          className={`flex-1 min-w-[90px] py-2 px-1 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+          className={`flex-1 py-2 px-0.5 text-center text-[10px] sm:text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 sm:space-x-1 ${
             activeTab === 'seller-active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-755'
           }`}
         >
-          <Layers className="w-3.5 h-3.5" />
-          <span>Active</span>
+          <Layers className="w-3.5 h-3.5 hidden sm:block" />
+          <span className="truncate">Active</span>
           {activeQueue.length > 0 && (
             <span className="px-1.5 py-0.2 bg-slate-800 text-white text-[9px] font-bold rounded-full leading-none">
               {activeQueue.length}
@@ -260,12 +260,12 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
 
         <button
           onClick={() => onTabChange('seller-revisions')}
-          className={`flex-1 min-w-[90px] py-2 px-1 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+          className={`flex-1 py-2 px-0.5 text-center text-[10px] sm:text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 sm:space-x-1 ${
             activeTab === 'seller-revisions' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-755'
           }`}
         >
-          <span className="text-sm">⚠️</span>
-          <span>Revisions</span>
+          <span className="text-sm hidden sm:block">⚠️</span>
+          <span className="truncate">Revisions</span>
           {revisionOrders.length > 0 && (
             <span className="px-1.5 py-0.2 bg-crimson text-white text-[9px] font-black rounded-full leading-none">
               {revisionOrders.length}
@@ -275,12 +275,12 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
 
         <button
           onClick={() => onTabChange('seller-completed')}
-          className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+          className={`flex-1 py-2 px-0.5 text-center text-[10px] sm:text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 sm:space-x-1 ${
             activeTab === 'seller-completed' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-755'
           }`}
         >
-          <CheckSquare className="w-3.5 h-3.5" />
-          <span>Completed</span>
+          <CheckSquare className="w-3.5 h-3.5 hidden sm:block" />
+          <span className="truncate">Completed</span>
         </button>
       </div>
 

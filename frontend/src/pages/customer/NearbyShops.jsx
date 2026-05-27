@@ -292,7 +292,7 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
                       <img
                         src={bannerUrl}
                         alt={shop.shop_name}
-                        className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-amber-500 to-orange-600 opacity-90">

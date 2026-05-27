@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Upload, FileText, Calendar, Store, ChevronLeft, CheckCircle2, Plus, Minus, Trash2, Edit3, ShoppingBag } from 'lucide-react';
 
 const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
-  const { token, apiUrl } = useAuth();
+  const { token, apiUrl, user } = useAuth();
   const bannerUrl = selectedShop?.image_banner ? (selectedShop.image_banner.startsWith('http') ? selectedShop.image_banner : `${apiUrl.replace('/api', '')}${selectedShop.image_banner}`) : null;
   
   // Method selection: 'handwritten' or 'digital'
@@ -82,6 +82,12 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
 
     if (isDigital && items.length === 0) {
       setError('Please add at least one item to your digital list.');
+      return;
+    }
+
+    if (!user?.verified_whatsapp) {
+      sessionStorage.setItem('whatsapp_mandatory_alert', 'true');
+      onTabChange('profile');
       return;
     }
 

@@ -225,6 +225,10 @@ const App = () => {
     }
   }, []);
 
+  const [whatsappSkipped, setWhatsappSkipped] = useState(() => {
+    return sessionStorage.getItem('whatsapp_skipped') === 'true';
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-3 text-slate-100 select-none">
@@ -242,10 +246,17 @@ const App = () => {
     return <RoleSelection />;
   }
 
-  // WhatsApp verification is now optional and can be completed in the profile section
-  // if (!user.verified_whatsapp && user.role !== 'admin') {
-  //   // return <WhatsAppVerificationRequired />;
-  // }
+  // WhatsApp verification is mandatory before seeing the dashboard, unless skipped
+  if (!user.verified_whatsapp && user.role !== 'admin' && !whatsappSkipped) {
+    return (
+      <WhatsAppVerificationRequired 
+        onSkip={() => {
+          setWhatsappSkipped(true);
+          sessionStorage.setItem('whatsapp_skipped', 'true');
+        }} 
+      />
+    );
+  }
 
   return <DashboardContent />;
 };

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { History, ShoppingBag, Eye, Calendar, DollarSign, Check, X, Download } from 'lucide-react';
+import ImageModal from '../../components/common/ImageModal';
 
 const CompletedOrders = ({ completedOrders }) => {
   const { apiUrl } = useAuth();
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
 
   const getStatusColor = (status) => {
     if (status === 'Delivered') return 'bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20';
@@ -32,27 +34,27 @@ const CompletedOrders = ({ completedOrders }) => {
           {completedOrders.map((order) => (
             <div
               key={order.id}
-              className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium flex items-center justify-between"
+              className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium flex flex-row justify-between items-start sm:items-center gap-3"
             >
-              <div className="space-y-1">
-                <h3 className="font-extrabold text-sm text-slate-900">{order.customer_name}</h3>
-                <div className="flex items-center space-x-1.5 text-[10px] text-slate-400">
-                  <span>Order #{order.custom_order_id || order.id}</span>
+              <div className="space-y-1 flex-1 min-w-0">
+                <h3 className="font-extrabold text-sm text-slate-900 truncate">{order.customer_name}</h3>
+                <div className="flex items-center space-x-1.5 text-[10px] text-slate-400 truncate">
+                  <span className="truncate">Order #{order.custom_order_id || order.id}</span>
                   <span>•</span>
-                  <span>{new Date(order.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                  <span className="whitespace-nowrap">{new Date(order.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                 </div>
-                <span className="block text-[11px] font-bold text-slate-700">
+                <span className="block text-[11px] font-bold text-slate-700 truncate">
                   {order.amount ? `₹${order.amount}` : 'No amount'} • {order.payment_method || 'Unpaid'}
                 </span>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${getStatusColor(order.order_status)}`}>
+              <div className="flex flex-col sm:flex-row items-end sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 flex-shrink-0">
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold border whitespace-nowrap ${getStatusColor(order.order_status)}`}>
                   {order.order_status}
                 </span>
                 <button
                   onClick={() => setSelectedOrder(order)}
-                  className="p-2 hover:bg-slate-55 hover:bg-slate-50 rounded-xl text-slate-500 hover:text-slate-900 border border-transparent hover:border-slate-100 transition-all"
+                  className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 border border-slate-100 transition-all"
                   title="View order history logs"
                 >
                   <Eye className="w-4 h-4" />
@@ -67,14 +69,14 @@ const CompletedOrders = ({ completedOrders }) => {
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl p-6 border border-slate-100 text-slate-900 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">Historical Order #{selectedOrder.custom_order_id || selectedOrder.id} Log</h3>
-                <p className="text-xs text-slate-500">Customer: {selectedOrder.customer_name}</p>
+            <div className="flex justify-between items-start gap-2 mb-4">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-extrabold text-slate-900 truncate">Historical Order #{selectedOrder.custom_order_id || selectedOrder.id} Log</h3>
+                <p className="text-xs text-slate-500 truncate">Customer: {selectedOrder.customer_name}</p>
               </div>
               <button
                 onClick={() => setSelectedOrder(null)}
-                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-all"
+                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-all flex-shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -123,7 +125,7 @@ const CompletedOrders = ({ completedOrders }) => {
                         <a
                           href={getFullImageUrl(selectedOrder.original_chitti)}
                           target="_blank"
-                          download={`original_chitti_${selectedOrder.id}.jpg`}
+                          download={`original_chitti_${selectedOrder.id}.${selectedOrder.original_chitti.split('.').pop()}`}
                           rel="noreferrer"
                           className="text-kirana-600 hover:underline font-extrabold flex items-center space-x-0.5"
                         >
@@ -134,7 +136,8 @@ const CompletedOrders = ({ completedOrders }) => {
                       <img
                         src={getFullImageUrl(selectedOrder.original_chitti)}
                         alt="Original Chitti"
-                        className="max-h-36 w-full object-contain rounded border border-slate-200 bg-slate-50 p-1"
+                        className="max-h-36 w-full object-contain rounded border border-slate-200 bg-slate-50 p-1 cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setPreviewImage(getFullImageUrl(selectedOrder.original_chitti))}
                       />
                     </div>
                   )}
@@ -145,7 +148,7 @@ const CompletedOrders = ({ completedOrders }) => {
                         <a
                           href={getFullImageUrl(selectedOrder.modified_bill)}
                           target="_blank"
-                          download={`rewritten_bill_${selectedOrder.id}.jpg`}
+                          download={`rewritten_bill_${selectedOrder.id}.${selectedOrder.modified_bill.split('.').pop()}`}
                           rel="noreferrer"
                           className="text-kirana-600 hover:underline font-extrabold flex items-center space-x-0.5"
                         >
@@ -156,7 +159,8 @@ const CompletedOrders = ({ completedOrders }) => {
                       <img
                         src={getFullImageUrl(selectedOrder.modified_bill)}
                         alt="Rewritten Bill"
-                        className="max-h-36 w-full object-contain rounded border border-slate-200 bg-slate-50 p-1"
+                        className="max-h-36 w-full object-contain rounded border border-slate-200 bg-slate-50 p-1 cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setPreviewImage(getFullImageUrl(selectedOrder.modified_bill))}
                       />
                     </div>
                   )}
@@ -175,6 +179,13 @@ const CompletedOrders = ({ completedOrders }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {previewImage && (
+        <ImageModal
+          imageUrl={previewImage}
+          onClose={() => setPreviewImage(null)}
+        />
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ChevronLeft, ArrowRight, Eye, FileText, CheckCircle2, XCircle, AlertCircle, Upload, QrCode, ThumbsUp, ThumbsDown, RefreshCcw } from 'lucide-react';
+import ImageModal from '../../components/common/ImageModal';
 
 const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState }) => {
   const { token, apiUrl } = useAuth();
@@ -16,6 +17,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const [error, setError] = useState('');
   const [revisionNotes, setRevisionNotes] = useState('');
   const [revisionTags, setRevisionTags] = useState([]);
+  const [previewImage, setPreviewImage] = useState(null);
 
   // Handle proof screenshot upload
   const handleProofChange = (e) => {
@@ -283,7 +285,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                         </span>
                         <a
                           href={getFullImageUrl(order.original_chitti)}
-                          download={`original_chitti_${order.id}.jpg`}
+                          download={`original_chitti_${order.id}.${order.original_chitti.split('.').pop()}`}
                           target="_blank"
                           rel="noreferrer"
                           className="text-[10px] font-bold text-kirana-600 hover:underline flex items-center space-x-1"
@@ -297,7 +299,8 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                       <img
                         src={getFullImageUrl(order.original_chitti)}
                         alt="Original Chitti"
-                        className="w-full h-full object-contain hover:scale-110 transition-transform cursor-zoom-in"
+                        className="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setPreviewImage(getFullImageUrl(order.original_chitti))}
                       />
                     </div>
                   </div>
@@ -312,7 +315,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                       </span>
                       <a
                         href={getFullImageUrl(order.modified_bill)}
-                        download={`rewritten_bill_${order.id}.jpg`}
+                        download={`rewritten_bill_${order.id}.${order.modified_bill.split('.').pop()}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-[10px] font-bold text-kirana-600 hover:underline flex items-center space-x-1"
@@ -326,7 +329,8 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                     <img
                       src={getFullImageUrl(order.modified_bill)}
                       alt="Modified Bill Chitti"
-                      className="w-full h-full object-contain hover:scale-110 transition-transform cursor-zoom-in"
+                      className="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => setPreviewImage(getFullImageUrl(order.modified_bill))}
                     />
                   </div>
                 </div>
@@ -622,7 +626,8 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                     <img
                       src={paymentProofPreview}
                       alt="Receipt Preview"
-                      className="max-h-32 rounded-xl mt-2 border border-slate-200 object-contain mx-auto"
+                      className="max-h-32 rounded-xl mt-2 border border-slate-200 object-contain mx-auto cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => setPreviewImage(paymentProofPreview)}
                     />
                   )}
                 </div>
@@ -650,6 +655,13 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
         )}
 
       </div>
+
+      {previewImage && (
+        <ImageModal
+          imageUrl={previewImage}
+          onClose={() => setPreviewImage(null)}
+        />
+      )}
     </div>
   );
 };
