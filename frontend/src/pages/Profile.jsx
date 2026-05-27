@@ -4,7 +4,7 @@ import { useSocket } from '../context/SocketContext';
 import { User, Mail, Phone, ShoppingBag, ShieldAlert, Award, Star, History, Clock, Bell, Volume2, MessageSquare, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const Profile = () => {
-  const { user, extraData, refreshProfile } = useAuth();
+  const { user, extraData, refreshProfile, apiUrl } = useAuth();
   const { playSoundAlert } = useSocket();
 
   // Notification Preferences state
@@ -47,8 +47,7 @@ const Profile = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
-      await fetch(`${SOCKET_URL}/api/auth/profile/settings`, {
+      await fetch(`${apiUrl}/auth/profile/settings`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -72,8 +71,7 @@ const Profile = () => {
     setWhatsappSuccess('');
     try {
       const token = localStorage.getItem('token');
-      const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
-      const response = await fetch(`${SOCKET_URL}/api/auth/profile/whatsapp/send-otp`, {
+      const response = await fetch(`${apiUrl}/auth/profile/whatsapp/send-otp`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -107,8 +105,7 @@ const Profile = () => {
     setWhatsappSuccess('');
     try {
       const token = localStorage.getItem('token');
-      const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
-      const response = await fetch(`${SOCKET_URL}/api/auth/profile/whatsapp/verify-otp`, {
+      const response = await fetch(`${apiUrl}/auth/profile/whatsapp/verify-otp`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

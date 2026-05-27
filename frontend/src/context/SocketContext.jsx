@@ -55,7 +55,7 @@ export const playSoundAlert = (type = 'success') => {
 };
 
 export const SocketProvider = ({ children }) => {
-  const { user, token, extraData, refreshProfile } = useAuth();
+  const { user, token, extraData, refreshProfile, apiUrl } = useAuth();
   const [socket, setSocket] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -75,7 +75,7 @@ export const SocketProvider = ({ children }) => {
     if (!token) return;
     const fetchNotifications = async () => {
       try {
-        const response = await fetch(`${SOCKET_URL}/api/notifications`, {
+        const response = await fetch(`${apiUrl}/notifications`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
@@ -167,7 +167,7 @@ export const SocketProvider = ({ children }) => {
       setUnreadCount(0);
       setNotifications(prev => prev.map(n => ({ ...n, read_status: true })));
       if (token) {
-        await fetch(`${SOCKET_URL}/api/notifications/mark-read`, {
+        await fetch(`${apiUrl}/notifications/mark-read`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -185,7 +185,7 @@ export const SocketProvider = ({ children }) => {
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_status: true } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
       if (token) {
-        await fetch(`${SOCKET_URL}/api/notifications/mark-read`, {
+        await fetch(`${apiUrl}/notifications/mark-read`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -204,7 +204,7 @@ export const SocketProvider = ({ children }) => {
       setNotifications([]);
       setUnreadCount(0);
       if (token) {
-        await fetch(`${SOCKET_URL}/api/notifications/clear`, {
+        await fetch(`${apiUrl}/notifications/clear`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
