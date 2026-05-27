@@ -162,6 +162,6 @@ FROM users WHERE email = 'suresh@kirana.com'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, rating, active_orders, waiting_time, availability_status, discounts, verified, verification_status, verified_by_admin, verified_by_seller, verification_date, upi_id, shop_category)
-SELECT id, 'Anil Kirana & Sweets Store', '78, Commercial Street, Tasker Town, Bengaluru, Karnataka 560001', 12.9812, 77.5982, 3.8, 0, 0, 'Offline', 'No discounts', false, 'Offline', false, false, NULL, 'anil@upi', 'Snacks & Sweets'
+SELECT id, 'Anil Kirana & Sweets Store', '78, Commercial Street, Tasker Town, Bengaluru, Karnataka 560001', 12.9812, 77.5982, 3.8, 0, 0, 'Offline', 'No discounts', false, 'Pending', false, false, NULL, 'anil@upi', 'Snacks & Sweets'
 FROM users WHERE email = 'anil@kirana.com'
 ON CONFLICT DO NOTHING;
