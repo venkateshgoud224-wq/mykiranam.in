@@ -220,6 +220,11 @@ const mockQuery = async (text, params = []) => {
         const user = mockDb.users.find(u => u.phone === phone);
         return { rows: user ? [user] : [] };
       }
+      if (normalizedText.includes('where whatsapp_number =')) {
+        const whatsappNumber = params[0];
+        const user = mockDb.users.find(u => u.whatsapp_number === whatsappNumber && u.verified_whatsapp === true);
+        return { rows: user ? [user] : [] };
+      }
       if (normalizedText.includes('where id =')) {
         const id = params[0];
         const user = mockDb.users.find(u => Number(u.id) === Number(id));
