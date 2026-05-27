@@ -145,7 +145,7 @@ jobs:
           fi
 
           echo "🌐 Fixing Nginx Proxy Port and Reloading..."
-          sudo sed -i 's/5001/5000/g' /etc/nginx/conf.d/kiranam.conf || true
+          sudo sed -i 's/5000/5001/g' /etc/nginx/conf.d/kiranam.conf || true
           sudo nginx -t && sudo systemctl reload nginx
 
           echo "✅ Deployment complete!"
