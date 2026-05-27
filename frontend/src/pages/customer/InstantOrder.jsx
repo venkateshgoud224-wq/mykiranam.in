@@ -140,7 +140,7 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
   }
 
   return (
-    <div className="max-w-md mx-auto bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-premium pb-20">
+    <div className="w-full bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-premium pb-20">
       {/* Premium Banner Header */}
       <div className="w-full h-40 relative bg-gradient-to-br from-amber-500 to-orange-600">
         {bannerUrl ? (

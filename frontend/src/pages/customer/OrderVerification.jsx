@@ -15,6 +15,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [revisionNotes, setRevisionNotes] = useState('');
+  const [revisionTags, setRevisionTags] = useState([]);
 
   // Handle proof screenshot upload
   const handleProofChange = (e) => {
@@ -157,7 +158,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const { orig: originalItems, mod: modifiedItems } = getDigitalLists();
 
   return (
-    <div className="max-w-4xl mx-auto bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-premium pb-20 md:pb-6">
+    <div className="w-full bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-premium pb-20 md:pb-6">
       
       {/* Header bar */}
       <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center space-x-2">
@@ -347,7 +348,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
 
               {/* Hybrid Review Action Layout */}
               <div className="flex flex-wrap justify-end gap-2 w-full sm:w-auto">
-                {isDigital && order.order_status !== 'Ready For Pickup' && (
+                {order.order_status !== 'Ready For Pickup' && (
                   <>
                     <button
                       onClick={handleRejectModifications}
@@ -382,46 +383,157 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
         )}
 
         {/* --- REQUEST CHANGES INTERFACE --- */}
-        {viewState === 'request_changes' && (
-          <div className="max-w-md mx-auto space-y-5 animate-fadeIn">
-            <div className="text-center space-y-2">
-              <span className="text-2xl">📝</span>
-              <h3 className="text-base font-extrabold text-slate-900">Request Bill Changes</h3>
-              <p className="text-xs text-slate-500">State clearly what edits you want. The seller will get an alert and update the pricing sheets.</p>
+        {viewState === 'request_changes' && (() => {
+          // Parse current revision history to check limits
+          let currentRevisionCount = 0;
+          if (order.item_change_history) {
+            try {
+              const hist = typeof order.item_change_history === 'string'
+                ? JSON.parse(order.item_change_history)
+                : order.item_change_history;
+              currentRevisionCount = hist.revision_count || 0;
+            } catch (e) {
+              currentRevisionCount = 1;
+            }
+          }
+
+          if (currentRevisionCount >= 2) {
+            return (
+              <div className="max-w-md mx-auto space-y-4 animate-fadeIn bg-red-50 p-6 rounded-3xl border border-red-100 text-center">
+                <span className="text-3xl block mb-2">🛑</span>
+                <h3 className="text-base font-extrabold text-red-900">Maximum Revisions Reached</h3>
+                <p className="text-xs text-red-700 mb-4">
+                  You have already requested revisions 2 times. To prevent endless looping, you can no longer request changes for this order.
+                </p>
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setViewState('review')}
+                    className="flex-1 py-3 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-950 transition-all"
+                  >
+                    Go Back & Pay
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRejectModifications}
+                    className="flex-1 py-3 text-xs font-bold rounded-xl bg-white border border-red-200 text-red-700 hover:bg-red-100 transition-all"
+                  >
+                    Cancel Order
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="max-w-md mx-auto space-y-5 animate-fadeIn">
+              <div className="text-center space-y-2">
+                <span className="text-2xl">📝</span>
+                <h3 className="text-base font-extrabold text-slate-900">Request Bill Changes</h3>
+                <p className="text-xs text-slate-500">
+                  Select the type of change and state clearly what edits you want. The seller will get an alert and update the pricing sheets.
+                  <strong className="block mt-1 text-kirana-600">Revisions left: {2 - currentRevisionCount}</strong>
+                </p>
+              </div>
+
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (!revisionNotes.trim()) {
+                  setError('Please specify the changes you would like the shop to make.');
+                  return;
+                }
+
+                setLoading(true);
+                setError('');
+
+                fetch(`${apiUrl}/orders/${order.id}/status`, {
+                  method: 'PATCH',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({
+                    status: 'Waiting For Seller',
+                    reason: revisionNotes,
+                    item_change_history: {
+                      tags: revisionTags || [],
+                      requested_changes: revisionNotes,
+                      revision_count: currentRevisionCount + 1,
+                      timestamp: new Date()
+                    }
+                  })
+                }).then(async (response) => {
+                  if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Failed to submit change request.');
+                  }
+                  onVerifySuccess();
+                }).catch(err => {
+                  setError(err.message || 'Error submitting request.');
+                  setLoading(false);
+                });
+              }} className="space-y-4">
+                
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700">What do you want the seller to do?</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['🗑️ Remove Item', '➕ Add Item', '🔄 Replace Item', '💰 Reduce Price', '❓ Other'].map(tag => {
+                      const isSelected = (revisionTags || []).includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            const currentTags = revisionTags || [];
+                            setRevisionTags(
+                              isSelected ? currentTags.filter(t => t !== tag) : [...currentTags, tag]
+                            );
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${
+                            isSelected 
+                              ? 'bg-blue-100 text-blue-800 border-blue-300 shadow-sm' 
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Detailed Instructions</label>
+                  <textarea
+                    required
+                    placeholder="e.g. Please remove the fortune sunflower oil. Also add 2 packets of Maggie if available."
+                    value={revisionNotes}
+                    onChange={(e) => setRevisionNotes(e.target.value)}
+                    rows={4}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none placeholder-slate-400"
+                  />
+                </div>
+
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setViewState('review')}
+                    className="flex-1 py-3 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 py-3 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-950 shadow-md transition-all"
+                  >
+                    {loading ? 'Submitting request...' : 'Send Request to Shop'}
+                  </button>
+                </div>
+              </form>
             </div>
-
-            <form onSubmit={handleRequestRevision} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Modifications instructions</label>
-                <textarea
-                  required
-                  placeholder="e.g. Please put 1kg sugar only available, and replace fortune sunflower oil with Saffola oil. Also add 2 packets of Maggie if available."
-                  value={revisionNotes}
-                  onChange={(e) => setRevisionNotes(e.target.value)}
-                  rows={4}
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none placeholder-slate-400"
-                />
-              </div>
-
-              <div className="flex space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setViewState('review')}
-                  className="flex-1 py-3 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 py-3 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-950 shadow-md transition-all"
-                >
-                  {loading ? 'Submitting request...' : 'Send Request to Shop'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+          );
+        })()}
 
         {/* --- CONFIRM & PAYMENT MODE --- */}
         {viewState === 'pay' && (

@@ -390,7 +390,17 @@ const updateShopBanner = async (req, res) => {
       [bannerUrl, shop.id]
     );
 
-    return res.status(200).json(result.rows[0]);
+    const updatedShop = result.rows[0];
+
+    socketService.emitShopStatus(
+      updatedShop.id,
+      updatedShop.availability_status,
+      updatedShop.active_orders,
+      updatedShop.waiting_time,
+      updatedShop.image_banner
+    );
+
+    return res.status(200).json(updatedShop);
   } catch (err) {
     console.error('Error updating shop banner settings:', err);
     return res.status(500).json({ error: 'Server error updating banner configurations.' });

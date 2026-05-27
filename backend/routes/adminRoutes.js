@@ -22,11 +22,4 @@ router.get('/sellers', adminController.getSellersList);
 // Modify shop status (Verify, Reject, Suspend)
 router.patch('/sellers/:id/verify', adminController.updateVerificationStatus);
 
-// --- SIMULATION ENDPOINTS ---
-router.get('/simulate', adminController.getSimulationStatus);
-router.post('/simulate/toggle', adminController.toggleSimulation);
-router.post('/simulate/peak', adminController.triggerPeakTraffic);
-router.post('/simulate/clear', adminController.clearActiveQueues);
-router.post('/simulate/step', adminController.stepSimulation);
-
 module.exports = router;

@@ -281,9 +281,9 @@ const updateOrderStatus = async (req, res) => {
       
       const isAwaitingVerification = ['Bill Uploaded', 'Waiting For Customer Confirmation'].includes(order.order_status);
       
-      // Awaiting customer verification: customer can approve (Packing Started), reject (Cancelled), or request changes (Waiting For Seller)
+      // Awaiting customer verification: customer can reject (Cancelled), or request changes (Waiting For Seller)
       if (isAwaitingVerification) {
-        const allowedDigitalActions = ['Packing Started', 'Cancelled', 'Waiting For Seller'];
+        const allowedDigitalActions = ['Cancelled', 'Waiting For Seller'];
         if (!allowedDigitalActions.includes(status)) {
           return res.status(400).json({ error: `Invalid action '${status}' during verification.` });
         }
@@ -632,11 +632,11 @@ const confirmOrder = async (req, res) => {
 
     const originalStatus = order.order_status;
 
-    // Transition status to Confirmed (Seller must perform final delivered confirmation)
+    // Transition status to Packing Started (Skipping Confirmed to streamline flow)
     const result = await db.query(
       `UPDATE orders 
-       SET order_status = 'Confirmed', payment_method = $1, payment_status = $2, 
-           payment_proof_image = $3, confirmed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+       SET order_status = 'Packing Started', payment_method = $1, payment_status = $2, 
+           payment_proof_image = $3, confirmed_at = CURRENT_TIMESTAMP, packing_started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
        WHERE id = $4 
        RETURNING *`,
       [payment_method, paymentStatus, proofUrl, id]

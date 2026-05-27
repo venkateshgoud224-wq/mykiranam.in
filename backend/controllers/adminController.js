@@ -1,7 +1,5 @@
 const db = require('../config/db');
 const socketService = require('../services/socketService');
-const simulationService = require('../services/simulationService'); // Require simulation service
-
 // 1. Get list of all shops/sellers for admin audits
 const getSellersList = async (req, res) => {
   try {
@@ -86,46 +84,7 @@ const updateVerificationStatus = async (req, res) => {
   }
 };
 
-// --- SIMULATION CONTROL ENDPOINTS ---
-
-const getSimulationStatus = async (req, res) => {
-  return res.status(200).json({
-    running: simulationService.getIsRunning(),
-    logs: simulationService.getLogs()
-  });
-};
-
-const toggleSimulation = async (req, res) => {
-  const { action } = req.body; // start | stop
-  if (action === 'start') {
-    simulationService.startSimulation();
-  } else {
-    simulationService.stopSimulation();
-  }
-  return res.status(200).json({ running: simulationService.getIsRunning() });
-};
-
-const triggerPeakTraffic = async (req, res) => {
-  await simulationService.simulatePeakTraffic();
-  return res.status(200).json({ success: true, message: 'Peak traffic load started.' });
-};
-
-const clearActiveQueues = async (req, res) => {
-  await simulationService.clearAllQueues();
-  return res.status(200).json({ success: true, message: 'Active queues successfully flushed.' });
-};
-
-const stepSimulation = async (req, res) => {
-  simulationService.stepSimulation();
-  return res.status(200).json({ success: true, logs: simulationService.getLogs() });
-};
-
 module.exports = {
   getSellersList,
-  updateVerificationStatus,
-  getSimulationStatus,
-  toggleSimulation,
-  triggerPeakTraffic,
-  clearActiveQueues,
-  stepSimulation
+  updateVerificationStatus
 };

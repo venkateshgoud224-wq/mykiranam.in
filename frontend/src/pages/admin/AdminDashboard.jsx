@@ -8,8 +8,7 @@ const AdminDashboard = () => {
   const { playSoundAlert } = useSocket();
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState('review'); // review | verified | logs | simulation
-  
+  const [activeSubTab, setActiveSubTab] = useState('review'); // review | verified | logs  
   // Modal states
   const [selectedSeller, setSelectedSeller] = useState(null);
   const [notes, setNotes] = useState('');
@@ -17,11 +16,6 @@ const AdminDashboard = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
 
-  // Simulation states
-  const [simRunning, setSimRunning] = useState(true);
-  const [simLogs, setSimLogs] = useState([]);
-  const [simLoading, setSimLoading] = useState(false);
-  const logsEndRef = useRef(null);
 
   const fetchSellers = async () => {
     try {
@@ -42,40 +36,16 @@ const AdminDashboard = () => {
     }
   };
 
-  const fetchSimulationState = async () => {
-    try {
-      const response = await fetch(`${apiUrl}/admin/simulate`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setSimRunning(data.running);
-        setSimLogs(data.logs);
-      }
-    } catch (err) {
-      console.error('Error fetching simulation logs:', err);
-    }
-  };
-
   useEffect(() => {
     fetchSellers();
-    fetchSimulationState();
 
-    // Set up polling for simulation logs every 3 seconds while on dashboard
+    // Set up polling every 3 seconds while on dashboard
     const interval = setInterval(() => {
-      fetchSimulationState();
       fetchSellers(); // Refresh store metrics live too!
     }, 3000);
 
     return () => clearInterval(interval);
   }, []);
-
-  // Auto-scroll terminal log
-  useEffect(() => {
-    if (logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [simLogs]);
 
   const handleVerifyStatus = async (sellerId, newStatus) => {
     setActionLoading(true);
@@ -107,85 +77,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // Simulation handlers
-  const handleToggleSimulation = async (action) => {
-    setSimLoading(true);
-    try {
-      const response = await fetch(`${apiUrl}/admin/simulate/toggle`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ action })
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setSimRunning(data.running);
-        playSoundAlert('success');
-        fetchSimulationState();
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSimLoading(false);
-    }
-  };
-
-  const handleTriggerPeak = async () => {
-    setSimLoading(true);
-    try {
-      const response = await fetch(`${apiUrl}/admin/simulate/peak`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        playSoundAlert('success');
-        fetchSimulationState();
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSimLoading(false);
-    }
-  };
-
-  const handleClearQueues = async () => {
-    if (!window.confirm('This will clear all active orders and reset shop queue counts to 0. Proceed?')) return;
-    setSimLoading(true);
-    try {
-      const response = await fetch(`${apiUrl}/admin/simulate/clear`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        playSoundAlert('success');
-        fetchSimulationState();
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSimLoading(false);
-    }
-  };
-
-  const handleStepSimulation = async () => {
-    setSimLoading(true);
-    try {
-      const response = await fetch(`${apiUrl}/admin/simulate/step`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        playSoundAlert('success');
-        fetchSimulationState();
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSimLoading(false);
-    }
-  };
 
   const getFullImageUrl = (path) => {
     if (!path) return '';
@@ -202,7 +93,7 @@ const AdminDashboard = () => {
   const totalActiveQueues = sellers.reduce((sum, s) => sum + (s.active_orders || 0), 0);
 
   return (
-    <div className="space-y-6 pb-20 max-w-lg mx-auto md:max-w-4xl px-2">
+    <div className="space-y-6 pb-20 w-full">
       {/* Admin stats header banner */}
       <div className="grid grid-cols-3 gap-3 bg-slate-900 text-white p-5 rounded-3xl border border-slate-800 shadow-premium">
         <div>
@@ -246,15 +137,6 @@ const AdminDashboard = () => {
           <span className="hidden sm:inline">Verified Directory</span>
         </button>
 
-        <button
-          onClick={() => setActiveSubTab('simulation')}
-          className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
-            activeSubTab === 'simulation' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-755'
-          }`}
-        >
-          <Activity className="w-3.5 h-3.5 text-kirana-600 animate-pulse" />
-          <span>Simulator Console</span>
-        </button>
 
         <button
           onClick={() => setActiveSubTab('logs')}
@@ -268,7 +150,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Render applications lists */}
-      {loading && activeSubTab !== 'simulation' ? (
+      {loading ? (
         <div className="py-12 text-center text-xs font-bold text-slate-400 animate-pulse">
           Retrieving merchant applications directory...
         </div>
@@ -339,99 +221,6 @@ const AdminDashboard = () => {
               </div>
             ))
           )}
-        </div>
-      ) : activeSubTab === 'simulation' ? (
-        // --- BANGALORE REALTIME SIMULATION CONSOLE ---
-        <div className="space-y-6">
-          <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-premium space-y-5">
-            <h3 className="text-sm font-extrabold text-slate-800 flex items-center justify-between">
-              <span>Bangalore Simulator Control Center</span>
-              
-              {/* Pulsing Status indicator */}
-              <div className="flex items-center space-x-1.5">
-                <span className={`h-2.5 w-2.5 rounded-full ${simRunning ? 'bg-accent-emerald animate-ping' : 'bg-crimson'}`} />
-                <span className="text-[11px] font-bold uppercase text-slate-500">
-                  {simRunning ? 'Active simulation' : 'Paused'}
-                </span>
-              </div>
-            </h3>
-
-            {/* Simulated Action buttons */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {simRunning ? (
-                <button
-                  onClick={() => handleToggleSimulation('stop')}
-                  disabled={simLoading}
-                  className="p-3 bg-slate-900 text-white rounded-2xl flex flex-col items-center justify-center text-center transition-all hover:bg-slate-950 disabled:opacity-50"
-                >
-                  <Square className="w-5 h-5 mb-1.5 text-crimson" />
-                  <span className="text-[10px] font-extrabold">Pause Loop</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleToggleSimulation('start')}
-                  disabled={simLoading}
-                  className="p-3 bg-kirana-500 text-slate-950 rounded-2xl flex flex-col items-center justify-center text-center transition-all hover:bg-kirana-600 disabled:opacity-50"
-                >
-                  <Play className="w-5 h-5 mb-1.5 fill-slate-950 text-slate-950" />
-                  <span className="text-[10px] font-extrabold">Run Simulator</span>
-                </button>
-              )}
-
-              <button
-                onClick={handleTriggerPeak}
-                disabled={simLoading}
-                className="p-3 border border-slate-200 bg-slate-50 rounded-2xl flex flex-col items-center justify-center text-center transition-all hover:bg-slate-100 disabled:opacity-50"
-              >
-                <Activity className="w-5 h-5 mb-1.5 text-kirana-600" />
-                <span className="text-[10px] font-extrabold">Simulate Peak Hour</span>
-              </button>
-
-              <button
-                onClick={handleStepSimulation}
-                disabled={simLoading}
-                className="p-3 border border-slate-200 bg-slate-50 rounded-2xl flex flex-col items-center justify-center text-center transition-all hover:bg-slate-100 disabled:opacity-50"
-              >
-                <Play className="w-5 h-5 mb-1.5 text-blue-500" />
-                <span className="text-[10px] font-extrabold">Advance Queue</span>
-              </button>
-
-              <button
-                onClick={handleClearQueues}
-                disabled={simLoading}
-                className="p-3 border border-crimson/20 bg-crimson/5 hover:bg-crimson/10 rounded-2xl flex flex-col items-center justify-center text-center transition-all disabled:opacity-50"
-              >
-                <RefreshCcw className="w-5 h-5 mb-1.5 text-crimson" />
-                <span className="text-[10px] font-extrabold text-crimson">Flush All Load</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Terminal log panel */}
-          <div className="bg-slate-950 border border-slate-800 rounded-3xl p-5 shadow-2xl relative">
-            <span className="absolute top-3.5 right-4 text-[9px] uppercase tracking-wider font-extrabold text-slate-500">Live Console Feed</span>
-            <h4 className="text-xs font-bold text-slate-400 mb-3 flex items-center space-x-1.5 select-none">
-              <span className="h-1.5 w-1.5 rounded-full bg-kirana-500 animate-ping" />
-              <span>Simulation logs directory</span>
-            </h4>
-
-            {/* Logs scrolling panel */}
-            <div className="h-64 overflow-y-auto font-mono text-[10px] text-slate-300 space-y-2.5 text-left border-t border-slate-900 pt-3">
-              {simLogs.length === 0 ? (
-                <p className="text-slate-500 italic">No activity logs recorded yet. Toggling running states or placing mock customer orders initiates records.</p>
-              ) : (
-                simLogs.map((log) => (
-                  <div key={log.id} className="flex items-start space-x-2 border-b border-slate-900/50 pb-1.5">
-                    <span className="text-slate-500 flex-shrink-0 select-none">[{log.time}]</span>
-                    <span className="break-words leading-relaxed text-kirana-200">
-                      {log.message}
-                    </span>
-                  </div>
-                ))
-              )}
-              <div ref={logsEndRef} />
-            </div>
-          </div>
         </div>
       ) : (
         // Rejected / Suspended Logs

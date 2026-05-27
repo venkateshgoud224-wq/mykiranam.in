@@ -204,89 +204,7 @@ const sendSignupEmail = async (userEmail, userName) => {
   });
 };
 
-const sendOrderPlacedEmail = async (userEmail, orderId, shopName) => {
-  return sendMail({
-    to: userEmail,
-    subject: `Order #${orderId} Placed successfully`,
-    title: 'Order Received!',
-    textFallback: `Your order #${orderId} has been successfully placed at ${shopName}. We will notify you once the seller reviews your grocery chitti and uploads the bill.`,
-    htmlContent: `
-      <p>We have successfully sent your order request to <strong>${shopName}</strong>.</p>
-      <p>Here are your order details:</p>
-      <div class="content-box">
-        <strong>Order Information:</strong><br>
-        • Order ID: <strong>#${orderId}</strong><br>
-        • Store Name: <strong>${shopName}</strong><br>
-        • Status: <strong>Waiting For Seller Review</strong>
-      </div>
-      <p>What happens next? The merchant will calculate current item weights, update pricing, and upload a modified bill detailing what's in stock. We'll send you an alert the second it's ready.</p>
-      <center>
-        <a href="http://localhost:5173/orders" class="btn">Track Your Order</a>
-      </center>
-    `
-  });
-};
 
-const sendBillUploadedEmail = async (userEmail, orderId, amount, shopName) => {
-  return sendMail({
-    to: userEmail,
-    subject: `Review Bill for Order #${orderId}`,
-    title: 'New Bill Uploaded',
-    textFallback: `The seller at ${shopName} has uploaded the digital bill for Order #${orderId}. Total amount is ₹${amount}. Please review and confirm your order.`,
-    htmlContent: `
-      <p><strong>${shopName}</strong> has processed your order <strong>#${orderId}</strong> and uploaded the bill details.</p>
-      <div class="content-box">
-        <strong>Bill Calculation:</strong><br>
-        • Order ID: <strong>#${orderId}</strong><br>
-        • Total Amount: <strong style="color: ${THEME_COLOR}; font-size: 18px;">₹${amount}</strong><br>
-        • Action Required: <strong>Confirm and Choose Payment Mode</strong>
-      </div>
-      <p>Please log in to your dashboard to review the list of available items, weight corrections, and finalize your pickup preference.</p>
-      <center>
-        <a href="http://localhost:5173/orders" class="btn">Review and Confirm Bill</a>
-      </center>
-    `
-  });
-};
-
-const sendOrderConfirmedEmail = async (userEmail, orderId, shopName) => {
-  return sendMail({
-    to: userEmail,
-    subject: `Order #${orderId} Confirmed`,
-    title: 'Order Confirmed!',
-    textFallback: `Your order #${orderId} at ${shopName} has been confirmed. The store is now packing your items.`,
-    htmlContent: `
-      <p>Great news! Your payment/confirmation has been received for order <strong>#${orderId}</strong> at <strong>${shopName}</strong>.</p>
-      <div class="content-box">
-        <strong>Status: Confirmed & Packing</strong><br>
-        The seller has added your order to their active packing queue and is wrapping your grocery items.
-      </div>
-      <p>You will receive an update as soon as the merchant finishes bagging and tags your order as ready for pickup.</p>
-    `
-  });
-};
-
-const sendPickupReadyEmail = async (userEmail, orderId, shopName) => {
-  return sendMail({
-    to: userEmail,
-    subject: `Order #${orderId} Ready for Pickup!`,
-    title: 'Bag Ready for Pickup! 🎒',
-    textFallback: `Your order #${orderId} at ${shopName} is fully packed and ready for pickup. Please head to the store now.`,
-    htmlContent: `
-      <p>Your grocery bag is packed and waiting for you at <strong>${shopName}</strong>!</p>
-      <div class="content-box" style="background-color: #ecfdf5; border-left-color: #10b981;">
-        <strong>Pickup Instructions:</strong><br>
-        • Order ID: <strong>#${orderId}</strong><br>
-        • Location: <strong>${shopName}</strong><br>
-        • Status: <strong style="color: #10b981;">Ready For Pickup</strong>
-      </div>
-      <p>Please present your Order ID at the counter to retrieve your items instantly, skipping any checkout lines. Thank you for using Kiranam.in!</p>
-      <center>
-        <a href="http://localhost:5173/orders" class="btn">Show Pickup QR / Code</a>
-      </center>
-    `
-  });
-};
 
 const sendAccountVerificationEmail = async (userEmail, token) => {
   return sendMail({
@@ -340,26 +258,7 @@ const sendOrderTransactionEmails = async (order, customer, shop, seller, origina
 
   switch (status) {
     case 'Waiting For Seller':
-      if (originalStatus === 'Bill Uploaded' || originalStatus === 'Waiting For Customer Confirmation') {
-        sellerSubject = `Revision Requested for Order #${orderId}`;
-        sellerTitle = `Revision Requested`;
-        sellerText = `Customer ${customer.name} requested modifications for Order #${orderId}.`;
-        sellerHtml = `
-          <p>Namaskaram <strong>${seller.name}</strong>,</p>
-          <p>Customer <strong>${customer.name}</strong> has requested revision/modifications for order <strong>#${orderId}</strong>.</p>
-          <div class="content-box">
-            <strong>Order Details:</strong><br>
-            • Order ID: <strong>#${orderId}</strong><br>
-            • Customer Name: <strong>${customer.name}</strong><br>
-            • Customer Requested Updates: <em>${notesStr}</em><br>
-            • Status: <strong>Revision Requested</strong>
-          </div>
-          <p>Please log in to your merchant dashboard to adjust the grocery items and update the bill.</p>
-          <center>
-            <a href="http://localhost:5173/seller/dashboard" class="btn">Review Modifications</a>
-          </center>
-        `;
-      } else {
+      if (originalStatus !== 'Bill Uploaded' && originalStatus !== 'Waiting For Customer Confirmation') {
         sellerSubject = `New Order #${orderId} Received!`;
         sellerTitle = `New Order Received`;
         sellerText = `New order #${orderId} received from customer ${customer.name}.`;
@@ -404,29 +303,6 @@ const sendOrderTransactionEmails = async (order, customer, shop, seller, origina
       `;
       break;
 
-    case 'Confirmed':
-      sellerSubject = `Order #${orderId} Confirmed & Paid`;
-      sellerTitle = `Bill Paid`;
-      sellerText = `Customer ${customer.name} confirmed and paid for Order #${orderId}.`;
-      sellerHtml = `
-        <p>Namaskaram <strong>${seller.name}</strong>,</p>
-        <p>Customer <strong>${customer.name}</strong> has confirmed and paid for order <strong>#${orderId}</strong>.</p>
-        <div class="content-box">
-          <strong>Confirmation Details:</strong><br>
-          • Order ID: <strong>#${orderId}</strong><br>
-          • Customer Name: <strong>${customer.name}</strong><br>
-          • Total Amount: <strong>${amountStr}</strong><br>
-          • Payment Method: <strong>${order.payment_method || 'Selected'}</strong><br>
-          • Payment Status: <strong>${order.payment_status || 'Paid'}</strong><br>
-          • Status: <strong>Confirmed - Ready for Packing</strong>
-        </div>
-        <p>Please proceed to pack the groceries and mark the order as "Ready for Pickup" when completed.</p>
-        <center>
-          <a href="http://localhost:5173/seller/dashboard" class="btn">View Order Dashboard</a>
-        </center>
-      `;
-      break;
-
 
 
     case 'Ready For Pickup':
@@ -447,62 +323,6 @@ const sendOrderTransactionEmails = async (order, customer, shop, seller, origina
         <center>
           <a href="http://localhost:5173/orders" class="btn">Show Pickup Details</a>
         </center>
-      `;
-      break;
-
-    case 'Delivered':
-      customerSubject = `Order #${orderId} Delivered! Thank you!`;
-      customerTitle = `Order Delivered!`;
-      customerText = `Your order #${orderId} has been successfully delivered. Thank you!`;
-      customerHtml = `
-        <p>Namaskaram <strong>${customer.name}</strong>,</p>
-        <p>Thank you for shopping at <strong>${shop.shop_name}</strong> through Kiranam.in! Your order <strong>#${orderId}</strong> has been successfully collected and marked as delivered.</p>
-        <div class="content-box" style="background-color: #f8fafc; border-left: 4px solid #64748b;">
-          <strong>Receipt Summary:</strong><br>
-          • Order ID: <strong>#${orderId}</strong><br>
-          • Store Name: <strong>${shop.shop_name}</strong><br>
-          • Paid Amount: <strong style="font-size: 16px;">${amountStr}</strong><br>
-          • Payment Status: <strong>Paid</strong><br>
-          • Date: <strong>${new Date().toLocaleDateString()}</strong>
-        </div>
-        <p>Skipping physical lines helps keep the community fast, structured, and efficient. We look forward to serving you again!</p>
-        <center>
-          <a href="http://localhost:5173" class="btn">Shop Again</a>
-        </center>
-      `;
-      break;
-
-    case 'Cancelled':
-      customerSubject = `Order #${orderId} Cancelled`;
-      customerTitle = `Order Cancelled`;
-      customerText = `Your order #${orderId} has been cancelled.`;
-      customerHtml = `
-        <p>Namaskaram <strong>${customer.name}</strong>,</p>
-        <p>Please note that your order <strong>#${orderId}</strong> at <strong>${shop.shop_name}</strong> has been cancelled.</p>
-        <div class="content-box" style="background-color: #fef2f2; border-left: 4px solid #ef4444;">
-          <strong>Cancellation Info:</strong><br>
-          • Order ID: <strong>#${orderId}</strong><br>
-          • Store Name: <strong>${shop.shop_name}</strong><br>
-          • Reason/Notes: <em>${notesStr}</em><br>
-          • Status: <strong style="color: #ef4444;">Cancelled</strong>
-        </div>
-        <p>If you have any questions, please reach out to the store.</p>
-      `;
-
-      sellerSubject = `Order #${orderId} Cancelled`;
-      sellerTitle = `Order Cancelled`;
-      sellerText = `Order #${orderId} has been cancelled.`;
-      sellerHtml = `
-        <p>Namaskaram <strong>${seller.name}</strong>,</p>
-        <p>Please note that order <strong>#${orderId}</strong> for customer <strong>${customer.name}</strong> has been cancelled.</p>
-        <div class="content-box" style="background-color: #fef2f2; border-left: 4px solid #ef4444;">
-          <strong>Cancellation Info:</strong><br>
-          • Order ID: <strong>#${orderId}</strong><br>
-          • Customer Name: <strong>${customer.name}</strong><br>
-          • Reason/Notes: <em>${notesStr}</em><br>
-          • Status: <strong style="color: #ef4444;">Cancelled</strong>
-        </div>
-        <p>This transaction has been closed and removed from your active packing queue.</p>
       `;
       break;
   }
@@ -538,10 +358,6 @@ const sendOrderTransactionEmails = async (order, customer, shop, seller, origina
 
 module.exports = {
   sendSignupEmail,
-  sendOrderPlacedEmail,
-  sendBillUploadedEmail,
-  sendOrderConfirmedEmail,
-  sendPickupReadyEmail,
   sendAccountVerificationEmail,
   sendPasswordResetEmail,
   sendOrderTransactionEmails,

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { FileSpreadsheet, Eye, Play, CheckCircle2, User, ChevronDown, PackageCheck, AlertCircle, Trash2, Send, Download, ListOrdered, Plus, Minus, FileText, ClipboardList } from 'lucide-react';
+import BillingForm from './BillingForm';
 
 const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
   const { token, apiUrl } = useAuth();
@@ -12,15 +13,6 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
 
   // Billing state for orders in 'Accepted' state
   const [billingOrderId, setBillingOrderId] = useState(null);
-  const [editableItems, setEditableItems] = useState([]);
-  const [billFile, setBillFile] = useState(null);
-  const [billPreview, setBillPreview] = useState(null);
-  const [amount, setAmount] = useState('');
-  const [billingNotes, setBillingNotes] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const units = ['KG', 'Gram', 'Litre', 'Packet', 'Piece', 'Dozen', 'Box'];
 
   const handleProgress = async (orderId, nextStatus) => {
     try {
@@ -33,165 +25,6 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
 
   const handleStartBilling = (order) => {
     setBillingOrderId(order.id);
-    setBillingNotes(order.notes || '');
-    setAmount(order.amount || '');
-    setBillFile(null);
-    setBillPreview(null);
-    setError('');
-    
-    if (order.order_type === 'digital') {
-      try {
-        const listToParse = order.modified_item_list || order.digital_item_list || '[]';
-        const parsed = typeof listToParse === 'string' ? JSON.parse(listToParse) : listToParse;
-        setEditableItems(
-          parsed.map(item => ({
-            ...item,
-            price: item.price !== undefined ? item.price : '',
-            notes: item.notes || '',
-            status: item.status || 'unchanged' // unchanged | modified | replaced | removed | added
-          }))
-        );
-      } catch (e) {
-        console.error(e);
-        setEditableItems([]);
-      }
-    }
-  };
-
-  const handleBillFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setBillFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setBillPreview(reader.result);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const calculateGrandTotal = () => {
-    return editableItems
-      .filter(item => item.status !== 'removed')
-      .reduce((sum, item) => {
-        const qty = parseFloat(item.quantity) || 0;
-        const pr = parseFloat(item.price) || 0;
-        return sum + (qty * pr);
-      }, 0)
-      .toFixed(2);
-  };
-
-  const handleUpdateItemField = (id, field, value) => {
-    setEditableItems(
-      editableItems.map(item => {
-        if (item.id === id) {
-          const updated = { ...item, [field]: value };
-          if (field === 'name' || field === 'quantity' || field === 'unit') {
-            if (updated.status === 'unchanged') {
-              updated.status = 'modified';
-            }
-          }
-          return updated;
-        }
-        return item;
-      })
-    );
-  };
-
-  const handleRemoveEditableItem = (id) => {
-    setEditableItems(
-      editableItems.map(item => {
-        if (item.id === id) {
-          return { ...item, status: 'removed' };
-        }
-        return item;
-      })
-    );
-  };
-
-  const handleAddEditableItem = () => {
-    const newItem = {
-      id: Date.now().toString(),
-      name: '',
-      quantity: 1,
-      unit: 'KG',
-      price: '',
-      notes: '',
-      status: 'added'
-    };
-    setEditableItems([...editableItems, newItem]);
-  };
-
-  const handleAcceptSubmit = async (e, order) => {
-    e.preventDefault();
-    const isDigital = order.order_type === 'digital';
-
-    if (!isDigital && !billFile && !order.modified_bill) {
-      setError('Please upload a photo of the rewritten bill.');
-      return;
-    }
-    
-    let totalAmt = amount;
-    if (isDigital) {
-      totalAmt = calculateGrandTotal();
-      if (parseFloat(totalAmt) <= 0) {
-        setError('Grand total must be greater than ₹0. Please enter item prices.');
-        return;
-      }
-    } else {
-      if (!totalAmt || isNaN(totalAmt) || parseFloat(totalAmt) <= 0) {
-        setError('Please input a valid total amount.');
-        return;
-      }
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      let response;
-      if (isDigital) {
-        response = await fetch(`${apiUrl}/orders/${order.id}/bill`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}` 
-          },
-          body: JSON.stringify({
-            amount: totalAmt,
-            notes: billingNotes,
-            modified_item_list: editableItems
-          })
-        });
-      } else {
-        const formData = new FormData();
-        formData.append('amount', totalAmt);
-        formData.append('notes', billingNotes);
-        formData.append('modified_bill', billFile);
-
-        response = await fetch(`${apiUrl}/orders/${order.id}/bill`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-          body: formData
-        });
-      }
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to upload bill.');
-      }
-      playSoundAlert('success');
-      setBillingOrderId(null);
-      setBillFile(null);
-      setBillPreview(null);
-      setEditableItems([]);
-      setAmount('');
-      setBillingNotes('');
-      // Trigger order list refresh
-      await onUpdateStatus(order.id, 'Bill Uploaded');
-    } catch (err) {
-      setError(err.message || 'Error uploading bill.');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const getFullImageUrl = (path) => {
@@ -214,8 +47,8 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
         <div className="space-y-4">
           {activeOrders.map((order, idx) => {
             const isAccepted = order.order_status === 'Accepted';
-            const showReadyForDelivery = ['Packing Started', 'Bill Uploaded', 'Waiting For Customer Confirmation'].includes(order.order_status);
-            const showDeliverOrder = ['Confirmed', 'Packing Completed'].includes(order.order_status);
+            const showReadyForDelivery = ['Packing Started', 'Confirmed'].includes(order.order_status);
+            const showDeliverOrder = ['Ready For Pickup'].includes(order.order_status);
             const isExpanded = expandedOrderId === order.id;
 
             return (
@@ -235,10 +68,26 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                     <p className="text-[10px] text-slate-400 mt-0.5">Order #{order.custom_order_id || order.id} • Tel: {order.customer_phone}</p>
                   </div>
 
-                  {/* Status Badge */}
-                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-extrabold border bg-slate-100 text-slate-700">
-                    {order.order_status}
-                  </span>
+                  <div className="flex flex-col items-end space-y-1.5">
+                    {/* Status Badge */}
+                    <span className="px-2.5 py-1 rounded-xl text-[10px] font-extrabold border bg-slate-100 text-slate-700">
+                      {order.order_status}
+                    </span>
+                    {/* Payment Status Badge */}
+                    {order.payment_method ? (
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${
+                        order.payment_method === 'Cash / Pay at Store' 
+                          ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}>
+                        {order.payment_method === 'Cash / Pay at Store' ? 'To Pay at Store' : `Paid: ${order.payment_method}`}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-50 text-slate-500 border border-slate-200">
+                        Payment Pending
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Queue flow action controls */}
@@ -252,12 +101,12 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                   </button>
 
                   <div className="flex items-center space-x-2 ml-auto">
-                    {['Accepted', 'Bill Uploaded', 'Waiting For Customer Confirmation', 'Confirmed', 'Packing Started', 'Packing Completed', 'Ready For Pickup'].includes(order.order_status) && billingOrderId !== order.id && (
+                    {['Bill Uploaded', 'Waiting For Customer Confirmation'].includes(order.order_status) && billingOrderId !== order.id && (
                       <button
                         onClick={() => handleStartBilling(order)}
                         className="px-4 py-2 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all"
                       >
-                        {order.amount ? 'Edit Bill & Invoice' : 'Prepare Bill & Invoice'}
+                        Edit Bill & Invoice
                       </button>
                     )}
 
@@ -271,11 +120,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                       </button>
                     )}
 
-                    {order.order_status === 'Ready For Pickup' && (
-                      <span className="text-xs bg-amber-50 text-amber-800 border border-amber-250 px-3 py-2 rounded-xl font-bold">
-                        Waiting for Customer Payment
-                      </span>
-                    )}
+
 
                     {showDeliverOrder && (
                       <button
@@ -303,192 +148,97 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
 
                 {/* Inline Billing Panel */}
                 {billingOrderId === order.id && (
-                  <div className="mt-4 p-4 border border-kirana-500/30 bg-kirana-50/20 rounded-2xl space-y-4 animate-fadeIn">
-                    <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                      <h4 className="text-sm font-extrabold text-slate-900">
-                        {order.order_type === 'digital' ? 'Price Digital Grocery Chitti' : 'Upload Rewritten Invoice Bill'}
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={() => setBillingOrderId(null)}
-                        className="text-xs font-bold text-slate-400 hover:text-slate-600"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-
-                    {order.item_change_history && (
-                      <div className="p-3.5 bg-blue-50 border border-blue-200/55 rounded-xl text-xs space-y-1">
-                        <span className="font-extrabold text-blue-900 block">📝 Customer Revision Request:</span>
-                        <p className="text-blue-955 italic font-semibold bg-white p-2.5 rounded-lg border border-blue-100">
-                          "{(() => {
-                            try {
-                              const hist = typeof order.item_change_history === 'string'
-                                ? JSON.parse(order.item_change_history)
-                                : order.item_change_history;
-                              return hist.requested_changes || order.item_change_history;
-                            } catch (e) {
-                              return order.item_change_history;
-                            }
-                          })()}"
-                        </p>
-                      </div>
-                    )}
-
-                    {error && <div className="text-crimson text-xs font-semibold">{error}</div>}
-
-                    <form onSubmit={(e) => handleAcceptSubmit(e, order)} className="space-y-4">
-                      {order.order_type === 'digital' ? (
-                        /* DIGITAL INVOICE EDITOR INLINE */
-                        <div className="space-y-3">
-                          <span className="block text-[10px] font-black text-slate-500 uppercase tracking-wide">
-                            Grocery Items Pricing Sheet
-                          </span>
-
-                          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                            {editableItems.map((item, idx) => {
-                              const isRemoved = item.status === 'removed';
-                              return (
-                                <div
-                                  key={item.id}
-                                  className={`p-3 bg-white rounded-xl border border-slate-150 space-y-2 relative transition-all ${
-                                    isRemoved ? 'opacity-40 line-through border-red-150 bg-red-50/10' : ''
-                                  }`}
-                                >
-                                  <div className="flex items-center space-x-2">
-                                    <input
-                                      type="text"
-                                      required={!isRemoved}
-                                      disabled={isRemoved}
-                                      placeholder="Product Name"
-                                      value={item.name}
-                                      onChange={(e) => handleUpdateItemField(item.id, 'name', e.target.value)}
-                                      className="flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-850"
-                                    />
-
-                                    {isRemoved ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleUpdateItemField(item.id, 'status', 'modified')}
-                                        className="p-1.5 hover:bg-slate-150 text-slate-500 rounded-lg text-[10px] font-bold"
-                                      >
-                                        Undo
-                                      </button>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveEditableItem(item.id)}
-                                        className="p-1.5 hover:bg-crimson/5 text-slate-400 hover:text-crimson rounded-lg"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
-                                  </div>
-
-                                  {!isRemoved && (
-                                    <div className="grid grid-cols-3 gap-2">
-                                      <input
-                                        type="number"
-                                        step="0.01"
-                                        required
-                                        placeholder="Qty"
-                                        value={item.quantity}
-                                        onChange={(e) => handleUpdateItemField(item.id, 'quantity', parseFloat(e.target.value) || 0)}
-                                        className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
-                                      />
-                                      <select
-                                        value={item.unit}
-                                        onChange={(e) => handleUpdateItemField(item.id, 'unit', e.target.value)}
-                                        className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                                      >
-                                        {units.map(u => (
-                                          <option key={u} value={u}>{u}</option>
-                                        ))}
-                                      </select>
-                                      <input
-                                        type="number"
-                                        step="0.01"
-                                        required
-                                        placeholder="₹ Price / unit"
-                                        value={item.price}
-                                        onChange={(e) => handleUpdateItemField(item.id, 'price', e.target.value)}
-                                        className="px-2 py-1.5 bg-slate-50 border-2 border-kirana-500/35 rounded-lg text-xs font-bold text-slate-900 focus:border-kirana-600 focus:outline-none"
-                                      />
-                                    </div>
-                                  )}
-
-                                  {!isRemoved && (
-                                    <div className="flex items-center space-x-2 text-[10px]">
-                                      <input
-                                        type="text"
-                                        placeholder="Replacement/Availability instructions (Optional)"
-                                        value={item.notes}
-                                        onChange={(e) => {
-                                          handleUpdateItemField(item.id, 'notes', e.target.value);
-                                          if (item.status === 'unchanged') {
-                                            handleUpdateItemField(item.id, 'status', 'modified');
-                                          }
-                                        }}
-                                        className="w-full px-2.5 py-1 bg-slate-50 border border-slate-150 rounded-lg placeholder-slate-400"
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={handleAddEditableItem}
-                            className="py-2 px-3 border border-dashed border-slate-300 hover:bg-white hover:border-slate-500 rounded-xl text-xs text-slate-600 font-bold flex items-center justify-center space-x-1 w-full"
-                          >
-                            <Plus className="w-4 h-4" />
-                            <span>Add New Item</span>
-                          </button>
-
-                          <div className="p-3 bg-kirana-500/10 border border-kirana-500/25 rounded-xl flex justify-between items-center text-xs">
-                            <span className="font-extrabold text-slate-800">Grand Total:</span>
-                            <span className="text-sm font-black text-slate-950">₹{calculateGrandTotal()}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        /* HANDWRITTEN BILL FILE UPLOAD INLINE */
-                        <>
-                          <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-700 block">Snap of rewritten chitti</label>
-                            <input type="file" accept="image/*" required={!order.modified_bill} onChange={handleBillFileChange} className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-slate-900 file:text-white file:cursor-pointer" />
-                            {billPreview ? (
-                              <img src={billPreview} alt="Preview" className="max-h-36 rounded-xl border border-slate-200 mt-2 object-contain mx-auto" />
-                            ) : order.modified_bill ? (
-                              <img src={getFullImageUrl(order.modified_bill)} alt="Existing Bill" className="max-h-36 rounded-xl border border-slate-200 mt-2 object-contain mx-auto" />
-                            ) : null}
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-700 block">Grand Total Amount (₹)</label>
-                            <input type="number" step="0.01" required value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs" placeholder="e.g. 450.50" />
-                          </div>
-                        </>
-                      )}
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-700 block">Invoice closing notes (Optional)</label>
-                        <textarea value={billingNotes} onChange={(e) => setBillingNotes(e.target.value)} rows={2} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs" placeholder="Pack details or substitutions..." />
-                      </div>
-
-                      <div className="flex space-x-2 pt-1">
-                        <button type="button" onClick={() => setBillingOrderId(null)} className="flex-1 py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-750">Cancel</button>
-                        <button type="submit" disabled={loading} className="flex-1 py-2 text-xs font-bold rounded-lg bg-kirana-500 text-slate-950 shadow-md">
-                          {loading ? 'Submitting...' : (order.order_type === 'digital' ? 'Send Invoice to Customer' : 'Send Invoice & Pack')}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
+                  <BillingForm 
+                    order={order}
+                    onCancel={() => setBillingOrderId(null)}
+                    onSuccess={() => {
+                      setBillingOrderId(null);
+                      onUpdateStatus(order.id, 'Bill Uploaded');
+                    }}
+                  />
                 )}
 
                 {/* Expanded details sheet */}
                 {isExpanded && (
                   <div className="mt-4 pt-4 border-t border-slate-55 bg-slate-50 p-4 rounded-2xl space-y-4 animate-fadeIn">
+                    
+                    {/* Mini Timeline for Seller */}
+                    <div className="mb-4">
+                      <span className="block text-[10px] text-slate-455 uppercase font-black tracking-wider mb-2">
+                        ⏳ Order Progress
+                      </span>
+                      <div className="flex items-center space-x-1 sm:space-x-2 text-[9px] font-bold">
+                        {['Waiting For Seller', 'Bill Uploaded', 'Packing Started', 'Ready For Pickup'].map((step, i, arr) => {
+                          let isActive = false;
+                          let isPast = false;
+                          
+                          // Determine states based on current order.order_status
+                          const currentIdx = arr.indexOf(order.order_status === 'Confirmed' ? 'Packing Started' : order.order_status);
+                          if (currentIdx === -1 && ['Delivered', 'Completed'].includes(order.order_status)) isPast = true;
+                          else if (i === currentIdx) isActive = true;
+                          else if (i < currentIdx) isPast = true;
+
+                          let colorClass = 'bg-slate-200 text-slate-400';
+                          if (isActive) colorClass = 'bg-kirana-500 text-slate-900 border border-kirana-600/20 shadow-sm';
+                          if (isPast) colorClass = 'bg-emerald-100 text-emerald-800';
+
+                          const displayNames = {
+                            'Waiting For Seller': '1. New Order',
+                            'Bill Uploaded': '2. Billed & Waiting',
+                            'Packing Started': '3. Paid & Packing',
+                            'Ready For Pickup': '4. Ready'
+                          };
+
+                          return (
+                            <React.Fragment key={step}>
+                              <div className={`px-2 py-1 rounded-lg transition-all ${colorClass}`}>
+                                {displayNames[step]}
+                              </div>
+                              {i < arr.length - 1 && (
+                                <div className={`flex-1 h-0.5 rounded-full ${isPast ? 'bg-emerald-200' : 'bg-slate-200'}`} />
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Customer requested changes log (Shared for Digital and Handwritten) */}
+                    {order.item_change_history && (() => {
+                      let histObj = {};
+                      try {
+                        histObj = typeof order.item_change_history === 'string'
+                          ? JSON.parse(order.item_change_history)
+                          : order.item_change_history;
+                      } catch (e) {
+                        histObj = { requested_changes: order.item_change_history };
+                      }
+                      
+                      const tags = histObj.tags || [];
+                      const text = histObj.requested_changes || order.item_change_history;
+
+                      return (
+                        <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl space-y-2 mb-4">
+                          <span className="font-extrabold text-blue-900 block mb-1 text-[10px] uppercase tracking-wider flex items-center space-x-1.5">
+                            <span className="text-sm">📝</span>
+                            <span>Customer Revision Request</span>
+                          </span>
+                          {tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                              {tags.map((tag, idx) => (
+                                <span key={idx} className="px-1.5 py-0.5 bg-white border border-blue-200 text-blue-800 rounded text-[9px] font-black shadow-sm">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <p className="text-blue-950 italic text-[11px] font-semibold bg-white p-2.5 rounded-lg border border-blue-100 shadow-sm">
+                            "{text}"
+                          </p>
+                        </div>
+                      );
+                    })()}
+
                     <div className={`grid grid-cols-1 ${order.order_type === 'digital' || (order.original_chitti && order.original_chitti !== 'digital') ? 'md:grid-cols-2' : ''} gap-4`}>
                       
                       {/* Left: Original Chitti (Handwritten OR Digital Checklist) */}
@@ -559,17 +309,6 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                             </div>
                           </div>
 
-                          {/* Customer requested changes log */}
-                          {order.item_change_history && (
-                            <div className="p-3.5 bg-blue-50 border border-blue-150 rounded-xl text-[10px]">
-                              <span className="font-bold text-blue-900 block mb-1">Customer Revision Requests:</span>
-                              <p className="text-blue-950 italic">
-                                "{typeof order.item_change_history === 'string' 
-                                  ? JSON.parse(order.item_change_history).requested_changes || order.item_change_history 
-                                  : order.item_change_history.requested_changes}"
-                              </p>
-                            </div>
-                          )}
                         </div>
                       ) : (
                         <div className="space-y-4">

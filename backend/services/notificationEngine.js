@@ -139,22 +139,15 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
     }
 
     // 4. Email fallback: Send if offline
-    if (!isOnline) {
+    const orderEvents = ['new_order', 'order_placed', 'bill_uploaded', 'order_confirmed', 'pickup_ready', 'order_delivered', 'order_cancelled', 'revision_requested'];
+
+    if (!isOnline && !orderEvents.includes(type)) {
       if (user.pref_email && user.email) {
         channelsUsed.push('Email');
         
         let emailPromise;
-        const displayOrderId = metadata.customOrderId || metadata.orderId;
         if (type === 'signup') {
           emailPromise = emailService.sendSignupEmail(user.email, user.name);
-        } else if (type === 'order_placed' && metadata.orderId && metadata.shopName) {
-          emailPromise = emailService.sendOrderPlacedEmail(user.email, displayOrderId, metadata.shopName);
-        } else if (type === 'bill_uploaded' && metadata.orderId && metadata.amount && metadata.shopName) {
-          emailPromise = emailService.sendBillUploadedEmail(user.email, displayOrderId, metadata.amount, metadata.shopName);
-        } else if (type === 'order_confirmed' && metadata.orderId && metadata.shopName) {
-          emailPromise = emailService.sendOrderConfirmedEmail(user.email, displayOrderId, metadata.shopName);
-        } else if (type === 'pickup_ready' && metadata.orderId && metadata.shopName) {
-          emailPromise = emailService.sendPickupReadyEmail(user.email, displayOrderId, metadata.shopName);
         } else {
           // General notification fallback
           emailPromise = emailService.sendMail({
@@ -169,6 +162,8 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
       } else {
         console.log(`ℹ️ Email Fallback skipped for User #${uid}. Pref: ${user.pref_email}, Email: ${user.email}`);
       }
+    } else if (!isOnline) {
+      console.log(`ℹ️ Email Fallback skipped for User #${uid}. Event '${type}' is handled by transaction emails.`);
     }
 
     // Set logs details
@@ -209,7 +204,20 @@ const dispatchOrderTransactionEmails = async (orderId, originalStatus) => {
     }
     const order = orderRes.rows[0];
 
-    const customerRes = await db.query('SELECT name, email FROM users WHERE id = $1', [order.customer_id]);
+    // Restrict emails to only 3 specific milestones
+    const allowedStatuses = ['Waiting For Seller', 'Bill Uploaded', 'Ready For Pickup'];
+    if (!allowedStatuses.includes(order.order_status)) {
+      console.log(`ℹ️ dispatchOrderTransactionEmails: Skipping email dispatch for Status '${order.order_status}'. Not in allowed milestones.`);
+      return;
+    }
+
+    // Skip revision requests (Waiting For Seller when originalStatus is Bill Uploaded/Waiting For Customer Confirmation)
+    if (order.order_status === 'Waiting For Seller' && (originalStatus === 'Bill Uploaded' || originalStatus === 'Waiting For Customer Confirmation')) {
+      console.log(`ℹ️ dispatchOrderTransactionEmails: Skipping email dispatch for Revision Request.`);
+      return;
+    }
+
+    const customerRes = await db.query('SELECT name, email, pref_email FROM users WHERE id = $1', [order.customer_id]);
     if (customerRes.rows.length === 0) {
       console.error(`❌ dispatchOrderTransactionEmails: Customer #${order.customer_id} not found.`);
       return;
@@ -223,12 +231,16 @@ const dispatchOrderTransactionEmails = async (orderId, originalStatus) => {
     }
     const shop = shopRes.rows[0];
 
-    const sellerRes = await db.query('SELECT name, email FROM users WHERE id = $1', [shop.owner_id]);
+    const sellerRes = await db.query('SELECT name, email, pref_email FROM users WHERE id = $1', [shop.owner_id]);
     if (sellerRes.rows.length === 0) {
       console.error(`❌ dispatchOrderTransactionEmails: Seller owner #${shop.owner_id} not found.`);
       return;
     }
     const seller = sellerRes.rows[0];
+
+    // Respect user email preferences
+    if (customer.pref_email === false) customer.email = null;
+    if (seller.pref_email === false) seller.email = null;
 
     await emailService.sendOrderTransactionEmails(order, customer, shop, seller, originalStatus);
     console.log(`📬 dispatchOrderTransactionEmails: Successfully sent transaction emails for Order #${orderId} [Status: ${order.order_status}, Original Status: ${originalStatus || 'none'}]`);

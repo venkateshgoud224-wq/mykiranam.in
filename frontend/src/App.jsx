@@ -16,17 +16,71 @@ import BottomNavigation from './components/common/BottomNavigation';
 import { Store, ShoppingBag, User, Settings, Layers, Bell, ShieldAlert } from 'lucide-react';
 
 const DashboardContent = () => {
-  const { user } = useAuth();
+  const { user, apiUrl } = useAuth();
   const { coords, setCoords } = useGeolocation();
 
   // Selected tab state (initialises based on role)
   const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = sessionStorage.getItem('kirana_activeTab');
+    if (savedTab) {
+      // Basic validation to ensure tab matches role
+      if (user.role === 'customer' && !savedTab.startsWith('seller') && !savedTab.startsWith('admin')) return savedTab;
+      if (user.role === 'seller' && savedTab.startsWith('seller')) return savedTab;
+      if (user.role === 'admin' && savedTab.startsWith('admin')) return savedTab;
+      if (savedTab === 'profile') return savedTab;
+    }
     if (user.role === 'admin') return 'admin-sellers';
     return user.role === 'customer' ? 'shops' : 'seller-active';
   });
 
   // Flow states
-  const [selectedShop, setSelectedShop] = useState(null);
+  const [selectedShop, setSelectedShop] = useState(() => {
+    const savedShop = sessionStorage.getItem('kirana_selectedShop');
+    try {
+      return savedShop ? JSON.parse(savedShop) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  // Persist state
+  useEffect(() => {
+    sessionStorage.setItem('kirana_activeTab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedShop) {
+      sessionStorage.setItem('kirana_selectedShop', JSON.stringify(selectedShop));
+    } else {
+      sessionStorage.removeItem('kirana_selectedShop');
+    }
+  }, [selectedShop]);
+
+  // Handle scanned shop QR logic
+  useEffect(() => {
+    const scannedShopId = sessionStorage.getItem('kirana_scannedShopId');
+    if (scannedShopId && user && user.role === 'customer') {
+      const fetchShop = async () => {
+        try {
+          const res = await fetch(`${apiUrl}/shops/${scannedShopId}`);
+          if (res.ok) {
+            const data = await res.json();
+            // Data might be nested under data.shop or returned directly depending on the backend
+            // Looking at standard conventions, it could be the object directly or nested
+            const shopData = data.shop || data; 
+            if (shopData && shopData._id) {
+              setSelectedShop(shopData);
+              setActiveTab('instant-order');
+            }
+            sessionStorage.removeItem('kirana_scannedShopId');
+          }
+        } catch (err) {
+          console.error("Failed to fetch scanned shop:", err);
+        }
+      };
+      fetchShop();
+    }
+  }, [user, apiUrl]);
 
   // Desktop side bar menu item layout mapping
   const renderSidebar = () => {
@@ -109,6 +163,7 @@ const DashboardContent = () => {
 
       // Seller dashboards
       case 'seller-new':
+      case 'seller-revisions':
       case 'seller-active':
       case 'seller-completed':
         return (
@@ -140,12 +195,12 @@ const DashboardContent = () => {
       <Navbar onSetCoords={setCoords} currentCoords={coords} />
 
       {/* Main Workspace Frame */}
-      <div className="flex-1 min-h-0 max-w-7xl w-full mx-auto flex">
+      <div className="flex-1 min-h-0 w-full flex">
         {/* Sidebar Left (Desktop) */}
         {renderSidebar()}
 
         {/* Content Panel Right */}
-        <main className="flex-1 p-4 sm:p-6 overflow-y-auto max-w-4xl mx-auto pb-20 sm:pb-6">
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto w-full pb-20 sm:pb-6">
           {renderMainPanel()}
         </main>
       </div>
@@ -158,6 +213,17 @@ const DashboardContent = () => {
 
 const App = () => {
   const { user, loading } = useAuth();
+
+  // Capture shopId from URL if present, regardless of authentication state
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shopId = params.get('shopId');
+    if (shopId) {
+      sessionStorage.setItem('kirana_scannedShopId', shopId);
+      // Clean up URL to prevent refetching on manual reloads
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   if (loading) {
     return (

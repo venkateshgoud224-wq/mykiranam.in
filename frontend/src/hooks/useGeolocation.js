@@ -1,20 +1,11 @@
 import { useState, useEffect } from 'react';
 
-// Default Location Coordinates centered on HSR Layout, Bangalore
+// Default Location Coordinates (New Delhi, India)
 export const DEFAULT_COORDS = {
-  latitude: 12.9141,
-  longitude: 77.6413,
-  address: "HSR Layout, Bangalore"
+  latitude: 28.6139,
+  longitude: 77.2090,
+  address: "New Delhi"
 };
-
-// Preset fallback Bangalore markets for simulated manual coordinates selection
-export const FALLBACK_MARKETS = [
-  { name: "HSR Layout Sec 2 (Club Road)", latitude: 12.9105, longitude: 77.6450 },
-  { name: "HSR Layout Sec 6 (Main Road)", latitude: 12.9185, longitude: 77.6390 },
-  { name: "Koramangala 4th Block", latitude: 12.9315, longitude: 77.6295 },
-  { name: "Indiranagar 100ft Road", latitude: 12.9640, longitude: 77.6385 },
-  { name: "Sarjapur Outer Ring Road", latitude: 12.9220, longitude: 77.6740 }
-];
 
 export const useGeolocation = () => {
   const [coords, setCoords] = useState(() => {
@@ -46,8 +37,8 @@ export const useGeolocation = () => {
         setLoading(false);
       },
       (err) => {
-        console.warn("GPS location failed. Using Bangalore HSR Layout fallback.", err.message);
-        setError("Location permission denied. Centered in HSR Layout.");
+        console.warn("GPS location failed. Using fallback.", err.message);
+        setError("Location permission denied. Centered in New Delhi.");
         if (!coords) {
           setCoords(DEFAULT_COORDS);
         }

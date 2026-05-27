@@ -3,12 +3,12 @@ import QRCode from 'react-qr-code';
 import html2canvas from 'html2canvas';
 import { Download, Store } from 'lucide-react';
 
-const StorePosterGenerator = ({ shopName }) => {
+const StorePosterGenerator = ({ shopName, shopId }) => {
   const posterRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
 
-  // Fallback URL to main website since we don't have a direct shop link in this MVP structure
-  const storeUrl = `https://mykiranam.in`;
+  // Generate dynamic store URL based on current origin and shopId
+  const storeUrl = shopId ? `${window.location.origin}/?shopId=${shopId}` : window.location.origin;
 
   const handleDownload = async () => {
     if (!posterRef.current) return;

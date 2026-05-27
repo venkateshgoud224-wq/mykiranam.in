@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { useGeolocation, FALLBACK_MARKETS } from '../../hooks/useGeolocation';
+import { useGeolocation } from '../../hooks/useGeolocation';
 import { LogOut, Bell, MapPin, Store, User, CheckCircle2, AlertCircle } from 'lucide-react';
 import NotificationsDropdown from './NotificationsDropdown';
 
@@ -53,9 +53,7 @@ const Navbar = ({ onSetCoords, currentCoords }) => {
     );
   };
 
-  const isFallbackMarket = currentCoords && FALLBACK_MARKETS.some(
-    (m) => Math.abs(currentCoords.latitude - m.latitude) < 0.0001
-  );
+  const isFallbackMarket = false;
 
   return (
     <>
@@ -187,12 +185,12 @@ const Navbar = ({ onSetCoords, currentCoords }) => {
               </div>
               <div>
                 <h3 className="text-base font-black text-slate-900">Choose Location</h3>
-                <p className="text-[10px] text-slate-400">Select simulated Bangalore market coordinates</p>
+                <p className="text-[10px] text-slate-400">Select your active location</p>
               </div>
             </div>
 
             <p className="text-xs text-slate-500 leading-normal">
-              Select one of the major commercial kirana hubs in Bangalore to see distance and queue updates change dynamically:
+              Select your location to see distance and queue updates change dynamically:
             </p>
 
             {/* Currently Active Location Card */}
@@ -235,28 +233,6 @@ const Navbar = ({ onSetCoords, currentCoords }) => {
               </div>
             )}
 
-            <div className="space-y-1.5 max-h-36 sm:max-h-48 overflow-y-auto pr-1">
-              {FALLBACK_MARKETS.map((m, idx) => {
-                const isSelected = currentCoords && Math.abs(currentCoords.latitude - m.latitude) < 0.0001;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      onSetCoords(m.latitude, m.longitude, m.name);
-                      setShowLocationModal(false);
-                    }}
-                    className={`w-full flex items-center justify-between p-3 text-xs rounded-xl border text-left transition-all ${
-                      isSelected
-                        ? 'border-kirana-500 bg-kirana-50/50 text-kirana-950 font-bold'
-                        : 'border-slate-100 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <span>{m.name}</span>
-                    {isSelected && <CheckCircle2 className="w-4 h-4 text-kirana-500" />}
-                  </button>
-                );
-              })}
-            </div>
 
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <button

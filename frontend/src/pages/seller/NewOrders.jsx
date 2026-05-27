@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { ShoppingBag, Eye, Check, X, BellRing, Clock, Download, ListOrdered, ClipboardList } from 'lucide-react';
+import BillingForm from './BillingForm';
 
 const NewOrders = ({ newOrders, onUpdateStatus }) => {
   const { token, apiUrl } = useAuth();
@@ -9,21 +10,15 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const [showBillingForm, setShowBillingForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleAcceptOrder = async (orderId) => {
-    setLoading(true);
-    setError('');
-    try {
-      await onUpdateStatus(orderId, 'Accepted');
-      playSoundAlert('success');
-      setSelectedOrder(null);
-    } catch (err) {
-      setError(err.message || 'Failed to accept order.');
-    } finally {
-      setLoading(false);
-    }
+  const handleAcceptSuccess = async () => {
+    // Refresh the order list from parent
+    await onUpdateStatus(selectedOrder.id, 'Bill Uploaded'); // Trigger refresh but it's already updated on backend
+    setSelectedOrder(null);
+    setShowBillingForm(false);
   };
 
   const handleReject = async (orderId) => {
@@ -37,6 +32,7 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
       playSoundAlert('cancelled');
       setSelectedOrder(null);
       setShowRejectForm(false);
+      setShowBillingForm(false);
       setRejectionReason('');
     } catch (err) {
       console.error(err);
@@ -57,9 +53,15 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
       const history = typeof order.item_change_history === 'string'
         ? JSON.parse(order.item_change_history)
         : order.item_change_history;
-      return history.requested_changes || null;
+      return {
+        tags: history.tags || [],
+        text: history.requested_changes || null
+      };
     } catch (e) {
-      return typeof order.item_change_history === 'string' ? order.item_change_history : null;
+      return {
+        tags: [],
+        text: typeof order.item_change_history === 'string' ? order.item_change_history : null
+      };
     }
   };
 
@@ -101,15 +103,24 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
                     )}
                   </div>
 
-                  {revisionNotes && (
-                    <div className="bg-crimson/5 border border-crimson/10 rounded-2xl p-3 text-xs">
-                      <span className="font-extrabold text-crimson block mb-0.5">⚠️ Revision Requested:</span>
-                      <p className="text-slate-750 italic leading-relaxed">
-                        "{revisionNotes}"
-                      </p>
-                    </div>
-                  )}
-
+                  {getRevisionInfo(order) && getRevisionInfo(order).text && (() => {
+                    const revInfo = getRevisionInfo(order);
+                    return (
+                      <div className="bg-crimson/5 border border-crimson/10 rounded-2xl p-3 text-xs">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="font-extrabold text-crimson block">⚠️ Revision Requested:</span>
+                          {revInfo.tags.length > 0 && (
+                            <span className="px-1.5 py-0.5 bg-white border border-crimson text-crimson rounded text-[9px] font-black shadow-sm truncate max-w-[100px]">
+                              {revInfo.tags[0]} {revInfo.tags.length > 1 ? `+${revInfo.tags.length - 1}` : ''}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-slate-750 italic leading-relaxed truncate">
+                          "{revInfo.text}"
+                        </p>
+                      </div>
+                    );
+                  })()}
                   <div className="flex items-center space-x-3 bg-slate-50 p-2.5 rounded-2xl">
                     {order.order_type === 'digital' || !order.original_chitti || order.original_chitti === 'digital' ? (
                       <div className="w-14 h-14 bg-amber-50 border border-amber-100 text-amber-600 rounded-xl flex flex-col items-center justify-center flex-shrink-0">
@@ -136,7 +147,7 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
 
                 <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
                   <button
-                    onClick={() => { setSelectedOrder(order); setShowRejectForm(false); }}
+                    onClick={() => { setSelectedOrder(order); setShowRejectForm(false); setShowBillingForm(false); }}
                     className="px-3.5 py-2 text-xs font-semibold rounded-xl text-slate-655 hover:bg-slate-50 transition-all flex items-center space-x-1"
                   >
                     <Eye className="w-4 h-4" />
@@ -155,12 +166,14 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
                       <X className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleAcceptOrder(order.id)}
-                      disabled={loading}
+                      onClick={() => {
+                        setSelectedOrder(order);
+                        setShowBillingForm(true);
+                      }}
                       className="px-4 py-2 bg-kirana-500 hover:bg-kirana-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-kirana-500/10 transition-all flex items-center space-x-1"
                     >
                       <Check className="w-4 h-4" />
-                      <span>Accept Order</span>
+                      <span>Accept & Send Bill</span>
                     </button>
                   </div>
                 </div>
@@ -185,6 +198,7 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
                 onClick={() => {
                   setSelectedOrder(null);
                   setShowRejectForm(false);
+                  setShowBillingForm(false);
                   setRejectionReason('');
                   setError('');
                 }}
@@ -197,19 +211,31 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
             {/* Scrollable Modal Content */}
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
 
-              {getRevisionInfo(selectedOrder) && (
-                <div className="bg-crimson/10 border border-crimson/25 rounded-2xl p-4 text-xs text-slate-900 space-y-2">
-                  <span className="font-extrabold text-crimson text-sm flex items-center space-x-1">
-                    <span>⚠️ Customer Requested Order Revisions</span>
-                  </span>
-                  <p className="bg-white p-3 rounded-xl border border-crimson/10 italic text-slate-805 font-semibold">
-                    "{getRevisionInfo(selectedOrder)}"
-                  </p>
-                  <p className="text-[10px] text-slate-500 font-semibold">
-                    Please click **Accept Order** to move it back to your Active Queue, where you can modify items and send the updated invoice.
-                  </p>
-                </div>
-              )}
+              {getRevisionInfo(selectedOrder) && getRevisionInfo(selectedOrder).text && (() => {
+                const { tags, text } = getRevisionInfo(selectedOrder);
+                return (
+                  <div className="bg-crimson/10 border border-crimson/25 rounded-2xl p-4 text-xs text-slate-900 space-y-2">
+                    <span className="font-extrabold text-crimson text-sm flex items-center space-x-1">
+                      <span>⚠️ Customer Requested Order Revisions</span>
+                    </span>
+                    {tags && tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {tags.map((tag, idx) => (
+                          <span key={idx} className="px-1.5 py-0.5 bg-white border border-crimson/30 text-crimson rounded text-[9px] font-black shadow-sm">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <p className="bg-white p-3 rounded-xl border border-crimson/10 italic text-slate-805 font-semibold">
+                      "{text}"
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-semibold">
+                      Please click **Accept & Send Bill** to update items and send the revised invoice.
+                    </p>
+                  </div>
+                );
+              })()}
 
               {/* Handwritten Image Viewer OR Digital Item List Checklist */}
               {selectedOrder.order_type === 'digital' ? (
@@ -219,7 +245,7 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
                     <ClipboardList className="w-3.5 h-3.5 text-amber-600" />
                     <span>Customer Grocery Chitti</span>
                   </span>
-                  <div className="space-y-2.5 pl-4 max-h-[280px] overflow-y-auto pr-1">
+                  <div className="space-y-4 overflow-y-auto pr-1">
                     {JSON.parse(selectedOrder.digital_item_list || '[]').map((item, idx) => (
                       <div key={item.id || idx} className="flex items-baseline space-x-2.5 pb-2 border-b border-dashed border-slate-150">
                         <span className="text-xs font-bold text-slate-800">{idx + 1}. {item.name}</span>
@@ -296,6 +322,12 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
                     </button>
                   </div>
                 </div>
+              ) : showBillingForm ? (
+                <BillingForm 
+                  order={selectedOrder} 
+                  onCancel={() => setShowBillingForm(false)} 
+                  onSuccess={handleAcceptSuccess} 
+                />
               ) : (
                 <div className="flex space-x-2.5 pt-2">
                   <button
@@ -305,12 +337,11 @@ const NewOrders = ({ newOrders, onUpdateStatus }) => {
                     Reject Order
                   </button>
                   <button
-                    onClick={() => handleAcceptOrder(selectedOrder.id)}
-                    disabled={loading}
+                    onClick={() => setShowBillingForm(true)}
                     className="flex-[2] py-3 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 text-xs font-black rounded-xl shadow-lg active:scale-[0.99] transition-all flex items-center justify-center space-x-1.5"
                   >
                     <Check className="w-4 h-4" />
-                    <span>Accept Order</span>
+                    <span>Accept & Prepare Bill</span>
                   </button>
                 </div>
               )}

@@ -81,13 +81,14 @@ const emitOrderStatus = (order, customerId, shopId) => {
 };
 
 // Broadcast queue and availability status updates to everyone (hyperlocal)
-const emitShopStatus = (shopId, availabilityStatus, activeOrders, waitingTime) => {
+const emitShopStatus = (shopId, availabilityStatus, activeOrders, waitingTime, imageBanner = null) => {
   if (!io) return;
   io.emit('shop_status_updated', {
     shopId: Number(shopId),
     availabilityStatus,
     activeOrders: Number(activeOrders),
-    waitingTime: Number(waitingTime)
+    waitingTime: Number(waitingTime),
+    imageBanner
   });
   console.log(`📢 Broadcast shop state: Shop ${shopId} is ${availabilityStatus} (Queue: ${activeOrders}, Wait: ${waitingTime}m)`);
 };

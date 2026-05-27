@@ -13,44 +13,15 @@ let isMock = false;
 const HASHED_PASSWORD = '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
 
 const mockUsers = [
-  // --- CUSTOMERS (IDs 1-3) ---
-  { id: 1, role: 'customer', name: 'Arjun Mehta',   email: 'arjun@gmail.com',   password: HASHED_PASSWORD, phone: '9000000001', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 2, role: 'customer', name: 'Pooja Iyer',    email: 'pooja@gmail.com',   password: HASHED_PASSWORD, phone: '9000000002', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 3, role: 'customer', name: 'Kiran Babu',    email: 'kiran@gmail.com',   password: HASHED_PASSWORD, phone: '9000000003', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-
-  // --- SELLERS (IDs 4-13) — each owns exactly 1 shop ---
-  { id: 4,  role: 'seller', name: 'Ravi Kumar',       email: 'ravi@gmail.com',       password: HASHED_PASSWORD, phone: '9848000001', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 5,  role: 'seller', name: 'Suresh Reddy',     email: 'suresh@gmail.com',     password: HASHED_PASSWORD, phone: '9848000002', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 6,  role: 'seller', name: 'Priya Lakshmi',    email: 'priya@gmail.com',      password: HASHED_PASSWORD, phone: '9848000003', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 7,  role: 'seller', name: 'Venkat Naidu',     email: 'venkat@gmail.com',     password: HASHED_PASSWORD, phone: '9848000004', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 8,  role: 'seller', name: 'Anand Sharma',     email: 'anand@gmail.com',      password: HASHED_PASSWORD, phone: '9848000005', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 9,  role: 'seller', name: 'Meena Kumari',     email: 'meena@gmail.com',      password: HASHED_PASSWORD, phone: '9848000006', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 10, role: 'seller', name: 'Rajendra Prasad',  email: 'rajendra@gmail.com',   password: HASHED_PASSWORD, phone: '9848000007', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 11, role: 'seller', name: 'Sita Devi',        email: 'sita@gmail.com',       password: HASHED_PASSWORD, phone: '9848000008', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 12, role: 'seller', name: 'Krishna Murthy',   email: 'krishna@gmail.com',    password: HASHED_PASSWORD, phone: '9848000009', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 13, role: 'seller', name: 'Padma Rao',        email: 'padma@gmail.com',      password: HASHED_PASSWORD, phone: '9848000010', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-
-  // --- ADMIN (ID 14) ---
-  { id: 14, role: 'admin',  name: 'Kiranam Admin',    email: 'admin@kiranam.in',     password: HASHED_PASSWORD, phone: '9000000000', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 15, role: 'admin',  name: 'Venkatesh Goud',   email: 'venkateshgoud224@gmail.com', password: HASHED_PASSWORD, phone: '9000000005', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true }
+  // --- ADMIN (ID 1) ---
+  { id: 1, role: 'admin',  name: 'Kiranam Admin',    email: 'admin@kiranam.in',     password: HASHED_PASSWORD, phone: '9000000000', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
+  { id: 2, role: 'admin',  name: 'Venkatesh Goud',   email: 'venkateshgoud224@gmail.com', password: HASHED_PASSWORD, phone: '9000000005', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true }
 ];
 
 // ============================================================
-// 10 SHOPS — 1 shop per seller, ALL UNVERIFIED (Pending)
-// User must log in as each seller to submit verification
+// SHOPS
 // ============================================================
-const mockShops = [
-  { id: 1,  owner_id: 4,  shop_name: 'Ravi Kumar Kirana Store',      address: 'Near Sector 2 Park, HSR Layout, Bangalore 560102',      latitude: 12.9105, longitude: 77.6450, rating: 4.5, active_orders: 0, waiting_time: 0,  availability_status: 'Offline', discounts: 'No discounts',        verified: false, verification_status: 'Pending', verified_by_admin: false, verified_by_seller: false, verification_date: null, working_hours: '08:00 - 22:00', shop_category: 'General Provisions',  image_front: null, image_counter: null, image_inside1: null, image_inside2: null, image_additional: null, max_active_orders: 10, online_start_time: '08:00', online_end_time: '22:00', upi_id: 'ravi@upi',      qr_code_image: null, created_at: new Date(Date.now() - 5*24*60*60*1000) },
-  { id: 2,  owner_id: 5,  shop_name: 'Suresh Reddy General Store',   address: 'Sector 6 Main Road, HSR Layout, Bangalore 560102',      latitude: 12.9185, longitude: 77.6390, rating: 4.2, active_orders: 0, waiting_time: 0,  availability_status: 'Offline', discounts: 'No discounts',        verified: false, verification_status: 'Pending', verified_by_admin: false, verified_by_seller: false, verification_date: null, working_hours: '08:00 - 21:00', shop_category: 'Groceries & Fruits',  image_front: null, image_counter: null, image_inside1: null, image_inside2: null, image_additional: null, max_active_orders: 8,  online_start_time: '08:00', online_end_time: '21:00', upi_id: 'suresh@upi',   qr_code_image: null, created_at: new Date(Date.now() - 4*24*60*60*1000) },
-  { id: 3,  owner_id: 6,  shop_name: 'Priya Lakshmi Provisions',     address: 'Sector 7 HSR Layout, Bangalore 560102',                 latitude: 12.9141, longitude: 77.6413, rating: 4.6, active_orders: 0, waiting_time: 0,  availability_status: 'Offline', discounts: 'No discounts',        verified: false, verification_status: 'Pending', verified_by_admin: false, verified_by_seller: false, verification_date: null, working_hours: '09:00 - 21:00', shop_category: 'Organic & Fresh',     image_front: null, image_counter: null, image_inside1: null, image_inside2: null, image_additional: null, max_active_orders: 10, online_start_time: '09:00', online_end_time: '21:00', upi_id: 'priya@upi',    qr_code_image: null, created_at: new Date(Date.now() - 3*24*60*60*1000) },
-  { id: 4,  owner_id: 7,  shop_name: 'Venkat Naidu Kiranam',         address: 'Sector 3 Main Road, HSR Layout, Bangalore 560102',      latitude: 12.9130, longitude: 77.6320, rating: 4.1, active_orders: 0, waiting_time: 0,  availability_status: 'Offline', discounts: 'No discounts',        verified: false, verification_status: 'Pending', verified_by_admin: false, verified_by_seller: false, verification_date: null, working_hours: '08:00 - 22:00', shop_category: 'General Provisions',  image_front: null, image_counter: null, image_inside1: null, image_inside2: null, image_additional: null, max_active_orders: 9,  online_start_time: '08:00', online_end_time: '22:00', upi_id: 'venkat@upi',   qr_code_image: null, created_at: new Date(Date.now() - 3*24*60*60*1000) },
-  { id: 5,  owner_id: 8,  shop_name: 'Anand Sharma Kirana Store',    address: 'Sector 4 HSR Layout, Bangalore 560102',                 latitude: 12.9195, longitude: 77.6295, rating: 4.3, active_orders: 0, waiting_time: 0,  availability_status: 'Offline', discounts: 'No discounts',        verified: false, verification_status: 'Pending', verified_by_admin: false, verified_by_seller: false, verification_date: null, working_hours: '08:30 - 22:00', shop_category: 'Snacks & Sweets',     image_front: null, image_counter: null, image_inside1: null, image_inside2: null, image_additional: null, max_active_orders: 10, online_start_time: '08:30', online_end_time: '22:00', upi_id: 'anand@upi',    qr_code_image: null, created_at: new Date(Date.now() - 2*24*60*60*1000) },
-  { id: 6,  owner_id: 9,  shop_name: 'Meena Kumari General Store',   address: '17th Cross Road, HSR Sector 6, Bangalore 560102',       latitude: 12.9170, longitude: 77.6380, rating: 4.4, active_orders: 0, waiting_time: 0,  availability_status: 'Offline', discounts: 'No discounts',        verified: false, verification_status: 'Pending', verified_by_admin: false, verified_by_seller: false, verification_date: null, working_hours: '09:00 - 20:00', shop_category: 'Groceries & Fruits',  image_front: null, image_counter: null, image_inside1: null, image_inside2: null, image_additional: null, max_active_orders: 8,  online_start_time: '09:00', online_end_time: '20:00', upi_id: 'meena@upi',    qr_code_image: null, created_at: new Date(Date.now() - 2*24*60*60*1000) },
-  { id: 7,  owner_id: 10, shop_name: 'Rajendra Prasad Kiranam',      address: 'Sector 1 Outer Ring Rd, HSR Layout, Bangalore 560102',  latitude: 12.9230, longitude: 77.6490, rating: 4.0, active_orders: 0, waiting_time: 0,  availability_status: 'Offline', discounts: 'No discounts',        verified: false, verification_status: 'Pending', verified_by_admin: false, verified_by_seller: false, verification_date: null, working_hours: '08:00 - 21:30', shop_category: 'General Provisions',  image_front: null, image_counter: null, image_inside1: null, image_inside2: null, image_additional: null, max_active_orders: 8,  online_start_time: '08:00', online_end_time: '21:30', upi_id: 'rajendra@upi', qr_code_image: null, created_at: new Date(Date.now() - 1*24*60*60*1000) },
-  { id: 8,  owner_id: 11, shop_name: 'Sita Devi Provisions',         address: '24th Main Rd, HSR Sector 1, Bangalore 560102',          latitude: 12.9245, longitude: 77.6520, rating: 4.7, active_orders: 0, waiting_time: 0,  availability_status: 'Offline', discounts: 'No discounts',        verified: false, verification_status: 'Pending', verified_by_admin: false, verified_by_seller: false, verification_date: null, working_hours: '08:00 - 22:00', shop_category: 'Organic & Fresh',     image_front: null, image_counter: null, image_inside1: null, image_inside2: null, image_additional: null, max_active_orders: 10, online_start_time: '08:00', online_end_time: '22:00', upi_id: 'sita@upi',     qr_code_image: null, created_at: new Date(Date.now() - 1*24*60*60*1000) },
-  { id: 9,  owner_id: 12, shop_name: 'Krishna Murthy Store',         address: 'Sector 5, HSR Layout, Bangalore 560102',                 latitude: 12.9150, longitude: 77.6480, rating: 4.2, active_orders: 0, waiting_time: 0,  availability_status: 'Offline', discounts: 'No discounts',        verified: false, verification_status: 'Pending', verified_by_admin: false, verified_by_seller: false, verification_date: null, working_hours: '07:30 - 22:30', shop_category: 'General Provisions',  image_front: null, image_counter: null, image_inside1: null, image_inside2: null, image_additional: null, max_active_orders: 12, online_start_time: '07:30', online_end_time: '22:30', upi_id: 'krishna@upi',  qr_code_image: null, created_at: new Date() },
-  { id: 10, owner_id: 13, shop_name: 'Padma Rao Kiranam',            address: '19th Main, Sector 4, HSR Layout, Bangalore 560102',     latitude: 12.9180, longitude: 77.6330, rating: 4.3, active_orders: 0, waiting_time: 0,  availability_status: 'Offline', discounts: 'No discounts',        verified: false, verification_status: 'Pending', verified_by_admin: false, verified_by_seller: false, verification_date: null, working_hours: '08:00 - 21:00', shop_category: 'Snacks & Sweets',     image_front: null, image_counter: null, image_inside1: null, image_inside2: null, image_additional: null, max_active_orders: 8,  online_start_time: '08:00', online_end_time: '21:00', upi_id: 'padma@upi',    qr_code_image: null, created_at: new Date() }
-];
+const mockShops = [];
 
 
 // In-memory data store for fallback mode
@@ -661,10 +632,10 @@ const mockQuery = async (text, params = []) => {
           }
         }
         // 1.b Customer requests changes (Digital order revision)
-        else if (normalizedText.includes('item_change_history = $2')) {
-          order.order_status = 'Waiting For Seller';
-          order.notes = params[0];
-          order.item_change_history = params[1];
+        else if (normalizedText.includes('item_change_history = $3') || normalizedText.includes('item_change_history =')) {
+          order.order_status = params[0]; // $1
+          order.notes = params[1];        // $2
+          order.item_change_history = params[2]; // $3
         }
         // 2. uploadBill (Handwritten or Digital)
         else if (normalizedText.includes('modified_item_list = $1') || normalizedText.includes('modified_item_list =')) {
@@ -787,18 +758,8 @@ const initDb = async () => {
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS modified_item_list TEXT;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS item_change_history TEXT;');
     
-    // Check if shops table has entries, if not run seeder
-    const shopCheck = await pool.query('SELECT COUNT(*) FROM shops');
-    const count = parseInt(shopCheck.rows[0].count);
-    if (count < 10) {
-      console.log('🌱 Seeding database with Bangalore 50-store ecosystem...');
-      const seedPath = path.join(__dirname, '../models/bangalore_seed.sql');
-      const seedSql = fs.readFileSync(seedPath, 'utf8');
-      await pool.query(seedSql);
-      console.log('✅ Bangalore seeder SQL executed successfully.');
-    } else {
-      console.log('ℹ️ Database already has shops populated. Skipping seeder.');
-    }
+    // Remove Bangalore seeding
+    console.log('ℹ️ Startup complete.');
   } catch (err) {
     console.error('❌ Failed to initialize PostgreSQL database or seeder:', err.message);
     console.log('⚠️ Falling back to In-Memory mock database for active sessions.');

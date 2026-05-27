@@ -55,7 +55,8 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
                 ...shop,
                 availability_status: latestShopUpdate.availabilityStatus,
                 active_orders: latestShopUpdate.activeOrders,
-                waiting_time: latestShopUpdate.waitingTime
+                waiting_time: latestShopUpdate.waitingTime,
+                ...(latestShopUpdate.imageBanner ? { image_banner: latestShopUpdate.imageBanner } : {})
               }
             : shop
         )
@@ -82,7 +83,7 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
   const alternativeShop = getLessBusyAlternative();
 
   return (
-    <div className="space-y-6 pb-20 max-w-lg mx-auto md:max-w-4xl px-2">
+    <div className="space-y-6 pb-20 w-full">
       {/* Crowd Distribution Recommendation */}
       {alternativeShop && (
         <div className="p-4 bg-kirana-100/60 border border-kirana-300 rounded-2xl flex items-start space-x-3 shadow-sm animate-pulse-ring">
@@ -216,36 +217,6 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
                 )}
 
                 <div className="space-y-4">
-                  {/* Shop Banner Image / Fallback */}
-                  <div className="w-full h-32 rounded-2xl overflow-hidden relative bg-gradient-to-br from-amber-100 to-orange-100 border border-slate-100 shadow-sm">
-                    {bannerUrl ? (
-                      <img
-                        src={bannerUrl}
-                        alt={shop.shop_name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-amber-500 to-orange-600 opacity-90">
-                        <Store className="w-8 h-8 text-white/50" />
-                      </div>
-                    )}
-                    
-                    {/* Floating Availability Badge */}
-                    <div className="absolute top-3 right-3">
-                      <span
-                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black tracking-wider uppercase backdrop-blur-md shadow-sm border ${
-                          isAvailable
-                            ? 'bg-emerald-500/90 text-white border-emerald-450'
-                            : isBusy
-                            ? 'bg-amber-500/90 text-white border-amber-450 animate-pulse'
-                            : 'bg-slate-700/90 text-white border-slate-600'
-                        }`}
-                      >
-                        {isAvailable ? 'Available' : isBusy ? 'Busy' : 'Offline'}
-                      </span>
-                    </div>
-                  </div>
-
                   {/* Shop header */}
                   <div className="flex justify-between items-start">
                     <div className="space-y-1.5 flex-1">
@@ -313,6 +284,36 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
                     ) : (
                       <span className="text-[9px] text-slate-400">Standard Pricing</span>
                     )}
+                  </div>
+
+                  {/* Shop Banner Image / Fallback */}
+                  <div className="w-full h-56 rounded-2xl overflow-hidden relative bg-gradient-to-br from-amber-50 to-orange-50 border border-slate-200 shadow-inner">
+                    {bannerUrl ? (
+                      <img
+                        src={bannerUrl}
+                        alt={shop.shop_name}
+                        className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-amber-500 to-orange-600 opacity-90">
+                        <Store className="w-8 h-8 text-white/50" />
+                      </div>
+                    )}
+                    
+                    {/* Floating Availability Badge */}
+                    <div className="absolute top-3 right-3">
+                      <span
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black tracking-wider uppercase backdrop-blur-md shadow-sm border ${
+                          isAvailable
+                            ? 'bg-emerald-500/90 text-white border-emerald-450'
+                            : isBusy
+                            ? 'bg-amber-500/90 text-white border-amber-450 animate-pulse'
+                            : 'bg-slate-700/90 text-white border-slate-600'
+                        }`}
+                      >
+                        {isAvailable ? 'Available' : isBusy ? 'Busy' : 'Offline'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

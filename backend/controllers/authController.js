@@ -384,6 +384,21 @@ const sendWhatsAppOTP = async (req, res) => {
   }
 
   try {
+    // Check if number is already verified
+    const checkVerified = await db.query(
+      'SELECT id FROM users WHERE whatsapp_number = $1 AND verified_whatsapp = true',
+      [whatsappNumber]
+    );
+
+    if (checkVerified.rows.length > 0) {
+      const existingUserId = checkVerified.rows[0].id;
+      if (existingUserId === userId) {
+        return res.status(400).json({ error: 'This mobile number is already verified for your account.' });
+      } else {
+        return res.status(400).json({ error: 'This mobile number is already verified by another account.' });
+      }
+    }
+
     // Generate a clean 6 digit numeric code
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiry = Date.now() + 5 * 60 * 1000; // 5 min expiry

@@ -168,6 +168,8 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     sessionStorage.setItem('explicit_logout', 'true');
+    sessionStorage.removeItem('kirana_activeTab');
+    sessionStorage.removeItem('kirana_selectedShop');
     setToken(null);
     setUser(null);
     setExtraData({});

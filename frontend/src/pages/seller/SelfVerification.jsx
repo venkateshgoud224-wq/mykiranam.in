@@ -175,7 +175,7 @@ const SelfVerification = ({ onVerifySubmitted }) => {
   );
 
   return (
-    <div className="max-w-md mx-auto bg-white border border-slate-100 rounded-3xl p-6 shadow-premium pb-20">
+    <div className="w-full bg-white border border-slate-100 rounded-3xl p-6 shadow-premium pb-20">
       
       {/* Verification Header */}
       <div className="text-center space-y-2 mb-6">

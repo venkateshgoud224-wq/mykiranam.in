@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { ShoppingBag, Calendar, User, Clock, AlertTriangle, Eye, CheckCircle2, ChevronRight } from 'lucide-react';
+import { ShoppingBag, Calendar, User, Clock, AlertTriangle, Eye, CheckCircle2, ChevronRight, RefreshCcw } from 'lucide-react';
 import OrderVerification from './OrderVerification';
 
 const MyOrders = () => {
@@ -127,7 +127,7 @@ const MyOrders = () => {
   }
 
   return (
-    <div className="space-y-6 pb-20 max-w-lg mx-auto md:max-w-4xl px-2">
+    <div className="space-y-6 pb-20 w-full">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-extrabold text-slate-900 flex items-center space-x-2">
           <span>My Orders</span>
@@ -178,7 +178,7 @@ const MyOrders = () => {
 
                   {/* Status Badge */}
                   <span className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border ${getStatusColor(order.order_status)}`}>
-                    {order.order_status}
+                    {order.order_status === 'Waiting For Seller' && order.item_change_history ? 'Revision in Progress' : order.order_status}
                   </span>
                 </div>
 
@@ -252,7 +252,16 @@ const MyOrders = () => {
                 {trackingOrder?.id === order.id && (
                   <div className="mt-4 pt-4 border-t border-slate-105 bg-slate-50/50 p-4 rounded-2xl space-y-4">
                     <div className="flex justify-between items-center flex-wrap gap-2">
-                      <h4 className="text-xs font-bold text-slate-800">Timeline Progress</h4>
+                      <div className="flex items-center space-x-2">
+                        <h4 className="text-xs font-bold text-slate-800">Timeline Progress</h4>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); fetchOrders(); }}
+                          className="p-1 hover:bg-slate-200 rounded-md text-slate-500 transition-colors"
+                          title="Refresh Updates"
+                        >
+                          <RefreshCcw className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                       <span className="text-[10px] text-slate-400 font-bold bg-white px-2 py-0.5 rounded-lg border border-slate-100">
                         Placed: {new Date(order.created_at).toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </span>
@@ -267,12 +276,24 @@ const MyOrders = () => {
                         };
 
                         const steps = [
-                          { label: 'Order Placed', active: true, time: order.created_at },
-                          { label: 'Order Accepted', active: ['Accepted', 'Packing Started', 'Ready For Pickup', 'Confirmed', 'Delivered'].includes(order.order_status), time: order.accepted_at },
-                          { label: 'Packing Started', active: ['Packing Started', 'Ready For Pickup', 'Confirmed', 'Delivered'].includes(order.order_status), time: order.packing_started_at },
-                          { label: 'Ready For Pickup / Delivery', active: ['Ready For Pickup', 'Confirmed', 'Delivered'].includes(order.order_status), time: order.ready_for_pickup_at },
-                          { label: 'Payment Completed', active: ['Confirmed', 'Delivered'].includes(order.order_status) || (order.payment_method !== null && order.payment_method !== undefined), time: order.confirmed_at }
+                          { label: 'Order Placed', active: true, time: order.created_at }
                         ];
+
+                        if (order.item_change_history) {
+                          let revTime = order.updated_at;
+                          try {
+                            const parsed = typeof order.item_change_history === 'string' ? JSON.parse(order.item_change_history) : order.item_change_history;
+                            if (parsed && parsed.timestamp) revTime = parsed.timestamp;
+                          } catch(e) {}
+                          steps.push({ label: 'Revision Requested', active: true, time: revTime, isRevision: true });
+                        }
+
+                        steps.push(
+                          { label: 'Order Accepted & Billed', active: ['Accepted', 'Bill Uploaded', 'Waiting For Customer Confirmation', 'Confirmed', 'Packing Started', 'Packing Completed', 'Ready For Pickup', 'Delivered'].includes(order.order_status), time: order.accepted_at || order.confirmed_at || order.packing_started_at || order.ready_for_pickup_at || order.updated_at },
+                          { label: 'Payment Completed', active: ['Confirmed', 'Packing Started', 'Packing Completed', 'Ready For Pickup', 'Delivered'].includes(order.order_status) || (order.payment_method !== null && order.payment_method !== undefined), time: order.confirmed_at || order.packing_started_at || order.ready_for_pickup_at || order.updated_at },
+                          { label: 'Packing Started', active: ['Packing Started', 'Packing Completed', 'Ready For Pickup', 'Delivered'].includes(order.order_status), time: order.packing_started_at || order.ready_for_pickup_at || order.updated_at },
+                          { label: 'Ready For Pickup / Delivery', active: ['Ready For Pickup', 'Delivered'].includes(order.order_status), time: order.ready_for_pickup_at || order.delivered_at || order.updated_at }
+                        );
 
                         if (order.order_status === 'Cancelled') {
                           steps.push({ label: 'Order Cancelled', active: true, time: order.updated_at, isCancelled: true });

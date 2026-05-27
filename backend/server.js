@@ -70,8 +70,7 @@ const startServer = async () => {
   await db.initDb();
   socketService.init(server);
   
-  // Explicitly import and bootstrap the background marketplace simulation service
-  require('./services/simulationService');
+  // Simulation service removed
 
   server.listen(PORT, () => {
     console.log(`🚀 Kiranam Backend Server is running on port ${PORT}`);

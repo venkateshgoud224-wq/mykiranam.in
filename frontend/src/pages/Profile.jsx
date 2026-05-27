@@ -148,7 +148,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto space-y-6 pb-24 px-2 md:max-w-4xl">
+    <div className="w-full space-y-6 pb-24 px-2">
       {/* Grid container: two columns on desktop, one column on mobile */}
       <div className="flex flex-col md:grid md:grid-cols-2 gap-6 space-y-6 md:space-y-0">
         

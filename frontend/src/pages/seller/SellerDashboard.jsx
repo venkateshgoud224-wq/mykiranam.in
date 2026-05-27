@@ -160,7 +160,8 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
   }
 
   // --- VERIFIED WORKFLOW BOARDS ---
-  const newOrders = orders.filter(o => o.order_status === 'Waiting For Seller');
+  const freshOrders = orders.filter(o => o.order_status === 'Waiting For Seller' && !o.item_change_history);
+  const revisionOrders = orders.filter(o => o.order_status === 'Waiting For Seller' && !!o.item_change_history);
   const activeQueue = orders.filter(o => [
     'Accepted',
     'Bill Uploaded',
@@ -175,7 +176,9 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
   const renderActiveTabContent = () => {
     switch (activeTab) {
       case 'seller-new':
-        return <NewOrders newOrders={newOrders} onUpdateStatus={handleUpdateStatus} />;
+        return <NewOrders newOrders={freshOrders} onUpdateStatus={handleUpdateStatus} />;
+      case 'seller-revisions':
+        return <NewOrders newOrders={revisionOrders} onUpdateStatus={handleUpdateStatus} />;
       case 'seller-active':
         return <ActiveOrders activeOrders={activeQueue} onUpdateStatus={handleUpdateStatus} />;
       case 'seller-completed':
@@ -192,7 +195,7 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
   };
 
   return (
-    <div className="space-y-6 pb-20 max-w-lg mx-auto md:max-w-4xl px-2">
+    <div className="space-y-6 pb-20 w-full">
       {/* Store Header */}
       {extraData.shop && (
         <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium flex items-center justify-between">
@@ -224,33 +227,48 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
       )}
 
       {/* Tabs */}
-      <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 max-w-md mx-auto">
+      <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 max-w-full overflow-x-auto no-scrollbar mx-auto">
         <button
           onClick={() => onTabChange('seller-new')}
-          className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+          className={`flex-1 min-w-[80px] py-2 px-1 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
             activeTab === 'seller-new' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-750'
           }`}
         >
           <Bell className="w-3.5 h-3.5" />
           <span>New</span>
-          {newOrders.length > 0 && (
+          {freshOrders.length > 0 && (
             <span className="px-1.5 py-0.2 bg-kirana-500 text-slate-950 text-[9px] font-black rounded-full leading-none">
-              {newOrders.length}
+              {freshOrders.length}
             </span>
           )}
         </button>
 
         <button
           onClick={() => onTabChange('seller-active')}
-          className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+          className={`flex-1 min-w-[90px] py-2 px-1 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
             activeTab === 'seller-active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-755'
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
-          <span>Active Queue</span>
+          <span>Active</span>
           {activeQueue.length > 0 && (
             <span className="px-1.5 py-0.2 bg-slate-800 text-white text-[9px] font-bold rounded-full leading-none">
               {activeQueue.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => onTabChange('seller-revisions')}
+          className={`flex-1 min-w-[90px] py-2 px-1 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+            activeTab === 'seller-revisions' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-755'
+          }`}
+        >
+          <span className="text-sm">⚠️</span>
+          <span>Revisions</span>
+          {revisionOrders.length > 0 && (
+            <span className="px-1.5 py-0.2 bg-crimson text-white text-[9px] font-black rounded-full leading-none">
+              {revisionOrders.length}
             </span>
           )}
         </button>

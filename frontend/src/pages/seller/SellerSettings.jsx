@@ -196,7 +196,7 @@ const SellerSettings = () => {
   }
 
   return (
-    <div className="space-y-6 pb-20 max-w-md mx-auto px-2">
+    <div className="space-y-6 pb-20 w-full px-2">
       <h2 className="text-xl font-extrabold text-slate-900 flex items-center space-x-2">
         <Settings className="w-5 h-5 text-kirana-500" />
         <span>Store Configurations</span>
@@ -455,7 +455,7 @@ const SellerSettings = () => {
       </form>
 
       {/* 3. Store Promotional Poster Generator */}
-      <StorePosterGenerator shopName={shopName} />
+      <StorePosterGenerator shopName={shopName} shopId={extraData?.shop?._id} />
     </div>
   );
 };
