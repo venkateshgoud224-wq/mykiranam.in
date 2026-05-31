@@ -463,7 +463,7 @@ const SellerSettings = () => {
       </form>
 
       {/* 3. Store Promotional Poster Generator */}
-      <StorePosterGenerator shopName={shopName} shopId={extraData?.shop?._id} />
+      <StorePosterGenerator shopName={shopName} shopId={extraData?.shop?.id || extraData?.shop?._id} />
     </div>
   );
 };
