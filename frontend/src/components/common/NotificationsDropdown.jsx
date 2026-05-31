@@ -19,46 +19,48 @@ const NotificationsDropdown = ({ onClose }) => {
   };
 
   return (
-    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden transform origin-top-right transition-all">
+    <div className="absolute right-0 mt-2 w-[90vw] sm:w-[450px] bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden transform origin-top-right transition-all">
       {/* Dropdown Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
-        <div className="flex items-center space-x-1.5">
-          <span className="font-bold text-base text-slate-800">Alert Center</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100 gap-3 sm:gap-0">
+        <div className="flex items-center space-x-2">
+          <span className="font-bold text-lg text-slate-800 whitespace-nowrap">Alert Center</span>
           {unreadCount > 0 && (
-            <span className="px-2 py-0.5 text-xs font-bold bg-amber-500 text-white rounded-full">
+            <span className="px-2.5 py-1 text-sm font-bold bg-amber-500 text-white rounded-full whitespace-nowrap">
               {unreadCount} new
             </span>
           )}
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 sm:space-x-3 self-end sm:self-auto">
           <button
             onClick={() => playSoundAlert('new_order')}
-            className="px-2 py-0.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 rounded transition-all"
+            className="px-2.5 py-1.5 text-sm font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5"
             title="Test sound chime"
           >
-            🔊 Test Chime
+            <span>🔊</span> Test Chime
           </button>
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllAsRead}
-              className="p-1 hover:bg-slate-200 rounded text-slate-600 transition-all"
-              title="Mark all as read"
-            >
-              <Check className="w-3.5 h-3.5" />
+          <div className="flex items-center space-x-1 border-l border-slate-200 pl-2">
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllAsRead}
+                className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-600 transition-all"
+                title="Mark all as read"
+              >
+                <Check className="w-4 h-4" />
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button
+                onClick={clearNotifications}
+                className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-600 hover:text-red-500 transition-all"
+                title="Clear all"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-600 transition-all">
+              <X className="w-4 h-4" />
             </button>
-          )}
-          {notifications.length > 0 && (
-            <button
-              onClick={clearNotifications}
-              className="p-1 hover:bg-slate-200 rounded text-slate-600 hover:text-red-500 transition-all"
-              title="Clear all"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded text-slate-600 transition-all">
-            <X className="w-3.5 h-3.5" />
-          </button>
+          </div>
         </div>
       </div>
 

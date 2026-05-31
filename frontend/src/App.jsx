@@ -193,7 +193,15 @@ const DashboardContent = () => {
 
       default:
         if (user.role === 'admin') return <AdminDashboard />;
-        return user.role === 'customer' ? <NearbyShops coords={coords} /> : <SellerDashboard activeTab="seller-active" />;
+        return user.role === 'customer' ? (
+          <NearbyShops 
+            coords={coords} 
+            onSelectShop={(shop) => setSelectedShop(shop)}
+            onTabChange={setActiveTab}
+          />
+        ) : (
+          <SellerDashboard activeTab="seller-active" onTabChange={setActiveTab} />
+        );
     }
   };
 
