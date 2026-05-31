@@ -136,7 +136,7 @@ const sendWhatsAppMessage = async (to, title, bodyText) => {
   const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
   const whatsappTo = `${formattedPhone}@c.us`;
 
-  const messageBody = `*${title.toUpperCase()}*\n\n${bodyText}\n\n_Sent via Kiranam.in_`;
+  const messageBody = `*${title.toUpperCase()}*\n\n${bodyText}\n\n_Sent via https://kiranam.in_`;
 
   if (clientReady && client) {
     try {
@@ -166,12 +166,12 @@ const formatOrderId = (id) => {
 
 const sendSellerNewOrderWhatsApp = async (sellerPhone, orderId, customerName, timeStr = '') => {
   const time = timeStr || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const text = `New order received!\n\n📦 Order ID: ${formatOrderId(orderId)}\n👤 Customer: ${customerName}\n🕐 Time: ${time}\n\nPlease log in to your Kiranam.in seller dashboard to review and publish the rewritten bill.`;
+  const text = `New order received!\n\n📦 Order ID: ${formatOrderId(orderId)}\n👤 Customer: ${customerName}\n🕐 Time: ${time}\n\nPlease log in to https://kiranam.in/seller/dashboard to review and publish the rewritten bill.`;
   return sendWhatsAppMessage(sellerPhone, '🆕 New Customer Order', text);
 };
 
 const sendCustomerBillUploadedWhatsApp = async (customerPhone, orderId, amount, shopName) => {
-  const text = `Your order bill has been updated!\n\n📦 Order ID: ${formatOrderId(orderId)}\n🏪 Shop: ${shopName}\n💰 Amount: ₹${amount}\n\nPlease log in to Kiranam.in to review the bill and select a payment method.`;
+  const text = `Your order bill has been updated!\n\n📦 Order ID: ${formatOrderId(orderId)}\n🏪 Shop: ${shopName}\n💰 Amount: ₹${amount}\n\nPlease log in to https://kiranam.in/orders to review the bill and select a payment method.`;
   return sendWhatsAppMessage(customerPhone, '📋 Bill Uploaded', text);
 };
 

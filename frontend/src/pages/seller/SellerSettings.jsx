@@ -39,8 +39,8 @@ const SellerSettings = () => {
       setShopName(shop.shop_name || '');
       setAddress(shop.address || '');
       setAvailabilityStatus(shop.availability_status || 'Available');
-      setMaxActiveOrders(shop.max_active_orders || 10);
-      setWaitingTime(shop.waiting_time || 15);
+      setMaxActiveOrders(shop.max_active_orders !== undefined && shop.max_active_orders !== null ? shop.max_active_orders : 10);
+      setWaitingTime(shop.waiting_time !== undefined && shop.waiting_time !== null ? shop.waiting_time : 15);
       setDiscounts(shop.discounts || '');
       setStartTime(shop.online_start_time || '08:00');
       setEndTime(shop.online_end_time || '22:00');
@@ -266,7 +266,7 @@ const SellerSettings = () => {
             </label>
             <input
               type="number"
-              min="1"
+              min="0"
               value={maxActiveOrders}
               onChange={(e) => setMaxActiveOrders(e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800"

@@ -26,6 +26,12 @@ const Profile = () => {
   // Mandatory Alert State
   const [showMandatoryAlert, setShowMandatoryAlert] = useState(false);
 
+  // Profile Edit State
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', email: '', phone: '' });
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
+
   useEffect(() => {
     refreshProfile();
     // Check for mandatory alert flag
@@ -52,10 +58,41 @@ const Profile = () => {
         pref_email: user.pref_email !== false
       });
       setWhatsappNumber(user.whatsapp_number || '');
+      setEditForm({ name: user.name || '', email: user.email || '', phone: user.phone || '' });
     }
   }, [user]);
 
-
+  const handleSaveProfile = async () => {
+    if (!editForm.name || !editForm.email) {
+      setEditError('Name and email are required.');
+      return;
+    }
+    setEditLoading(true);
+    setEditError('');
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiUrl}/auth/profile/details`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editForm)
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setIsEditingProfile(false);
+        playSoundAlert('success');
+        refreshProfile();
+      } else {
+        setEditError(data.error || 'Failed to update profile.');
+      }
+    } catch (err) {
+      setEditError('Server connection error.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   const handleToggleChange = async (key) => {
     const updatedPrefs = { ...preferences, [key]: !preferences[key] };
@@ -195,24 +232,90 @@ const Profile = () => {
               
               {/* User Details */}
               <div className="relative z-10">
-                <h2 className="text-xl font-black text-slate-900 flex flex-col items-center justify-center space-y-2 animate-fade-in">
-                  <span>{user?.name}</span>
-                  <span className="text-xs px-3 py-1 bg-amber-100 text-amber-800 rounded-full font-bold uppercase tracking-wider inline-flex items-center shadow-sm">
-                    {getRoleIcon()} <span className="ml-1">{user?.role}</span>
-                  </span>
-                </h2>
-                <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
-                  <p className="text-xs text-slate-500 flex items-center justify-center space-x-2">
-                    <Mail className="w-4 h-4 text-slate-400" />
-                    <span className="font-medium">{user?.email}</span>
-                  </p>
-                  {user?.phone && (
-                    <p className="text-xs text-slate-500 flex items-center justify-center space-x-2">
-                      <Phone className="w-4 h-4 text-slate-400" />
-                      <span className="font-medium">{user?.phone}</span>
-                    </p>
-                  )}
-                </div>
+                {!isEditingProfile ? (
+                  <>
+                    <h2 className="text-xl font-black text-slate-900 flex flex-col items-center justify-center space-y-2 animate-fade-in">
+                      <span>{user?.name}</span>
+                      <span className="text-xs px-3 py-1 bg-amber-100 text-amber-800 rounded-full font-bold uppercase tracking-wider inline-flex items-center shadow-sm">
+                        {getRoleIcon()} <span className="ml-1">{user?.role}</span>
+                      </span>
+                    </h2>
+                    <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                      <p className="text-xs text-slate-500 flex items-center justify-center space-x-2">
+                        <Mail className="w-4 h-4 text-slate-400" />
+                        <span className="font-medium">{user?.email}</span>
+                      </p>
+                      {user?.phone && (
+                        <p className="text-xs text-slate-500 flex items-center justify-center space-x-2">
+                          <Phone className="w-4 h-4 text-slate-400" />
+                          <span className="font-medium">{user?.phone}</span>
+                        </p>
+                      )}
+                      <button
+                        onClick={() => setIsEditingProfile(true)}
+                        className="mt-3 w-full py-1.5 text-[10px] font-bold text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200 transition-all uppercase tracking-wider"
+                      >
+                        Edit Profile Details
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-4 bg-white p-4 rounded-xl border border-slate-200 shadow-inner space-y-3 text-left">
+                    {editError && (
+                      <div className="text-[10px] font-bold text-red-600 bg-red-50 p-2 rounded-lg border border-red-100 flex items-center space-x-1.5">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>{editError}</span>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Full Name</label>
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                        className="w-full px-3 py-1.5 text-xs border border-slate-200 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-lg outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address</label>
+                      <input
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                        className="w-full px-3 py-1.5 text-xs border border-slate-200 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-lg outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Login Phone Number</label>
+                      <input
+                        type="text"
+                        value={editForm.phone}
+                        onChange={(e) => setEditForm({...editForm, phone: e.target.value.replace(/\D/g, '')})}
+                        maxLength={10}
+                        className="w-full px-3 py-1.5 text-xs border border-slate-200 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-lg outline-none"
+                      />
+                    </div>
+                    <div className="flex space-x-2 pt-2">
+                      <button
+                        onClick={() => {
+                          setIsEditingProfile(false);
+                          setEditForm({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '' });
+                          setEditError('');
+                        }}
+                        className="flex-1 py-1.5 text-[10px] font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveProfile}
+                        disabled={editLoading}
+                        className="flex-1 py-1.5 text-[10px] font-bold text-white bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 rounded-lg transition-all"
+                      >
+                        {editLoading ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

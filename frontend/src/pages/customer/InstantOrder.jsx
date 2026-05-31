@@ -51,14 +51,14 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
     const newItem = {
       id: Date.now().toString(),
       name: itemName.trim(),
-      quantity: parseFloat(itemQty) || 1,
+      quantity: itemQty,
       unit: itemUnit,
       notes: itemNotes.trim()
     };
 
     setItems([...items, newItem]);
     setItemName('');
-    setItemQty(1);
+    setItemQty('1');
     setItemNotes('');
   };
 
@@ -301,21 +301,33 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
                         <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-2">
                           <button
                             type="button"
-                            onClick={() => setItemQty(Math.max(0.5, itemQty - 0.5))}
+                            onClick={() => {
+                              const current = parseFloat(itemQty);
+                              if (!isNaN(current)) {
+                                setItemQty(String(Math.max(0.5, current - 0.5)));
+                              }
+                            }}
                             className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-500 transition-all"
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
                           <input
-                            type="number"
-                            step="0.1"
+                            type="text"
                             value={itemQty}
-                            onChange={(e) => setItemQty(parseFloat(e.target.value) || 1)}
-                            className="w-12 text-center text-xs font-bold focus:outline-none"
+                            onChange={(e) => setItemQty(e.target.value)}
+                            className="w-16 text-center text-xs font-bold focus:outline-none"
+                            placeholder="Qty"
                           />
                           <button
                             type="button"
-                            onClick={() => setItemQty(itemQty + 0.5)}
+                            onClick={() => {
+                              const current = parseFloat(itemQty);
+                              if (!isNaN(current)) {
+                                setItemQty(String(current + 0.5));
+                              } else {
+                                setItemQty('1');
+                              }
+                            }}
                             className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-500 transition-all"
                           >
                             <Plus className="w-3.5 h-3.5" />

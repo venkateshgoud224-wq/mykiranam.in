@@ -5,6 +5,9 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    @apply text-[17px] md:text-[18px];
+  }
   body {
     @apply bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden selection:bg-kirana-200 selection:text-kirana-950;
     -webkit-tap-highlight-color: transparent;

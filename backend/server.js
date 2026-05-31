@@ -59,7 +59,7 @@ if (process.env.NODE_ENV === 'production') {
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error('🔥 Server Error Stack:', err.stack);
-  res.status(500).json({ error: err.message || 'Internal Server Error' });
+  res.status(500).json({ error: 'An unexpected server error occurred. Please try again later.' });
 });
 
 // Setup Port

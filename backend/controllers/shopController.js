@@ -199,8 +199,8 @@ const updateShopSettings = async (req, res) => {
     const newShopName = shop_name || shop.shop_name;
     const newAddress = address || shop.address;
     const newStatus = availability_status || shop.availability_status;
-    const newMaxActive = max_active_orders ? parseInt(max_active_orders) : shop.max_active_orders;
-    const newWait = waiting_time !== undefined ? parseInt(waiting_time) : shop.waiting_time;
+    const newMaxActive = (max_active_orders !== undefined && max_active_orders !== '') ? parseInt(max_active_orders) : shop.max_active_orders;
+    const newWait = (waiting_time !== undefined && waiting_time !== '') ? parseInt(waiting_time) : shop.waiting_time;
     const newDiscounts = discounts !== undefined ? discounts : shop.discounts;
     const newStart = online_start_time || shop.online_start_time;
     const newEnd = online_end_time || shop.online_end_time;

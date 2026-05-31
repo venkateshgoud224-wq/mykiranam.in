@@ -286,12 +286,11 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
                     {!isRemoved && (
                       <div className="grid grid-cols-3 gap-2">
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
                           required
-                          placeholder="Qty"
+                          placeholder="Qty (e.g. 1, 250)"
                           value={item.quantity}
-                          onChange={(e) => handleUpdateItemField(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => handleUpdateItemField(item.id, 'quantity', e.target.value)}
                           className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
                         />
                         <select

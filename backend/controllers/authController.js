@@ -352,6 +352,46 @@ const getProfile = async (req, res) => {
   }
 };
 
+// 5.b Update Profile Details
+const updateProfileDetails = async (req, res) => {
+  const userId = req.user.id;
+  const { name, email, phone } = req.body;
+
+  if (!name || !email) {
+    return res.status(400).json({ error: 'Name and email are required.' });
+  }
+
+  try {
+    // Check if the new email is already in use by another user
+    const emailCheck = await db.query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, userId]);
+    if (emailCheck.rows.length > 0) {
+      return res.status(400).json({ error: 'This email is already in use by another account.' });
+    }
+
+    // Check if the new phone is already in use by another user
+    if (phone) {
+      const phoneCheck = await db.query('SELECT id FROM users WHERE phone = $1 AND id != $2', [phone, userId]);
+      if (phoneCheck.rows.length > 0) {
+        return res.status(400).json({ error: 'This phone number is already in use by another account.' });
+      }
+    }
+
+    const result = await db.query(
+      'UPDATE users SET name = $1, email = $2, phone = $3 WHERE id = $4 RETURNING id, role, name, email, phone, profile_image, whatsapp_number, verified_whatsapp',
+      [name, email, phone || null, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    return res.status(200).json({ message: 'Profile details updated successfully.', user: result.rows[0] });
+  } catch (err) {
+    console.error('Update profile details error:', err);
+    return res.status(500).json({ error: 'Server error updating profile details.' });
+  }
+};
+
 // 6. Update Notification Preferences
 const updateSettings = async (req, res) => {
   const userId = req.user.id;
@@ -502,7 +542,7 @@ const forgotPassword = async (req, res) => {
     }
 
     // Construct reset link
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://kiranam.in';
     const resetLink = `${frontendUrl}/?resetToken=${token}`;
 
     // Send reset email via business SMTP
@@ -565,6 +605,7 @@ module.exports = {
   googleLogin,
   updateRole,
   getProfile,
+  updateProfileDetails,
   updateSettings,
   sendWhatsAppOTP,
   verifyWhatsAppOTP,

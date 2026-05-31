@@ -40,6 +40,11 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
       return;
     }
 
+    if (paymentMethod === 'Manual UPI Payment' && !paymentProofFile) {
+      setError('Please upload a screenshot of your successful UPI payment to verify your transaction.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -584,7 +589,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                 {order.upi_id && (
                   <div className="pt-1">
                     <a
-                      href={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&am=${order.amount}&cu=INR`}
+                      href={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&tr=${order.id}&am=${parseFloat(order.amount).toFixed(2)}&cu=INR&tn=Payment`}
                       className="w-full py-2 bg-kirana-500 hover:bg-kirana-600 text-slate-950 text-xs font-extrabold rounded-xl shadow-sm transition-all flex items-center justify-center space-x-1"
                     >
                       <span>📱 Pay Directly via UPI App</span>
@@ -601,7 +606,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                         order.qr_code_image
                           ? getFullImageUrl(order.qr_code_image)
                           : `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
-                              `upi://pay?pa=${order.upi_id}&pn=${order.shop_name}&am=${order.amount}&cu=INR`
+                              `upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&tr=${order.id}&am=${parseFloat(order.amount).toFixed(2)}&cu=INR&tn=Payment`
                             )}`
                       }
                       alt="UPI QR Code"
@@ -614,7 +619,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 flex items-center space-x-1">
                     <Upload className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Upload Payment Proof Screenshot (Optional)</span>
+                    <span>Upload Payment Proof Screenshot (Required)</span>
                   </label>
                   <input
                     type="file"
