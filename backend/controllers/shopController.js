@@ -283,8 +283,7 @@ const sendOtp = async (req, res) => {
   console.log(`✉️ [EMAIL OTP SIMULATOR] Code for ${email} is: ${code}`);
 
   try {
-    // Send all verification OTP emails directly to mykiranam.in@gmail.com as requested
-    await emailService.sendAccountVerificationEmail('mykiranam.in@gmail.com', code);
+    await emailService.sendAccountVerificationEmail(email, code);
   } catch (err) {
     console.error('Error dispatching verification email:', err);
   }
