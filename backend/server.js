@@ -48,6 +48,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Fallback JSON 404 for API routes
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+});
+
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../frontend/dist')));

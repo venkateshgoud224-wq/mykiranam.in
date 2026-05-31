@@ -22,6 +22,7 @@ const Profile = () => {
   const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [whatsappError, setWhatsappError] = useState('');
   const [whatsappSuccess, setWhatsappSuccess] = useState('');
+  const [isChangingWhatsapp, setIsChangingWhatsapp] = useState(false);
   
   // Mandatory Alert State
   const [showMandatoryAlert, setShowMandatoryAlert] = useState(false);
@@ -172,6 +173,7 @@ const Profile = () => {
         setOtpSent(false);
         setOtpCode('');
         setWhatsappSuccess('WhatsApp number verified and linked successfully!');
+        setIsChangingWhatsapp(false);
         playSoundAlert('success');
         refreshProfile(); // reload database values
       } else {
@@ -447,7 +449,7 @@ const Profile = () => {
               <span>WhatsApp Linking</span>
             </h3>
 
-            {user?.verified_whatsapp ? (
+            {user?.verified_whatsapp && !isChangingWhatsapp ? (
               <div className="flex items-center space-x-2.5 p-3.5 bg-emerald-50 border border-emerald-100 rounded-2xl">
                 <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -458,6 +460,9 @@ const Profile = () => {
                   onClick={() => {
                     setOtpSent(false);
                     setWhatsappNumber('');
+                    setWhatsappError('');
+                    setWhatsappSuccess('');
+                    setIsChangingWhatsapp(true);
                   }}
                   className="text-[10px] font-bold text-slate-500 hover:text-amber-500 border border-slate-200 bg-white px-2.5 py-1 rounded-xl transition-all"
                 >
@@ -485,25 +490,40 @@ const Profile = () => {
                 )}
 
                 {!otpSent ? (
-                  <div className="flex space-x-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">+91</span>
-                      <input
-                        type="text"
-                        value={whatsappNumber}
-                        onChange={(e) => setWhatsappNumber(e.target.value.replace(/\D/g, ''))}
-                        placeholder="Enter WhatsApp Number"
-                        maxLength={10}
-                        className="w-full pl-11 pr-3 py-2 border border-slate-200 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-xs font-semibold rounded-xl outline-none transition-all placeholder:text-slate-300 text-slate-700"
-                      />
+                  <div className="space-y-2">
+                    <div className="flex space-x-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">+91</span>
+                        <input
+                          type="text"
+                          value={whatsappNumber}
+                          onChange={(e) => setWhatsappNumber(e.target.value.replace(/\D/g, ''))}
+                          placeholder="Enter WhatsApp Number"
+                          maxLength={10}
+                          className="w-full pl-11 pr-3 py-2 border border-slate-200 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-xs font-semibold rounded-xl outline-none transition-all placeholder:text-slate-300 text-slate-700"
+                        />
+                      </div>
+                      <button
+                        onClick={handleSendOTP}
+                        disabled={whatsappLoading}
+                        className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white text-xs font-extrabold rounded-xl transition-all shadow-sm flex items-center space-x-1"
+                      >
+                        {whatsappLoading ? 'Sending...' : 'Send OTP'}
+                      </button>
                     </div>
-                    <button
-                      onClick={handleSendOTP}
-                      disabled={whatsappLoading}
-                      className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white text-xs font-extrabold rounded-xl transition-all shadow-sm flex items-center space-x-1"
-                    >
-                      {whatsappLoading ? 'Sending...' : 'Send OTP'}
-                    </button>
+                    {user?.verified_whatsapp && isChangingWhatsapp && (
+                      <button
+                        onClick={() => {
+                          setIsChangingWhatsapp(false);
+                          setWhatsappNumber(user.whatsapp_number || '');
+                          setWhatsappError('');
+                          setWhatsappSuccess('');
+                        }}
+                        className="text-[10px] font-bold text-slate-400 hover:text-slate-655"
+                      >
+                        Cancel Change
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">

@@ -68,7 +68,7 @@ const DashboardContent = () => {
             // Data might be nested under data.shop or returned directly depending on the backend
             // Looking at standard conventions, it could be the object directly or nested
             const shopData = data.shop || data; 
-            if (shopData && shopData._id) {
+            if (shopData && (shopData.id || shopData._id)) {
               setSelectedShop(shopData);
               setActiveTab('instant-order');
             }

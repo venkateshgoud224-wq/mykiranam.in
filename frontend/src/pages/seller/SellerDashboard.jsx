@@ -134,7 +134,7 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
               Your merchant directory access has been suspended by administration.
             </p>
             <p className="text-[10px] text-slate-400">
-              Please contact help@kiranam.in to audit verification logs or resolve disputes.
+              Please contact help@mykiranam.in to audit verification logs or resolve disputes.
             </p>
           </div>
         )}

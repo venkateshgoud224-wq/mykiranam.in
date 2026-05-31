@@ -153,7 +153,7 @@ const getHtmlLayout = (title, content) => {
 const sendMail = async ({ to, subject, title, htmlContent, textFallback }) => {
   try {
     const mailTransporter = await initTransporter();
-    const senderEmail = process.env.SMTP_USER || 'no-reply@kiranam.in';
+    const senderEmail = process.env.SMTP_USER || 'no-reply@mykiranam.in';
     const mailOptions = {
       from: `"Kiranam.in Support" <${senderEmail}>`,
       to,
@@ -198,7 +198,7 @@ const sendSignupEmail = async (userEmail, userName) => {
         </ul>
       </div>
       <center>
-        <a href="https://kiranam.in" class="btn">Explore Marketplace</a>
+        <a href="https://mykiranam.in" class="btn">Explore Marketplace</a>
       </center>
     `
   });
@@ -275,7 +275,7 @@ const sendOrderTransactionEmails = async (order, customer, shop, seller, origina
           </div>
           <p>Please log in to your merchant dashboard to review the grocery list, update pricing, and upload the bill.</p>
           <center>
-            <a href="https://kiranam.in/seller/dashboard" class="btn">Process Order</a>
+            <a href="https://mykiranam.in/seller/dashboard" class="btn">Process Order</a>
           </center>
         `;
       }
@@ -298,7 +298,7 @@ const sendOrderTransactionEmails = async (order, customer, shop, seller, origina
         </div>
         <p>Please log in to your dashboard to review items, select your payment method, and confirm your order.</p>
         <center>
-          <a href="https://kiranam.in/orders" class="btn">Confirm & Pay</a>
+          <a href="https://mykiranam.in/orders" class="btn">Confirm & Pay</a>
         </center>
       `;
       break;
@@ -321,7 +321,7 @@ const sendOrderTransactionEmails = async (order, customer, shop, seller, origina
         </div>
         <p>Please present your Order ID at the counter to retrieve your items instantly, skipping any queue. Thank you for using Kiranam.in!</p>
         <center>
-          <a href="https://kiranam.in/orders" class="btn">Show Pickup Details</a>
+          <a href="https://mykiranam.in/orders" class="btn">Show Pickup Details</a>
         </center>
       `;
       break;

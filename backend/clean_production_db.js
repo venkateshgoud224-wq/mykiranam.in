@@ -20,7 +20,7 @@ async function removeSeededData() {
     // The schema has ON DELETE CASCADE for shops, orders, notifications, etc.
     // Deleting these users will cascade and delete their shops, orders, and related data.
     const emailsToDelete = [
-      'admin@kiranam.in',
+      'admin@mykiranam.in',
       'venkateshgoud224@gmail.com',
       'seller_canvas@gmail.com'
     ];

@@ -115,7 +115,14 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
         body: formData
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(response.ok ? 'Failed to parse server response.' : `Server Error: ${text.substring(0, 100)}`);
+      }
+      
       if (!response.ok) throw new Error(data.error || 'Failed to place order.');
 
       setSuccess(true);

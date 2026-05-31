@@ -154,12 +154,12 @@ const googleLogin = async (req, res) => {
         }
       } catch (fetchErr) {
         console.warn('Google ID token verification failed, falling back to request params:', fetchErr.message);
-        email = googleEmail || 'googleuser@kiranam.in';
+        email = googleEmail || 'googleuser@mykiranam.in';
         name = googleName || 'Google User';
       }
     } else if (credential && credential.startsWith('mock_token_')) {
       const parts = credential.split('_');
-      email = parts[3] || parts[2] || googleEmail || 'googleuser@kiranam.in';
+      email = parts[3] || parts[2] || googleEmail || 'googleuser@mykiranam.in';
       name = (typeof email === 'string' && email.includes('@')) ? email.split('@')[0] : 'GoogleUser';
       name = name.charAt(0).toUpperCase() + name.slice(1);
     }
@@ -542,7 +542,7 @@ const forgotPassword = async (req, res) => {
     }
 
     // Construct reset link
-    const frontendUrl = process.env.FRONTEND_URL || 'https://kiranam.in';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://mykiranam.in';
     const resetLink = `${frontendUrl}/?resetToken=${token}`;
 
     // Send reset email via business SMTP

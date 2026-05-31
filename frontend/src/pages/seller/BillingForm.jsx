@@ -59,9 +59,8 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
     return editableItems
       .filter(item => item.status !== 'removed')
       .reduce((sum, item) => {
-        const qty = parseFloat(item.quantity) || 0;
         const pr = parseFloat(item.price) || 0;
-        return sum + (qty * pr);
+        return sum + pr;
       }, 0)
       .toFixed(2);
   };
@@ -98,8 +97,8 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
     const newItem = {
       id: Date.now().toString(),
       name: '',
-      quantity: 1,
-      unit: 'KG',
+      quantity: '',
+      unit: '',
       price: '',
       notes: '',
       status: 'added'
@@ -164,8 +163,15 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
       }
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to upload bill.');
+        const text = await response.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error(response.ok ? 'Failed to parse server response.' : `Server Error: ${text.substring(0, 100)}`);
+        }
+        
+        if (!response.ok) throw new Error(data.error || 'Failed to generate bill.');
       }
       playSoundAlert('success');
       if (onSuccess) onSuccess();
@@ -298,6 +304,7 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
                           onChange={(e) => handleUpdateItemField(item.id, 'unit', e.target.value)}
                           className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs"
                         >
+                          <option value="">Unit</option>
                           {units.map(u => (
                             <option key={u} value={u}>{u}</option>
                           ))}
@@ -306,7 +313,7 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
                           type="number"
                           step="0.01"
                           required
-                          placeholder="₹ Price / unit"
+                          placeholder="₹ Total Price"
                           value={item.price}
                           onChange={(e) => handleUpdateItemField(item.id, 'price', e.target.value)}
                           className="px-2 py-1.5 bg-slate-50 border-2 border-kirana-500/35 rounded-lg text-xs font-bold text-slate-900 focus:border-kirana-600 focus:outline-none"

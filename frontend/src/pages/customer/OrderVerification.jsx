@@ -63,7 +63,14 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
         body: formData
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(response.ok ? 'Failed to parse server response.' : `Server Error: ${text.substring(0, 100)}`);
+      }
+      
       if (!response.ok) throw new Error(data.error || 'Failed to confirm order.');
 
       onVerifySuccess();
@@ -589,7 +596,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                 {order.upi_id && (
                   <div className="pt-1">
                     <a
-                      href={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&tr=${order.id}&am=${parseFloat(order.amount).toFixed(2)}&cu=INR&tn=Payment`}
+                      href={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&am=${parseFloat(order.amount).toFixed(2)}&cu=INR`}
                       className="w-full py-2 bg-kirana-500 hover:bg-kirana-600 text-slate-950 text-xs font-extrabold rounded-xl shadow-sm transition-all flex items-center justify-center space-x-1"
                     >
                       <span>📱 Pay Directly via UPI App</span>
@@ -606,7 +613,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                         order.qr_code_image
                           ? getFullImageUrl(order.qr_code_image)
                           : `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
-                              `upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&tr=${order.id}&am=${parseFloat(order.amount).toFixed(2)}&cu=INR&tn=Payment`
+                              `upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&am=${parseFloat(order.amount).toFixed(2)}&cu=INR`
                             )}`
                       }
                       alt="UPI QR Code"

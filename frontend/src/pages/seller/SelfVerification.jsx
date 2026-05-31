@@ -52,8 +52,15 @@ const SelfVerification = ({ onVerifySubmitted }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to send OTP.');
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(response.ok ? 'Failed to parse server response.' : `Server Error: ${text.substring(0, 100)}`);
+      }
+      
+      if (!response.ok) throw new Error(data.error || 'Verification failed. Please try again.');
 
       playSoundAlert('success');
       setOtpSent(true);
@@ -138,7 +145,13 @@ const SelfVerification = ({ onVerifySubmitted }) => {
         body: formData
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(response.ok ? 'Failed to parse server response.' : `Server Error: ${text.substring(0, 100)}`);
+      }
       if (!response.ok) throw new Error(data.error || 'Failed to submit verification.');
 
       playSoundAlert('success');
