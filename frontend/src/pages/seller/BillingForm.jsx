@@ -48,10 +48,16 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
   const handleBillFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        setError('File size cannot exceed 50MB.');
+        e.target.value = '';
+        return;
+      }
       setBillFile(file);
       const reader = new FileReader();
       reader.onloadend = () => setBillPreview(reader.result);
       reader.readAsDataURL(file);
+      setError('');
     }
   };
 
@@ -109,10 +115,16 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
   const handleAcceptSubmit = async (e) => {
     e.preventDefault();
     const isDigital = order.order_type === 'digital';
+    const isRevision = !!order.item_change_history;
 
-    if (!isDigital && !billFile && !order.modified_bill) {
-      setError('Please upload a photo of the rewritten bill.');
-      return;
+    if (!isDigital) {
+      if (isRevision && !billFile) {
+        setError('Please upload a new photo of the rewritten bill for the revision.');
+        return;
+      } else if (!isRevision && !billFile && !order.modified_bill) {
+        setError('Please upload a photo of the rewritten bill.');
+        return;
+      }
     }
     
     let totalAmt = amount;
@@ -360,7 +372,7 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
           <>
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-700 block">Snap of rewritten chitti</label>
-              <input type="file" accept="image/*" required={!order.modified_bill} onChange={handleBillFileChange} className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-slate-900 file:text-white file:cursor-pointer" />
+              <input type="file" accept="image/*" required={!order.modified_bill || !!order.item_change_history} onChange={handleBillFileChange} className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-slate-900 file:text-white file:cursor-pointer" />
               {billPreview ? (
                 <img src={billPreview} alt="Preview" className="max-h-36 rounded-xl border border-slate-200 mt-2 object-contain mx-auto" />
               ) : order.modified_bill ? (

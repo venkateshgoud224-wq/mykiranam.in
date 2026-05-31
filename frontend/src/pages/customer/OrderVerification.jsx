@@ -23,6 +23,10 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const handleProofChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        setError('File size should be less than 50MB.');
+        return;
+      }
       setPaymentProofFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -596,12 +600,18 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                 {order.upi_id && (
                   <div className="pt-1">
                     <a
-                      href={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&am=${parseFloat(order.amount).toFixed(2)}&cu=INR`}
+                      href={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name.replace(/[^a-zA-Z0-9 ]/g, ''))}&am=${parseFloat(order.amount).toFixed(2)}&cu=INR&mc=0000&mode=02&purpose=00`}
                       className="w-full py-2 bg-kirana-500 hover:bg-kirana-600 text-slate-950 text-xs font-extrabold rounded-xl shadow-sm transition-all flex items-center justify-center space-x-1"
                     >
                       <span>📱 Pay Directly via UPI App</span>
                     </a>
                     <p className="text-[9px] text-slate-400 text-center mt-1">Clicking above automatically opens GPay, PhonePe, or BHIM UPI on mobile devices</p>
+                    <div className="mt-2 p-2 bg-amber-50/80 border border-amber-200/50 rounded-xl flex items-start space-x-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-[9px] text-amber-800 leading-tight">
+                        <strong>PhonePe Users:</strong> If the payment button is blocked by PhonePe security, please <strong>Scan the QR Code below</strong> or use Google Pay / Paytm.
+                      </p>
+                    </div>
                   </div>
                 )}
 
@@ -613,7 +623,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                         order.qr_code_image
                           ? getFullImageUrl(order.qr_code_image)
                           : `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
-                              `upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&am=${parseFloat(order.amount).toFixed(2)}&cu=INR`
+                              `upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name.replace(/[^a-zA-Z0-9 ]/g, ''))}&am=${parseFloat(order.amount).toFixed(2)}&cu=INR&mc=0000&mode=02&purpose=00`
                             )}`
                       }
                       alt="UPI QR Code"

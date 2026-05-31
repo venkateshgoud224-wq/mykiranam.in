@@ -131,6 +131,10 @@ const SellerSettings = () => {
   const handleQrChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        setError('File size should be less than 50MB.');
+        return;
+      }
       setQrFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -178,6 +182,10 @@ const SellerSettings = () => {
   const handleBannerChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        setError('File size should be less than 50MB.');
+        return;
+      }
       setBannerFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -377,7 +385,7 @@ const SellerSettings = () => {
                 src={
                   qrPreview ||
                   `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
-                    `upi://pay?pa=${upiId}&pn=${shopName}&cu=INR`
+                    `upi://pay?pa=${upiId}&pn=${shopName.replace(/[^a-zA-Z0-9 ]/g, '')}&cu=INR&mc=0000&mode=02&purpose=00`
                   )}`
                 }
                 alt="UPI QR Code"

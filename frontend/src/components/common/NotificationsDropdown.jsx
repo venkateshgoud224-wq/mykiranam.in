@@ -23,9 +23,9 @@ const NotificationsDropdown = ({ onClose }) => {
       {/* Dropdown Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
         <div className="flex items-center space-x-1.5">
-          <span className="font-bold text-sm text-slate-800">Alert Center</span>
+          <span className="font-bold text-base text-slate-800">Alert Center</span>
           {unreadCount > 0 && (
-            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-500 text-white rounded-full">
+            <span className="px-2 py-0.5 text-xs font-bold bg-amber-500 text-white rounded-full">
               {unreadCount} new
             </span>
           )}
@@ -33,7 +33,7 @@ const NotificationsDropdown = ({ onClose }) => {
         <div className="flex items-center space-x-2">
           <button
             onClick={() => playSoundAlert('new_order')}
-            className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 rounded transition-all"
+            className="px-2 py-0.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 rounded transition-all"
             title="Test sound chime"
           >
             🔊 Test Chime
@@ -66,9 +66,9 @@ const NotificationsDropdown = ({ onClose }) => {
       <div className="max-h-[350px] overflow-y-auto divide-y divide-slate-50">
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-            <BellRing className="w-8 h-8 text-slate-300 mb-2" />
-            <p className="text-xs font-semibold text-slate-500">All caught up!</p>
-            <p className="text-[10px] text-slate-400">No active alerts at the moment.</p>
+            <BellRing className="w-10 h-10 text-slate-300 mb-3" />
+            <p className="text-sm font-semibold text-slate-500 mb-1">All caught up!</p>
+            <p className="text-xs text-slate-400">No active alerts at the moment.</p>
           </div>
         ) : (
           notifications.map((notif, idx) => (
@@ -83,9 +83,9 @@ const NotificationsDropdown = ({ onClose }) => {
                 {getIcon(notif.type)}
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-xs font-bold text-slate-800 block mb-0.5">{notif.title || 'Update'}</span>
-                <p className="text-xs text-slate-600 leading-normal break-words">{notif.message}</p>
-                <span className="text-[9px] text-slate-400 block mt-1.5">
+                <span className="text-sm font-bold text-slate-800 block mb-0.5">{notif.title || 'Update'}</span>
+                <p className="text-sm text-slate-600 leading-normal break-words">{notif.message}</p>
+                <span className="text-[10px] text-slate-400 block mt-1.5">
                   {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>

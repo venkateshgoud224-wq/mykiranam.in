@@ -221,8 +221,14 @@ const WhatsAppVerificationRequired = ({ onSkip }) => {
                       </span>
                       <button
                         type="button"
-                        onClick={() => { setOtpSent(false); setOtpCode(''); setError(''); setSuccess(''); }}
-                        className="text-[9px] font-black text-amber-600 hover:text-amber-700 outline-none"
+                        onClick={(e) => { 
+                          e.preventDefault(); 
+                          setOtpSent(false); 
+                          setOtpCode(''); 
+                          setError(''); 
+                          setSuccess(''); 
+                        }}
+                        className="text-[11px] sm:text-xs font-black text-amber-600 hover:text-amber-700 outline-none px-3 py-2 cursor-pointer active:scale-95 touch-manipulation"
                       >
                         Change number
                       </button>

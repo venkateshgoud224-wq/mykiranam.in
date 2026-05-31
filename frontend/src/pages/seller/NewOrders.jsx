@@ -71,11 +71,11 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange }) => {
     <div className="space-y-4">
       {newOrders.length === 0 ? (
         <div className="py-12 bg-white border border-slate-100 rounded-3xl text-center p-8 shadow-sm">
-          <div className="w-12 h-12 bg-slate-50 text-slate-350 rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <BellRing className="w-6 h-6" />
+          <div className="w-14 h-14 bg-slate-50 text-slate-350 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <BellRing className="w-7 h-7" />
           </div>
-          <h4 className="text-sm font-bold text-slate-800">No New Orders</h4>
-          <p className="text-xs text-slate-500 mt-1">Waiting for customers to place orders. Keep this page open; alerts play in real time.</p>
+          <h4 className="text-base font-bold text-slate-800">No New Orders</h4>
+          <p className="text-sm text-slate-500 mt-2">Waiting for customers to place orders. Keep this page open; alerts play in real time.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -131,8 +131,8 @@ const createOrder = async (req, res) => {
     todayStart.setHours(0, 0, 0, 0);
 
     const countResult = await db.query(
-      `SELECT COUNT(*) FROM orders WHERE created_at >= $1`,
-      [todayStart]
+      `SELECT COUNT(*) FROM orders WHERE shop_id = $1 AND created_at >= $2`,
+      [shop_id, todayStart]
     );
     let orderSeq = 1;
     if (countResult.rows && countResult.rows.length > 0) {

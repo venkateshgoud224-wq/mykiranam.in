@@ -15,6 +15,14 @@ import Navbar from './components/common/Navbar';
 import BottomNavigation from './components/common/BottomNavigation';
 import { Store, ShoppingBag, User, Settings, Layers, Bell, ShieldAlert } from 'lucide-react';
 
+// Capture shopId from URL immediately upon script load to ensure it's available for child components
+const urlParams = new URLSearchParams(window.location.search);
+const initialShopId = urlParams.get('shopId');
+if (initialShopId) {
+  sessionStorage.setItem('kirana_scannedShopId', initialShopId);
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
 const DashboardContent = () => {
   const { user, apiUrl } = useAuth();
   const { coords, setCoords } = useGeolocation();
@@ -213,17 +221,6 @@ const DashboardContent = () => {
 
 const App = () => {
   const { user, loading } = useAuth();
-
-  // Capture shopId from URL if present, regardless of authentication state
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const shopId = params.get('shopId');
-    if (shopId) {
-      sessionStorage.setItem('kirana_scannedShopId', shopId);
-      // Clean up URL to prevent refetching on manual reloads
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
 
   const [whatsappSkipped, setWhatsappSkipped] = useState(() => {
     return sessionStorage.getItem('whatsapp_skipped') === 'true';

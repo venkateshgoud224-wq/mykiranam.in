@@ -31,6 +31,10 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        setError('File size should be less than 50MB.');
+        return;
+      }
       setChittiImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {

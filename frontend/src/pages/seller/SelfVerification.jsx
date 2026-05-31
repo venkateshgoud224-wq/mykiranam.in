@@ -104,6 +104,10 @@ const SelfVerification = ({ onVerifySubmitted }) => {
   const handleImageFileChange = (field, e) => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        setError('File size should be less than 50MB.');
+        return;
+      }
       setImages(prev => ({ ...prev, [field]: file }));
       const reader = new FileReader();
       reader.onloadend = () => {

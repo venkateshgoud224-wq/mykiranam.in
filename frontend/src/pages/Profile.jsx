@@ -457,14 +457,16 @@ const Profile = () => {
                   <span className="text-[11px] text-slate-500 block">Number: +{user.whatsapp_number}</span>
                 </div>
                 <button
-                  onClick={() => {
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
                     setOtpSent(false);
                     setWhatsappNumber('');
                     setWhatsappError('');
                     setWhatsappSuccess('');
                     setIsChangingWhatsapp(true);
                   }}
-                  className="text-[10px] font-bold text-slate-500 hover:text-amber-500 border border-slate-200 bg-white px-2.5 py-1 rounded-xl transition-all"
+                  className="text-xs font-extrabold text-slate-600 hover:text-amber-600 active:bg-slate-50 border border-slate-200 bg-white px-4 py-2 rounded-xl transition-all cursor-pointer active:scale-95 touch-manipulation flex-shrink-0"
                 >
                   Change
                 </button>
@@ -513,13 +515,15 @@ const Profile = () => {
                     </div>
                     {user?.verified_whatsapp && isChangingWhatsapp && (
                       <button
-                        onClick={() => {
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
                           setIsChangingWhatsapp(false);
                           setWhatsappNumber(user.whatsapp_number || '');
                           setWhatsappError('');
                           setWhatsappSuccess('');
                         }}
-                        className="text-[10px] font-bold text-slate-400 hover:text-slate-655"
+                        className="text-xs font-bold text-slate-400 hover:text-slate-600 px-3 py-2 cursor-pointer active:scale-95 touch-manipulation"
                       >
                         Cancel Change
                       </button>
@@ -545,8 +549,12 @@ const Profile = () => {
                       </button>
                     </div>
                     <button
-                      onClick={() => setOtpSent(false)}
-                      className="text-[10px] font-bold text-slate-400 hover:text-slate-655"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setOtpSent(false);
+                      }}
+                      className="text-xs font-bold text-slate-500 hover:text-slate-700 px-3 py-2 cursor-pointer active:scale-95 touch-manipulation w-full text-center"
                     >
                       ← Change phone number
                     </button>
