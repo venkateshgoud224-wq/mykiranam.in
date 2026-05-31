@@ -56,10 +56,11 @@ const updateVerificationStatus = async (req, res) => {
 
     const updatedShop = updateResult.rows[0];
 
+    const title = 'Shop Verification Update';
     const message = `Your shop verification status has been updated to: ${status}. ${notes ? `Comment: ${notes}` : ''}`;
     const notifResult = await db.query(
-      'INSERT INTO notifications (user_id, message, type) VALUES ($1, $2, $3) RETURNING *',
-      [shop.owner_id, message, 'verification_update']
+      'INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4) RETURNING *',
+      [shop.owner_id, title, message, 'verification_update']
     );
 
     socketService.sendNotification(shop.owner_id, {

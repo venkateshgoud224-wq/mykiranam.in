@@ -64,9 +64,12 @@ const register = async (req, res) => {
       await db.query('INSERT INTO customer_trust (customer_id) VALUES ($1) ON CONFLICT DO NOTHING', [user.id]);
     } else if (user.role === 'seller') {
       const defaultShopName = `${user.name}'s Kirana Store`;
+      const shopAddress = req.body.address || 'Address not provided';
+      const shopLat = req.body.latitude || 0;
+      const shopLng = req.body.longitude || 0;
       await db.query(
         'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude) VALUES ($1, $2, $3, $4, $5)',
-        [user.id, defaultShopName, 'Huzurnagar, Nalgonda, Telangana', 16.8970, 79.8705]
+        [user.id, defaultShopName, shopAddress, shopLat, shopLng]
       );
     }
 
@@ -196,7 +199,7 @@ const googleLogin = async (req, res) => {
 
 // 4. Update User Role
 const updateRole = async (req, res) => {
-  const { role } = req.body;
+  const { role, address, latitude, longitude } = req.body;
   const userId = req.user.id;
 
   if (!role || !['customer', 'seller', 'admin'].includes(role)) {
@@ -229,9 +232,12 @@ const updateRole = async (req, res) => {
       const shopCheck = await db.query('SELECT * FROM shops WHERE owner_id = $1', [userId]);
       if (shopCheck.rows.length === 0) {
         const defaultShopName = `${user.name}'s Kirana Store`;
+        const shopAddress = address || 'Address not provided';
+        const shopLat = latitude || 0;
+        const shopLng = longitude || 0;
         await db.query(
           'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude) VALUES ($1, $2, $3, $4, $5)',
-          [userId, defaultShopName, 'Bangalore Central, Karnataka', 12.9716, 77.5946]
+          [userId, defaultShopName, shopAddress, shopLat, shopLng]
         );
       }
     }

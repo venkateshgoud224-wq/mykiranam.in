@@ -4,11 +4,11 @@ import { useSocket } from '../../context/SocketContext';
 import { ShieldCheck, Mail, Phone, Upload, Image as ImageIcon, Send, ArrowRight, Lock, CheckCircle2 } from 'lucide-react';
 
 const SelfVerification = ({ onVerifySubmitted }) => {
-  const { token, user, apiUrl, refreshProfile } = useAuth();
+  const { token, user, apiUrl, refreshProfile, extraData } = useAuth();
   const { playSoundAlert } = useSocket();
 
   // Verification steps: 1 (OTP) | 2 (Category/Hours) | 3 (5 Image Uploads) | 4 (Success Review)
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(extraData?.shop?.verified_by_seller ? 2 : 1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 

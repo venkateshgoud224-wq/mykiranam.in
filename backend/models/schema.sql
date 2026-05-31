@@ -137,31 +137,4 @@ CREATE TABLE IF NOT EXISTS seller_performance (
     total_cancelled_orders INT DEFAULT 0
 );
 
--- Insert Mock Stores (pre-marked as Verified so they immediately appear)
-INSERT INTO users (role, name, email, password, phone) 
-VALUES ('seller', 'Ramesh Kumar', 'ramesh@kirana.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '9876543210')
-ON CONFLICT (email) DO NOTHING;
 
-INSERT INTO users (role, name, email, password, phone) 
-VALUES ('seller', 'Suresh Gupta', 'suresh@kirana.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '9876543211')
-ON CONFLICT (email) DO NOTHING;
-
-INSERT INTO users (role, name, email, password, phone) 
-VALUES ('seller', 'Anil Kirana Store', 'anil@kirana.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '9876543212')
-ON CONFLICT (email) DO NOTHING;
-
--- Insert corresponding shops with Verified statuses and mock image assets (using default shop emoji URLs/placeholders)
-INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, rating, active_orders, waiting_time, availability_status, discounts, verified, verification_status, verified_by_admin, verified_by_seller, verification_date, upi_id, shop_category)
-SELECT id, 'Ramesh Kirana & General Store', '12, MG Road, Ashok Nagar, Bengaluru, Karnataka 560001', 12.9756, 77.5966, 4.5, 0, 10, 'Available', '10% off on orders above ₹1000', true, 'Verified', true, true, CURRENT_TIMESTAMP, 'ramesh@upi', 'General Provisions'
-FROM users WHERE email = 'ramesh@kirana.com'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, rating, active_orders, waiting_time, availability_status, discounts, verified, verification_status, verified_by_admin, verified_by_seller, verification_date, upi_id, shop_category)
-SELECT id, 'Gupta Provision Store', '45, Brigade Road, Shantala Nagar, Bengaluru, Karnataka 560025', 12.9706, 77.6006, 4.2, 0, 25, 'Busy', 'Free home delivery above ₹1500', true, 'Verified', true, true, CURRENT_TIMESTAMP, 'suresh@upi', 'Groceries & Fruits'
-FROM users WHERE email = 'suresh@kirana.com'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, rating, active_orders, waiting_time, availability_status, discounts, verified, verification_status, verified_by_admin, verified_by_seller, verification_date, upi_id, shop_category)
-SELECT id, 'Anil Kirana & Sweets Store', '78, Commercial Street, Tasker Town, Bengaluru, Karnataka 560001', 12.9812, 77.5982, 3.8, 0, 0, 'Offline', 'No discounts', false, 'Pending', false, false, NULL, 'anil@upi', 'Snacks & Sweets'
-FROM users WHERE email = 'anil@kirana.com'
-ON CONFLICT DO NOTHING;

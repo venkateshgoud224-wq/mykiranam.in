@@ -115,7 +115,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Update user role
-  const updateRole = async (role) => {
+  const updateRole = async (role, locationData = {}) => {
     try {
       const response = await fetch(`${API_URL}/auth/role`, {
         method: 'PATCH',
@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }) => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ role })
+        body: JSON.stringify({ role, ...locationData })
       });
 
       const data = await response.json();

@@ -6,7 +6,7 @@ import { LogOut, Bell, MapPin, Store, User, CheckCircle2, AlertCircle } from 'lu
 import NotificationsDropdown from './NotificationsDropdown';
 
 const Navbar = ({ onSetCoords, currentCoords }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, apiUrl, token, refreshProfile } = useAuth();
   const { unreadCount } = useSocket();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -41,6 +41,27 @@ const Navbar = ({ onSetCoords, currentCoords }) => {
         }
 
         onSetCoords(lat, lon, addressName);
+
+        if (user && user.role === 'seller') {
+          try {
+            await fetch(`${apiUrl}/shops/settings`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                latitude: lat,
+                longitude: lon,
+                address: addressName
+              })
+            });
+            if (refreshProfile) refreshProfile();
+          } catch (err) {
+            console.error('Failed to update shop location:', err);
+          }
+        }
+
         setShowLocationModal(false);
         setGpsLoading(false);
       },
@@ -127,7 +148,7 @@ const Navbar = ({ onSetCoords, currentCoords }) => {
           </div>
 
           {/* ROW 2 (Mobile location) / Desktop Middle Area */}
-          {user && user.role === 'customer' && currentCoords && (
+          {user && ['customer', 'seller'].includes(user.role) && currentCoords && (
             <div className="w-full sm:w-auto flex justify-center sm:justify-start">
               <button
                 onClick={() => {

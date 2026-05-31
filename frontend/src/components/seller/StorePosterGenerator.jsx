@@ -66,15 +66,15 @@ const StorePosterGenerator = ({ shopName, shopId }) => {
           <div className="z-10 p-3 bg-white rounded-2xl shadow-sm border border-slate-100 mt-2 mb-2">
             <QRCode 
               value={storeUrl} 
-              size={150} 
-              level="H" 
+              size={180} 
+              level="M" 
               fgColor="#0f172a" 
             />
           </div>
 
           <div className="z-10 space-y-1 w-full bg-slate-50 py-3 rounded-xl border border-slate-100">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Scan & Search for:</p>
-            <h2 className="text-lg font-black text-slate-800 px-2 line-clamp-2 leading-tight">
+            <h2 className="text-xl font-black text-slate-800 px-2 break-words leading-tight">
               {shopName || 'Your Store Name'}
             </h2>
           </div>

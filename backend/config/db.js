@@ -12,11 +12,7 @@ let isMock = false;
 // ============================================================
 const HASHED_PASSWORD = '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
 
-const mockUsers = [
-  // --- ADMIN (ID 1) ---
-  { id: 1, role: 'admin',  name: 'Kiranam Admin',    email: 'admin@kiranam.in',     password: HASHED_PASSWORD, phone: '9000000000', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true },
-  { id: 2, role: 'admin',  name: 'Venkatesh Goud',   email: 'venkateshgoud224@gmail.com', password: HASHED_PASSWORD, phone: '9000000005', profile_image: null, whatsapp_number: null, verified_whatsapp: false, pref_browser_notif: true, pref_sounds: true, pref_whatsapp: true, pref_email: true }
-];
+const mockUsers = [];
 
 // ============================================================
 // SHOPS
@@ -59,31 +55,7 @@ const loadMockDb = () => {
       saveMockDb();
     }
 
-    // Ensure venkateshgoud224@gmail.com is an admin in the mock database
-    let adminUser = mockDb.users.find(u => u.email && typeof u.email === 'string' && u.email.toLowerCase() === 'venkateshgoud224@gmail.com');
-    if (!adminUser) {
-      adminUser = {
-        id: mockDb.users.length + 1,
-        role: 'admin',
-        name: 'Venkatesh Goud',
-        email: 'venkateshgoud224@gmail.com',
-        password: HASHED_PASSWORD,
-        phone: '9000000005',
-        profile_image: null,
-        whatsapp_number: null,
-        verified_whatsapp: false,
-        pref_browser_notif: true,
-        pref_sounds: true,
-        pref_whatsapp: true,
-        pref_email: true,
-        created_at: new Date()
-      };
-      mockDb.users.push(adminUser);
-      isMockDbDirty = true;
-    } else if (adminUser.role !== 'admin') {
-      adminUser.role = 'admin';
-      isMockDbDirty = true;
-    }
+    // Admin user logic removed to prevent seeded data
   } catch (err) {
     console.error('⚠️ Error loading mock database, using defaults:', err.message);
   }
@@ -735,12 +707,7 @@ const initDb = async () => {
     const schemaSql = fs.readFileSync(schemaPath, 'utf8');
     await pool.query(schemaSql);
 
-    // Make sure venkateshgoud224@gmail.com exists as an admin in PostgreSQL
-    await pool.query(`
-      INSERT INTO users (role, name, email, password, phone)
-      VALUES ('admin', 'Venkatesh Goud', 'venkateshgoud224@gmail.com', $1, '9000000005')
-      ON CONFLICT (email) DO UPDATE SET role = 'admin'
-    `, [HASHED_PASSWORD]);
+    // Admin user seeding removed to prevent dummy data in production
     
     // Safely add custom_order_id and transition timestamps to existing database schemas if not present
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS custom_order_id VARCHAR(50);');

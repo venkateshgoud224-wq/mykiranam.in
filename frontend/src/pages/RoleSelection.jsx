@@ -10,8 +10,33 @@ const RoleSelection = () => {
   const handleSelectRole = async (selectedRole) => {
     setLoading(true);
     setError('');
+
+    let locationData = {};
+
+    if (selectedRole === 'seller' && 'geolocation' in navigator) {
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+        const { latitude, longitude } = position.coords;
+        locationData = { latitude, longitude };
+        
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          if (res.ok) {
+            const data = await res.json();
+            locationData.address = data.display_name || 'Location based on GPS';
+          }
+        } catch (e) {
+          console.warn('Reverse geocoding failed', e);
+        }
+      } catch (geoErr) {
+        console.warn('Geolocation failed or denied:', geoErr);
+      }
+    }
+
     try {
-      await updateRole(selectedRole);
+      await updateRole(selectedRole, locationData);
     } catch (err) {
       setError(err.message || 'Failed to assign role. Please try again.');
       setLoading(false);
