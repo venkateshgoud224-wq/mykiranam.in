@@ -270,8 +270,14 @@ const WhatsAppVerificationRequired = ({ onSkip }) => {
       </main>
 
       {/* Footer */}
-      <footer className="py-4 border-t border-slate-200 bg-white/50 backdrop-blur-md text-center text-[10px] font-black text-slate-400 z-20 flex-shrink-0">
-        © 2026 Kiranam.in Hyperlocal Marketplace. Operated by Nelapatla Venkatesh.
+      <footer className="py-4 border-t border-slate-200 bg-white/50 backdrop-blur-md text-center text-[10px] font-black text-slate-400 z-20 flex-shrink-0 flex flex-col items-center justify-center">
+        <div className="mb-2 space-x-3 flex flex-wrap justify-center gap-y-1">
+          <a href="/terms.html" className="hover:text-amber-600 transition-colors">Terms</a>
+          <a href="/privacy.html" className="hover:text-amber-600 transition-colors">Privacy</a>
+          <a href="/refund.html" className="hover:text-amber-600 transition-colors">Refund Policy</a>
+          <a href="/contact.html" className="hover:text-amber-600 transition-colors">Contact Us</a>
+        </div>
+        <div>© 2026 Kiranam.in Hyperlocal Marketplace. Operated by Nelapatla Venkatesh.</div>
       </footer>
     </div>
   );
