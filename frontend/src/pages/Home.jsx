@@ -40,7 +40,7 @@ const Home = () => {
 
   // Initialize Real Google GSI button
   useEffect(() => {
-    if (window.google) {
+    if (window.google && !window.google.accounts.id._isInitializedByMyKiranam) {
       try {
         window.google.accounts.id.initialize({
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "129128617735-mqj7usoj69vcep7ar08u1anpga3o2cvu.apps.googleusercontent.com",
@@ -57,11 +57,12 @@ const Home = () => {
             }
           }
         });
+        window.google.accounts.id._isInitializedByMyKiranam = true;
       } catch (gsiErr) {
         console.warn('Google Identity Services initialization warning:', gsiErr);
       }
     }
-  }, [activeForm]);
+  }, [activeForm, googleLogin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -481,7 +482,7 @@ const Home = () => {
 
       {/* Footer */}
       <footer className="py-4 border-t border-slate-200 bg-white/50 backdrop-blur-md text-center text-[10px] font-black text-slate-400 z-20 flex-shrink-0">
-        © 2026 Kiranam.in Hyperlocal Marketplace. All rights reserved.
+        © 2026 Kiranam.in Hyperlocal Marketplace. Operated by Nelapatla Venkatesh.
       </footer>
     </div>
   );

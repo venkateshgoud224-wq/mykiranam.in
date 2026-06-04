@@ -271,7 +271,7 @@ const WhatsAppVerificationRequired = ({ onSkip }) => {
 
       {/* Footer */}
       <footer className="py-4 border-t border-slate-200 bg-white/50 backdrop-blur-md text-center text-[10px] font-black text-slate-400 z-20 flex-shrink-0">
-        © 2026 Kiranam.in Hyperlocal Marketplace. All rights reserved.
+        © 2026 Kiranam.in Hyperlocal Marketplace. Operated by Nelapatla Venkatesh.
       </footer>
     </div>
   );
