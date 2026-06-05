@@ -5,15 +5,18 @@ import Home from './pages/Home';
 import RoleSelection from './pages/RoleSelection';
 import NearbyShops from './pages/customer/NearbyShops';
 import InstantOrder from './pages/customer/InstantOrder';
+import CustomerQuotes from './pages/customer/CustomerQuotes';
 import MyOrders from './pages/customer/MyOrders';
 import SellerDashboard from './pages/seller/SellerDashboard';
 import SellerSettings from './pages/seller/SellerSettings';
+import SellerAnalytics from './pages/seller/SellerAnalytics';
 import AdminDashboard from './pages/admin/AdminDashboard'; // Import Admin Panel
 import Profile from './pages/Profile';
+import SavingsDashboard from './pages/customer/SavingsDashboard';
 import WhatsAppVerificationRequired from './pages/WhatsAppVerificationRequired';
 import Navbar from './components/common/Navbar';
 import BottomNavigation from './components/common/BottomNavigation';
-import { Store, ShoppingBag, User, Settings, Layers, Bell, ShieldAlert } from 'lucide-react';
+import { Store, ShoppingBag, User, Settings, Layers, Bell, ShieldAlert, Trophy, BarChart3 } from 'lucide-react';
 
 // Capture shopId from URL immediately upon script load to ensure it's available for child components
 const urlParams = new URLSearchParams(window.location.search);
@@ -99,6 +102,7 @@ const DashboardContent = () => {
     const customerMenuItems = [
       { id: 'shops', label: 'Nearby Shops', icon: Store },
       { id: 'orders', label: 'My Orders', icon: ShoppingBag },
+      { id: 'savings', label: 'My Savings', icon: Trophy },
       { id: 'profile', label: 'Profile', icon: User }
     ];
 
@@ -107,6 +111,7 @@ const DashboardContent = () => {
       { id: 'seller-active', label: 'Active Queue', icon: Layers },
       { id: 'seller-completed', label: 'Completed Log', icon: ShoppingBag },
       { id: 'seller-settings', label: 'Store Config', icon: Settings },
+      { id: 'seller-analytics', label: 'Premium Insights', icon: BarChart3 },
       { id: 'profile', label: 'Profile', icon: User }
     ];
 
@@ -158,6 +163,13 @@ const DashboardContent = () => {
             onTabChange={setActiveTab}
           />
         );
+      case 'quotes':
+        return (
+          <CustomerQuotes
+            onSelectShop={(shop) => setSelectedShop(shop)}
+            onBackToShops={() => setActiveTab('shops')}
+          />
+        );
       case 'instant-order':
         return (
           <InstantOrder
@@ -168,6 +180,8 @@ const DashboardContent = () => {
         );
       case 'orders':
         return <MyOrders />;
+      case 'savings':
+        return <SavingsDashboard />;
 
       // Seller dashboards
       case 'seller-new':
@@ -182,6 +196,8 @@ const DashboardContent = () => {
         );
       case 'seller-settings':
         return <SellerSettings />;
+      case 'seller-analytics':
+        return <SellerAnalytics />;
 
       // Admin dashboards
       case 'admin-sellers':

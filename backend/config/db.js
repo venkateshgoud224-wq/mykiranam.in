@@ -27,7 +27,14 @@ const mockDb = {
   orders: [],  // Empty — shops are unverified. Sellers must verify first, then customers place fresh orders.
   notifications: [],
   customer_trust: {},
-  seller_performance: {}
+  seller_performance: {},
+  order_chats: [],
+  products: [],
+  product_aliases: [],
+  historical_prices: [],
+  shop_price_index: [],
+  quote_history: [],
+  price_analytics: []
 };
 
 // Persistent fallback database on disk to survive server/nodemon restarts
@@ -101,6 +108,10 @@ const mockQuery = async (text, params = []) => {
 
   // SELECT queries
   if (normalizedText.startsWith('select')) {
+    if (normalizedText.includes('seller_customer_blocks')) {
+      return { rows: [] };
+    }
+
     if (normalizedText.includes('select count(*) as count from orders')) {
       const shopId = params[0];
       const count = mockDb.orders.filter(o => Number(o.shop_id) === Number(shopId) && o.order_status === 'Delivered').length;
@@ -282,6 +293,41 @@ const mockQuery = async (text, params = []) => {
       let trust = mockDb.customer_trust[customerId] || { customer_id: customerId, successful_pickups: 3, cancellations: 0, no_show_count: 0 };
       return { rows: [trust] };
     }
+
+    if (normalizedText.includes('from order_chats')) {
+      const orderId = params[0];
+      const chats = mockDb.order_chats.filter(c => Number(c.order_id) === Number(orderId));
+      chats.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      return { rows: chats };
+    }
+
+    if (normalizedText.includes('from products')) {
+      if (normalizedText.includes('where name =')) {
+        const product = mockDb.products.find(p => p.name.toLowerCase() === params[0].toLowerCase());
+        return { rows: product ? [product] : [] };
+      }
+      return { rows: mockDb.products };
+    }
+
+    if (normalizedText.includes('from product_aliases')) {
+      if (normalizedText.includes('where alias_name =')) {
+        const alias = mockDb.product_aliases.find(a => a.alias_name.toLowerCase() === params[0].toLowerCase());
+        return { rows: alias ? [alias] : [] };
+      }
+      return { rows: mockDb.product_aliases };
+    }
+
+    if (normalizedText.includes('from historical_prices')) {
+      let prices = mockDb.historical_prices;
+      if (normalizedText.includes('where shop_id =')) {
+        prices = prices.filter(p => Number(p.shop_id) === Number(params[0]));
+      }
+      return { rows: prices };
+    }
+
+    if (normalizedText.includes('from price_analytics')) {
+      return { rows: mockDb.price_analytics };
+    }
   }
 
   // INSERT queries
@@ -299,6 +345,7 @@ const mockQuery = async (text, params = []) => {
       profile_image: null,
       whatsapp_number: null,
       verified_whatsapp: false,
+      verified_email: false,
       pref_browser_notif: true,
       pref_sounds: true,
       pref_whatsapp: true,
@@ -399,6 +446,92 @@ const mockQuery = async (text, params = []) => {
     };
     mockDb.notifications.push(newNotif);
     return { rows: [newNotif] };
+  }
+
+  if (normalizedText.startsWith('insert into order_chats')) {
+    const newChat = {
+      id: mockDb.order_chats.length + 1,
+      order_id: Number(params[0]),
+      sender_id: Number(params[1]),
+      sender_role: params[2],
+      message: params[3],
+      created_at: new Date()
+    };
+    mockDb.order_chats.push(newChat);
+    return { rows: [newChat] };
+  }
+
+  if (normalizedText.startsWith('insert into products')) {
+    const newProduct = {
+      id: mockDb.products.length + 1,
+      name: params[0],
+      category: params[1] || 'General',
+      created_at: new Date()
+    };
+    mockDb.products.push(newProduct);
+    return { rows: [newProduct] };
+  }
+
+  if (normalizedText.startsWith('insert into product_aliases')) {
+    const newAlias = {
+      id: mockDb.product_aliases.length + 1,
+      product_id: Number(params[0]),
+      alias_name: params[1],
+      created_at: new Date()
+    };
+    mockDb.product_aliases.push(newAlias);
+    return { rows: [newAlias] };
+  }
+
+  if (normalizedText.startsWith('insert into historical_prices')) {
+    const newPrice = {
+      id: mockDb.historical_prices.length + 1,
+      product_id: Number(params[0]),
+      shop_id: Number(params[1]),
+      order_id: Number(params[2]),
+      price_per_unit: parseFloat(params[3]),
+      quantity: parseFloat(params[4]),
+      unit: params[5] || 'unit',
+      recorded_at: new Date()
+    };
+    mockDb.historical_prices.push(newPrice);
+    return { rows: [newPrice] };
+  }
+
+  if (normalizedText.startsWith('insert into quote_history')) {
+    const newHistory = {
+      id: mockDb.quote_history.length + 1,
+      customer_id: Number(params[0]),
+      items_requested: params[1],
+      generated_quotes: params[2],
+      created_at: new Date()
+    };
+    mockDb.quote_history.push(newHistory);
+    return { rows: [newHistory] };
+  }
+
+  if (normalizedText.includes('insert into price_analytics')) {
+    // Basic mock upsert handling
+    const existing = mockDb.price_analytics.find(pa => Number(pa.product_id) === Number(params[0]) && Number(pa.shop_id) === Number(params[1]));
+    if (existing) {
+      existing.average_7_day = params[2];
+      existing.average_30_day = params[3];
+      existing.average_90_day = params[4];
+      existing.updated_at = new Date();
+      return { rows: [existing] };
+    } else {
+      const newAnalytics = {
+        id: mockDb.price_analytics.length + 1,
+        product_id: Number(params[0]),
+        shop_id: Number(params[1]),
+        average_7_day: params[2],
+        average_30_day: params[3],
+        average_90_day: params[4],
+        updated_at: new Date()
+      };
+      mockDb.price_analytics.push(newAnalytics);
+      return { rows: [newAnalytics] };
+    }
   }
 
   // UPDATE queries
@@ -556,13 +689,19 @@ const mockQuery = async (text, params = []) => {
           shop.active_orders = Number(params[0]);
           shop.waiting_time = Number(params[0]) * 5;
         }
-        // 6. updateShopPayment
         else if (normalizedText.includes('upi_id = $1') || normalizedText.includes('set upi_id =')) {
           shop.upi_id = params[0];
           if (params[1]) shop.qr_code_image = params[1];
         }
         else if (normalizedText.includes('image_banner = $1') || normalizedText.includes('set image_banner =')) {
           shop.image_banner = params[0];
+        }
+        // 7. Razorpay Linked Account Setup
+        else if (normalizedText.includes('razorpay_linked_account_id =')) {
+          shop.bank_account_number = params[0];
+          shop.bank_ifsc_code = params[1];
+          shop.bank_beneficiary_name = params[2];
+          shop.razorpay_linked_account_id = params[3];
         }
       }
       return { rows: shop ? [shop] : [] };
@@ -574,6 +713,7 @@ const mockQuery = async (text, params = []) => {
       else if (normalizedText.includes('where id = $4')) orderId = params[3];
       else if (normalizedText.includes('where id = $3')) orderId = params[2];
       else if (normalizedText.includes('where id = $2')) orderId = params[1];
+      else if (normalizedText.includes('where id = $1')) orderId = params[0];
 
       const order = mockDb.orders.find(o => Number(o.id) === Number(orderId));
       if (order) {
@@ -592,10 +732,13 @@ const mockQuery = async (text, params = []) => {
         };
 
         // 1. updateOrderStatus
-        // UPDATE orders SET order_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2
         if (normalizedText.includes('order_status = $1') && normalizedText.includes('where id = $2')) {
           order.order_status = params[0];
           syncStatusTimestamp(order, params[0]);
+          
+          if (params[0] === 'Ready For Pickup' && params.length >= 4) {
+            order.pickup_otp = params[2];
+          }
           
           if (params[0] === 'Delivered' || params[0] === 'Cancelled') {
             const shop = mockDb.shops.find(s => s.id === order.shop_id);
@@ -605,6 +748,29 @@ const mockQuery = async (text, params = []) => {
               if (shop.active_orders < shop.max_active_orders && shop.availability_status === 'Busy') {
                 shop.availability_status = 'Available';
               }
+            }
+          }
+        }
+        else if (normalizedText.includes('pickup_otp = $2') && normalizedText.includes('where id = $5')) {
+          // UPDATE orders SET order_status = $1, pickup_otp = $2, otp_generated_at = $3, pickup_deadline = $4 WHERE id = $5
+          order.order_status = params[0];
+          syncStatusTimestamp(order, params[0]);
+          order.pickup_otp = params[1];
+          order.otp_generated_at = params[2];
+          order.pickup_deadline = params[3];
+        }
+        else if (normalizedText.includes('otp_verified_at = $2') && normalizedText.includes('where id = $3')) {
+          // UPDATE orders SET order_status = $1, otp_verified_at = $2 WHERE id = $3
+          order.order_status = params[0];
+          syncStatusTimestamp(order, params[0]);
+          order.otp_verified_at = params[1];
+          
+          const shop = mockDb.shops.find(s => s.id === order.shop_id);
+          if (shop) {
+            shop.active_orders = Math.max(0, shop.active_orders - 1);
+            shop.waiting_time = shop.active_orders * 5;
+            if (shop.active_orders < shop.max_active_orders && shop.availability_status === 'Busy') {
+              shop.availability_status = 'Available';
             }
           }
         }
@@ -654,9 +820,24 @@ const mockQuery = async (text, params = []) => {
           order.payment_method = params[1];
           order.payment_status = params[2];
           order.payment_proof_image = params[3] || null;
-        } else if (normalizedText.includes('set order_status = $1') && params.length === 2) {
+        } else if (normalizedText.includes('razorpay_order_id = $1')) {
+          order.order_status = 'Confirmed';
+          syncStatusTimestamp(order, 'Confirmed');
+          order.payment_status = 'Paid';
+          order.payment_method = 'Razorpay UPI';
+          order.razorpay_order_id = params[0];
+          order.razorpay_payment_id = params[1];
+        } else if (normalizedText.includes('refund_id = $1')) {
+          order.payment_status = 'Refunded';
+          order.refund_id = params[0];
+          order.refund_status = 'Processed';
+        } else if (normalizedText.includes('set order_status = $1')) {
           order.order_status = params[0];
           syncStatusTimestamp(order, params[0]);
+          
+          if (params[0] === 'Ready For Pickup' && params.length >= 4) {
+            order.pickup_otp = params[2];
+          }
           
           if (params[0] === 'Delivered' || params[0] === 'Cancelled') {
             const shop = mockDb.shops.find(s => s.id === order.shop_id);
@@ -715,6 +896,7 @@ const initDb = async () => {
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS packing_started_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS ready_for_pickup_at TIMESTAMP WITH TIME ZONE;');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS last_pickup_reminder_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP WITH TIME ZONE;');
@@ -723,12 +905,81 @@ const initDb = async () => {
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255);');
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP WITH TIME ZONE;');
     
+    // Add analytics columns
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE;');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_email BOOLEAN DEFAULT false;');
+
+    
     // Phase 5 migrations for digital / hybrid chitti updates
     await pool.query('ALTER TABLE orders ALTER COLUMN original_chitti DROP NOT NULL;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(20) DEFAULT \'handwritten\';');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS digital_item_list TEXT;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS modified_item_list TEXT;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS item_change_history TEXT;');
+    
+    // Phase 6A migrations
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_otp VARCHAR(10);');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS otp_generated_at TIMESTAMP WITH TIME ZONE;');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS otp_verified_at TIMESTAMP WITH TIME ZONE;');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_deadline TIMESTAMP WITH TIME ZONE;');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS order_chats (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+        sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        sender_role VARCHAR(20) NOT NULL,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    
+    // Phase 6B migrations
+    await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS verified_complaints_count INT DEFAULT 0;');
+    await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS warning_level VARCHAR(50) DEFAULT \'None\' CHECK (warning_level IN (\'None\', \'Warning\', \'Monitoring\', \'Final Warning\', \'Suspended\', \'Banned\'));');
+    await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS suspension_end_date TIMESTAMP WITH TIME ZONE;');
+    await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS total_reviews INT DEFAULT 0;');
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS complaints (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+        customer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE,
+        issue_type VARCHAR(50) NOT NULL,
+        description TEXT NOT NULL,
+        evidence_images JSONB,
+        status VARCHAR(50) DEFAULT 'Open' CHECK (status IN ('Open', 'Under Review', 'Seller Responded', 'Resolved', 'Closed')),
+        is_verified BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reviews (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+        customer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE,
+        product_quality INT CHECK (product_quality BETWEEN 1 AND 5),
+        service_quality INT CHECK (service_quality BETWEEN 1 AND 5),
+        order_accuracy INT CHECK (order_accuracy BETWEEN 1 AND 5),
+        overall_experience INT CHECK (overall_experience BETWEEN 1 AND 5),
+        review_text TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS suspension_history (
+        id SERIAL PRIMARY KEY,
+        shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE,
+        warning_level VARCHAR(50) NOT NULL,
+        reason TEXT NOT NULL,
+        suspended_until TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
     
     // Remove Bangalore seeding
     console.log('ℹ️ Startup complete.');

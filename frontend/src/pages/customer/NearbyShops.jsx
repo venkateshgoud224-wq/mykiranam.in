@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { Search, Star, Clock, MapPin, Compass, AlertCircle, Filter, ArrowUpDown, Award, CheckCircle, Store } from 'lucide-react';
+import { Search, Star, Clock, MapPin, Compass, AlertCircle, Filter, ArrowUpDown, Award, CheckCircle, Store, TrendingUp, Trophy } from 'lucide-react';
 
 const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
   const { token, apiUrl } = useAuth();
@@ -15,6 +15,24 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
   const [filterAvailable, setFilterAvailable] = useState(false);
   const [filterVerified, setFilterVerified] = useState(false);
   const [filterNearby, setFilterNearby] = useState(false);
+  
+  // Phase 8B: Community Savings
+  const [communitySavings, setCommunitySavings] = useState(null);
+
+  useEffect(() => {
+    const fetchCommunitySavings = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/savings/community`);
+        if (response.ok) {
+          const data = await response.json();
+          setCommunitySavings(data);
+        }
+      } catch (err) {
+        console.error('Error fetching community savings:', err);
+      }
+    };
+    fetchCommunitySavings();
+  }, [apiUrl]);
 
   // Fetch shops
   const fetchShops = async () => {
@@ -116,6 +134,40 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
           <span>Explore Verified Nearby Stores</span>
           <span className="text-xs font-normal text-slate-500">({filteredShops.length} active)</span>
         </h2>
+
+        {/* Community Savings Counter (Phase 8B) */}
+        {communitySavings && communitySavings.total_orders > 0 && (
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden mt-2 mb-2">
+            <div className="relative z-10">
+              <h3 className="text-xs font-black uppercase tracking-wider mb-2 flex items-center gap-1.5 opacity-90">
+                <Trophy className="w-4 h-4" /> MyKiranam Community Impact
+              </h3>
+              <p className="text-sm font-medium leading-snug">
+                Our community has saved <strong className="text-xl font-black">₹{communitySavings.total_savings}</strong> and <strong className="text-xl font-black">{Math.floor(communitySavings.total_time_saved / 60)} Hours</strong> of shopping time across {communitySavings.total_orders} orders!
+              </p>
+            </div>
+            <div className="absolute -right-4 -bottom-4 opacity-20 pointer-events-none transform rotate-12">
+              <Trophy className="w-32 h-32" />
+            </div>
+          </div>
+        )}
+
+        {/* Quote Engine Entry */}
+        <div className="bg-kirana-50 border border-kirana-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div>
+            <h3 className="font-bold text-slate-800 flex items-center space-x-1.5">
+              <TrendingUp className="w-4 h-4 text-kirana-600" />
+              <span>Smart Price Comparison</span>
+            </h3>
+            <p className="text-xs text-slate-600 mt-1">Want to know who is cheapest? Enter your list and get estimated quotes instantly.</p>
+          </div>
+          <button
+            onClick={() => onTabChange('quotes')}
+            className="whitespace-nowrap px-4 py-2 bg-slate-900 hover:bg-slate-950 text-white font-bold rounded-xl text-xs shadow-sm transition-all"
+          >
+            Compare Prices <span className="text-kirana-400 font-normal ml-1">(Coming Soon)</span>
+          </button>
+        </div>
 
         {/* Search */}
         <div className="relative">
@@ -231,13 +283,20 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
                       </div>
                       
                       {/* Trusted Tag & verification date */}
-                      <div className="flex items-center space-x-1 text-[9px] font-bold text-blue-600 bg-blue-50/50 px-2 py-0.5 rounded border border-blue-100 self-start w-fit">
-                        <Award className="w-3 h-3 text-blue-500 mr-0.5" />
-                        <span>Trusted Seller</span>
-                        {shop.verification_date && (
-                          <span className="text-slate-400 font-normal ml-1">
-                            • Approved {new Date(shop.verification_date).toLocaleDateString([], { month: 'short', year: 'numeric' })}
-                          </span>
+                      <div className="flex flex-col gap-1 mt-1">
+                        <div className="flex items-center space-x-1 text-[9px] font-bold text-blue-600 bg-blue-50/50 px-2 py-0.5 rounded border border-blue-100 self-start w-fit">
+                          <Award className="w-3 h-3 text-blue-500 mr-0.5" />
+                          <span>{shop.seller_level || 'Trusted Seller'} (Score: {shop.seller_trust_score || 100})</span>
+                          {shop.verification_date && (
+                            <span className="text-slate-400 font-normal ml-1">
+                              • Approved {new Date(shop.verification_date).toLocaleDateString([], { month: 'short', year: 'numeric' })}
+                            </span>
+                          )}
+                        </div>
+                        {shop.complaint_rate > 0 && (
+                          <div className="text-[8px] text-slate-400 pl-1">
+                            Complaint Rate: {shop.complaint_rate}%
+                          </div>
                         )}
                       </div>
                       

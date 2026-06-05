@@ -2,6 +2,39 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Upload, FileText, Calendar, Store, ChevronLeft, CheckCircle2, Plus, Minus, Trash2, Edit3, ShoppingBag } from 'lucide-react';
 
+const PREDEFINED_ITEMS = [
+  { name: 'Rice', price: 43 },
+  { name: 'Sugar', price: 42 },
+  { name: 'Chapathi Flour (Atta)', price: 37 },
+  { name: 'Bellam (Jaggery)', price: 55 },
+  { name: 'Upma Rava (Suji/Bombay Rava)', price: 47 },
+  { name: 'Sunflower Oil', price: 150 },
+  { name: 'Toor Dal (Kandi Pappu)', price: 140 },
+  { name: 'Moong Dal (Pesara Pappu)', price: 110 },
+  { name: 'Urad Dal (Minapa Pappu)', price: 120 },
+  { name: 'Chana Dal (Senaga Pappu)', price: 85 },
+  { name: 'Mustard Seeds (Avalu)', price: 90 },
+  { name: 'Cumin Seeds (Jeera)', price: 300 },
+  { name: 'Salt (Tata)', price: 25 },
+  { name: 'Turmeric Powder (Haldi)', price: 180 },
+  { name: 'Red Chilli Powder', price: 250 },
+  { name: 'Coriander Powder', price: 200 },
+  { name: 'Groundnut Oil', price: 170 },
+  { name: 'Poha (Atukulu)', price: 60 },
+  { name: 'Vermicelli (Semiya)', price: 80 },
+  { name: 'Tea Powder', price: 350 },
+  { name: 'Coffee Powder', price: 500 },
+  { name: 'Peanut (Palli)', price: 120 },
+  { name: 'Ghee', price: 600 },
+  { name: 'Tamarind', price: 130 },
+  { name: 'Garlic', price: 250 },
+  { name: 'Onion', price: 30 },
+  { name: 'Potato', price: 35 },
+  { name: 'Tomato', price: 40 },
+  { name: 'Milk (1L)', price: 60 },
+  { name: 'Curd (1kg)', price: 70 }
+];
+
 const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
   const { token, apiUrl, user } = useAuth();
   const bannerUrl = selectedShop?.image_banner ? (selectedShop.image_banner.startsWith('http') ? selectedShop.image_banner : `${apiUrl.replace('/api', '')}${selectedShop.image_banner}`) : null;
@@ -19,6 +52,10 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
   const [itemQty, setItemQty] = useState(1);
   const [itemUnit, setItemUnit] = useState('KG');
   const [itemNotes, setItemNotes] = useState('');
+  const [itemMrp, setItemMrp] = useState(0);
+  
+  const [searchResults, setSearchResults] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   
   const [notes, setNotes] = useState('');
   const [preferredPickup, setPreferredPickup] = useState('');
@@ -57,13 +94,66 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
       name: itemName.trim(),
       quantity: itemQty,
       unit: itemUnit,
-      notes: itemNotes.trim()
+      notes: itemNotes.trim(),
+      mrp: itemMrp
     };
 
     setItems([...items, newItem]);
     setItemName('');
     setItemQty('1');
     setItemNotes('');
+    setItemMrp(0);
+  };
+
+  const handleItemNameChange = async (e) => {
+    const val = e.target.value;
+    setItemName(val);
+    
+    // Check predefined list
+    const matched = PREDEFINED_ITEMS.find(item => item.name.toLowerCase() === val.toLowerCase() || item.name.toLowerCase().startsWith(val.toLowerCase()));
+    
+    let tempMrp = 0;
+    if (val.length > 2 && matched) {
+       tempMrp = matched.price;
+    }
+    setItemMrp(tempMrp);
+    
+    if (val.length > 2) {
+      const localResults = PREDEFINED_ITEMS
+        .filter(item => item.name.toLowerCase().includes(val.toLowerCase()))
+        .map(item => ({ id: `local_${item.name}`, product_name: item.name, market_price: item.price, quantity_desc: 'Standard/1kg' }));
+
+      try {
+        const res = await fetch(`${apiUrl}/products/search?q=${val}`);
+        const data = await res.json();
+        
+        const mergedResults = [...localResults];
+        data.forEach(apiItem => {
+          if (!mergedResults.some(local => local.product_name.toLowerCase() === apiItem.product_name.toLowerCase())) {
+            mergedResults.push(apiItem);
+          }
+        });
+
+        setSearchResults(mergedResults);
+        setShowDropdown(mergedResults.length > 0);
+      } catch(err) { 
+        console.error('Search error:', err); 
+        setSearchResults(localResults);
+        setShowDropdown(localResults.length > 0);
+      }
+    } else {
+      setShowDropdown(false);
+    }
+  };
+
+  const selectProduct = (prod) => {
+    setItemName(prod.product_name);
+    if (prod.quantity_desc) {
+      // Very basic parsing or just leave as is, since our units are fixed we can just use the note
+      setItemNotes(prod.quantity_desc);
+    }
+    setItemMrp(prod.market_price || 0);
+    setShowDropdown(false);
   };
 
   const handleRemoveItem = (id) => {
@@ -105,7 +195,12 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
     formData.append('order_type', orderMethod);
 
     if (isDigital) {
+      // Attach the estimated amount to the order body so backend knows
+      const estimatedTotal = items.reduce((sum, item) => sum + (parseFloat(item.mrp) * parseFloat(item.quantity) || 0), 0);
       formData.append('digital_item_list', JSON.stringify(items));
+      if (estimatedTotal > 0) {
+        formData.append('estimated_amount', estimatedTotal);
+      }
     } else {
       formData.append('original_chitti', chittiImage);
     }
@@ -296,14 +391,35 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
 
                     <div className="space-y-2.5">
                       {/* Name input */}
-                      <div className="space-y-1">
+                      <div className="space-y-1 relative">
                         <input
                           type="text"
                           placeholder="Item Name (e.g. Sugar, Fortune Rice)"
                           value={itemName}
-                          onChange={(e) => setItemName(e.target.value)}
+                          onChange={handleItemNameChange}
+                          onFocus={() => { if(searchResults.length > 0) setShowDropdown(true); }}
+                          onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
                           className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none placeholder-slate-400 text-slate-800"
                         />
+                        
+                        {/* Predictive Search Dropdown */}
+                        {showDropdown && searchResults.length > 0 && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                            {searchResults.map((prod) => (
+                              <div 
+                                key={prod.id}
+                                onClick={() => selectProduct(prod)}
+                                className="px-3 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0"
+                              >
+                                <div className="text-xs font-bold text-slate-800">{prod.product_name}</div>
+                                <div className="flex items-center justify-between mt-0.5">
+                                  <span className="text-[10px] text-slate-500">{prod.quantity_desc}</span>
+                                  <span className="text-[10px] font-semibold text-kirana-600">MRP: ₹{prod.market_price}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* Qty & Unit inputs in a row */}
@@ -428,6 +544,15 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
                               </button>
                             </div>
                           ))}
+                        </div>
+                      )}
+
+                      {items.length > 0 && items.reduce((sum, item) => sum + (parseFloat(item.mrp) * parseFloat(item.quantity) || 0), 0) > 0 && (
+                        <div className="mt-3 pt-3 border-t border-slate-300 flex justify-between items-center text-sm pl-4">
+                          <span className="font-black text-slate-800">Estimated Full Bill</span>
+                          <span className="font-black text-kirana-600">
+                            ₹{items.reduce((sum, item) => sum + (parseFloat(item.mrp) * parseFloat(item.quantity) || 0), 0).toFixed(2)}
+                          </span>
                         </div>
                       )}
                     </div>

@@ -18,18 +18,19 @@ const SellerSettings = () => {
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('22:00');
 
-  // UPI payment state
-  const [upiId, setUpiId] = useState('');
-  const [qrFile, setQrFile] = useState(null);
-  const [qrPreview, setQrPreview] = useState(null);
-
   // Shop Banner states
   const [bannerFile, setBannerFile] = useState(null);
   const [bannerPreview, setBannerPreview] = useState(null);
   const [bannerLoading, setBannerLoading] = useState(false);
 
+  // Bank Details for Automated Payouts
+  const [bankAccNumber, setBankAccNumber] = useState('');
+  const [bankIfsc, setBankIfsc] = useState('');
+  const [bankBeneficiaryName, setBankBeneficiaryName] = useState('');
+  const [bankLoading, setBankLoading] = useState(false);
+  const [razorpayLinkedAccountId, setRazorpayLinkedAccountId] = useState(null);
+
   const [loading, setLoading] = useState(false);
-  const [paymentLoading, setPaymentLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
@@ -44,15 +45,15 @@ const SellerSettings = () => {
       setDiscounts(shop.discounts || '');
       setStartTime(shop.online_start_time || '08:00');
       setEndTime(shop.online_end_time || '22:00');
-      setUpiId(shop.upi_id || '');
-      if (shop.qr_code_image) {
-        setQrPreview(shop.qr_code_image.startsWith('http') ? shop.qr_code_image : `${apiUrl.replace('/api', '')}${shop.qr_code_image}`);
-      }
       if (shop.image_banner) {
         setBannerPreview(shop.image_banner.startsWith('http') ? shop.image_banner : `${apiUrl.replace('/api', '')}${shop.image_banner}`);
       } else {
         setBannerPreview(null);
       }
+      setBankAccNumber(shop.bank_account_number || '');
+      setBankIfsc(shop.bank_ifsc_code || '');
+      setBankBeneficiaryName(shop.bank_beneficiary_name || '');
+      setRazorpayLinkedAccountId(shop.razorpay_linked_account_id || null);
     }
   }, [extraData.shop, apiUrl]);
 
@@ -94,56 +95,6 @@ const SellerSettings = () => {
     }
   };
 
-  const handlePaymentSubmit = async (e) => {
-    e.preventDefault();
-    setPaymentLoading(true);
-    setSuccess('');
-    setError('');
-
-    const formData = new FormData();
-    formData.append('upi_id', upiId);
-    if (qrFile) {
-      formData.append('qr_code_image', qrFile);
-    }
-
-    try {
-      const response = await fetch(`${apiUrl}/shops/payment`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to update UPI settings.');
-
-      playSoundAlert('success');
-      setSuccess('UPI configs saved successfully!');
-      refreshProfile();
-    } catch (err) {
-      setError(err.message || 'Error saving payment.');
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
-
-  const handleQrChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 50 * 1024 * 1024) {
-        setError('File size should be less than 50MB.');
-        return;
-      }
-      setQrFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setQrPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleBannerSubmit = async (e) => {
     e.preventDefault();
     if (!bannerFile) {
@@ -176,6 +127,40 @@ const SellerSettings = () => {
       setError(err.message || 'Error saving banner.');
     } finally {
       setBannerLoading(false);
+    }
+  };
+
+  const handleBankSubmit = async (e) => {
+    e.preventDefault();
+    setBankLoading(true);
+    setSuccess('');
+    setError('');
+
+    try {
+      const response = await fetch(`${apiUrl}/shops/link-bank-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          bank_account_number: bankAccNumber,
+          bank_ifsc_code: bankIfsc,
+          bank_beneficiary_name: bankBeneficiaryName
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to link bank account.');
+
+      playSoundAlert('success');
+      setSuccess('Bank account linked securely with Razorpay for automated payouts!');
+      setRazorpayLinkedAccountId(data.shop?.razorpay_linked_account_id);
+      refreshProfile();
+    } catch (err) {
+      setError(err.message || 'Error linking bank account.');
+    } finally {
+      setBankLoading(false);
     }
   };
 
@@ -344,67 +329,68 @@ const SellerSettings = () => {
         </button>
       </form>
 
-      {/* 2. Payment Configuration Settings Form */}
-      <form onSubmit={handlePaymentSubmit} className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium space-y-4">
-        <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center space-x-1">
-          <QrCode className="w-4 h-4 text-kirana-500" />
-          <span>Manual UPI Payment Details</span>
+      {/* Razorpay Automated Payout Settings */}
+      <form onSubmit={handleBankSubmit} className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium space-y-4">
+        <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+          <div className="flex items-center space-x-1">
+            <Lock className="w-4 h-4 text-kirana-500" />
+            <span>Automated Payout Bank Setup</span>
+          </div>
+          {razorpayLinkedAccountId && (
+             <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-black">Linked</span>
+          )}
         </h3>
         <p className="text-[10px] text-slate-400 leading-normal">
-          Customers who select online payment will verify your UPI ID and scan your uploaded QR Code.
+          {razorpayLinkedAccountId 
+            ? "Your bank account is linked to Razorpay. Money from online customer orders will automatically route to this account." 
+            : "Enter your bank details to automatically route payments to your account when customers pay online via Razorpay."}
         </p>
 
-        {/* UPI ID */}
         <div className="space-y-1">
-          <label className="text-xs font-bold text-slate-700">Your UPI ID (required for online verification)</label>
+          <label className="text-xs font-bold text-slate-700">Account Holder Name</label>
           <input
             type="text"
             required
-            placeholder="e.g. name@okhdfcbank or 9876543210@upi"
-            value={upiId}
-            onChange={(e) => setUpiId(e.target.value)}
+            placeholder="Name as per bank records"
+            value={bankBeneficiaryName}
+            onChange={(e) => setBankBeneficiaryName(e.target.value)}
             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800"
           />
         </div>
 
-        {/* UPI QR upload */}
-        <div className="space-y-1">
-          <label className="text-xs font-bold text-slate-700">Store UPI QR Code Image</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleQrChange}
-            className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-900 file:text-white hover:file:bg-slate-950 file:cursor-pointer"
-          />
-          {(qrPreview || upiId) && (
-            <div className="pt-2 flex flex-col items-center">
-              <span className="text-[9px] text-slate-400 font-bold mb-1">
-                {qrFile || (extraData.shop && extraData.shop.qr_code_image) ? 'Uploaded QR Code Preview:' : 'Generated UPI QR Code (Ready to Scan):'}
-              </span>
-              <img
-                src={
-                  qrPreview ||
-                  `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
-                    `upi://pay?pa=${upiId}&pn=${shopName.replace(/[^a-zA-Z0-9 ]/g, '')}&cu=INR&mc=0000&mode=02&purpose=00`
-                  )}`
-                }
-                alt="UPI QR Code"
-                className="w-28 h-28 object-contain border border-slate-200 p-1 bg-white rounded-lg"
-              />
-              {!qrFile && (!extraData.shop || !extraData.shop.qr_code_image) && upiId && (
-                <p className="text-[8px] text-slate-400 text-center mt-1">Generated automatically from your UPI ID</p>
-              )}
-            </div>
-          )}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-700">Account Number</label>
+            <input
+              type="text"
+              required
+              placeholder="Your Bank A/C Number"
+              value={bankAccNumber}
+              onChange={(e) => setBankAccNumber(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-700">IFSC Code</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. HDFC0001234"
+              value={bankIfsc}
+              onChange={(e) => setBankIfsc(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800"
+            />
+          </div>
         </div>
 
         <button
           type="submit"
-          disabled={paymentLoading}
-          className="w-full py-3 bg-slate-900 hover:bg-slate-950 text-white font-extrabold text-xs rounded-xl shadow transition-all flex items-center justify-center space-x-2"
+          disabled={bankLoading}
+          className="w-full py-3 bg-kirana-600 hover:bg-kirana-700 text-slate-950 font-extrabold text-xs rounded-xl shadow transition-all flex items-center justify-center space-x-2"
         >
-          <Save className="w-4 h-4" />
-          <span>{paymentLoading ? 'Uploading payment configs...' : 'Save UPI Settings'}</span>
+          <Lock className="w-4 h-4" />
+          <span>{bankLoading ? 'Securing Link...' : (razorpayLinkedAccountId ? 'Update Bank Details' : 'Link Bank for Automated Payouts')}</span>
         </button>
       </form>
 

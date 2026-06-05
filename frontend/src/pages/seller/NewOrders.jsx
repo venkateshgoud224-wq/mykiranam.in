@@ -43,6 +43,40 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange }) => {
     }
   };
 
+  const handleBlockCustomer = async (customerId) => {
+    const reason = window.prompt("Reason for blocking this customer?");
+    if (!reason) return;
+    
+    try {
+      const response = await fetch(`${apiUrl}/seller-protection/block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ customer_id: customerId, reason })
+      });
+      if (!response.ok) throw new Error('Failed to block customer');
+      alert('Customer blocked successfully.');
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleReportCustomer = async (customerId) => {
+    const reason = window.prompt("Reason for reporting this customer? (e.g. Abuse, Fake order)");
+    if (!reason) return;
+    
+    try {
+      const response = await fetch(`${apiUrl}/seller-protection/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ customer_id: customerId, reason, description: 'Reported from dashboard' })
+      });
+      if (!response.ok) throw new Error('Failed to report customer');
+      alert('Customer reported successfully.');
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const getFullImageUrl = (path) => {
     if (!path) return '';
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
@@ -92,7 +126,17 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange }) => {
                       <h3 className="font-extrabold text-sm text-slate-900 truncate">
                         Customer: {order.customer_name}
                       </h3>
-                      <span className="text-[10px] text-slate-400 block truncate">Order #{order.custom_order_id || order.id} • {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      {order.customer_level && (
+                        <div className="flex items-center space-x-1 mt-0.5">
+                          <span className={`px-1.5 py-0.5 border rounded text-[9px] font-bold ${Number(order.reliability_score) < 50 ? 'bg-crimson/10 text-crimson border-crimson/20' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                            {Number(order.reliability_score) < 50 ? `High Risk (Reliability: ${order.reliability_score}%)` : `Reliability: ${order.reliability_score || 100}%`}
+                          </span>
+                          <span className="text-[9px] text-slate-500">
+                            • Pickups: {order.successful_pickups || 0} | Cancels: {order.cancellations || 0} | Abandoned: {order.abandoned_orders || 0}
+                          </span>
+                        </div>
+                      )}
+                      <span className="text-[10px] text-slate-400 block truncate mt-0.5">Order #{order.custom_order_id || order.id} • {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div className="flex-shrink-0">
                       {revisionNotes ? (
@@ -146,9 +190,7 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange }) => {
                       <span className="block font-semibold text-slate-700 max-w-[150px] truncate">
                         Notes: {order.notes || 'None'}
                       </span>
-                      <span className="block text-[10px] text-slate-400 mt-1">
-                        🕒 Pickup: {order.preferred_pickup_time || 'Flexible'}
-                      </span>
+                      <span className="inline-block bg-amber-100 text-amber-800 border border-amber-200 rounded-full px-2 py-0.5 text-xs font-medium ml-2">Manual Pickup (Default)</span>
                     </div>
                   </div>
                 </div>
@@ -206,6 +248,34 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange }) => {
                   New Order Details: #{selectedOrder.custom_order_id || selectedOrder.id}
                 </h3>
                 <p className="text-xs text-slate-500 truncate">Customer: {selectedOrder.customer_name} ({selectedOrder.customer_phone || 'No phone'})</p>
+                {selectedOrder.customer_level && (
+                  <div className="flex flex-col space-y-1 mt-1">
+                    <div className="flex items-center space-x-1">
+                      <span className={`px-1.5 py-0.5 border rounded text-[9px] font-bold ${Number(selectedOrder.reliability_score) < 50 ? 'bg-crimson/10 text-crimson border-crimson/20' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                        {Number(selectedOrder.reliability_score) < 50 ? `High Risk Customer (Reliability: ${selectedOrder.reliability_score}%)` : `Reliability: ${selectedOrder.reliability_score || 100}%`}
+                      </span>
+                      <span className="text-[9px] text-slate-500">
+                        • Pickups: {selectedOrder.successful_pickups || 0} | Cancels: {selectedOrder.cancellations || 0} | Abandoned: {selectedOrder.abandoned_orders || 0}
+                      </span>
+                    </div>
+                    {/* Seller Protection Actions */}
+                    <div className="flex items-center space-x-2 mt-1">
+                      <button 
+                        onClick={() => handleBlockCustomer(selectedOrder.customer_id)}
+                        className="text-[9px] font-bold text-crimson hover:underline"
+                      >
+                        Block Customer
+                      </button>
+                      <span className="text-[9px] text-slate-300">|</span>
+                      <button 
+                        onClick={() => handleReportCustomer(selectedOrder.customer_id)}
+                        className="text-[9px] font-bold text-amber-600 hover:underline"
+                      >
+                        Report Customer
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => {
@@ -302,9 +372,7 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange }) => {
                     <strong>Customer Instructions:</strong> "{selectedOrder.notes}"
                   </p>
                 )}
-                <p className="text-slate-655">
-                  🕒 <strong>Preferred Pickup Timing:</strong> {selectedOrder.preferred_pickup_time || 'Anytime today'}
-                </p>
+                <span className="inline-block bg-amber-100 text-amber-800 border border-amber-200 rounded-full px-2 py-0.5 text-xs font-medium ml-2">Manual Pickup (Default)</span>
               </div>
 
               {error && <div className="text-crimson text-xs font-semibold">{error}</div>}

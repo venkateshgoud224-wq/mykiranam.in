@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { Store, Layers, Bell, CheckSquare, RefreshCw, Clock, ShieldAlert, FileWarning } from 'lucide-react';
+import { Store, Layers, Bell, CheckSquare, RefreshCw, Clock, ShieldAlert, FileWarning, Award } from 'lucide-react';
 import NewOrders from './NewOrders';
 import ActiveOrders from './ActiveOrders';
 import CompletedOrders from './CompletedOrders';
@@ -14,7 +14,6 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
   // Orders list state
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const fetchStoreOrders = async () => {
     try {
       setLoading(true);
@@ -282,6 +281,7 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
           <CheckSquare className="w-3.5 h-3.5 hidden sm:block" />
           <span className="truncate">Completed</span>
         </button>
+
       </div>
 
       {loading ? (

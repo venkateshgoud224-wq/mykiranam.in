@@ -1,5 +1,5 @@
 import React from 'react';
-import { Store, ShoppingBag, User, Settings, Layers, ShieldAlert } from 'lucide-react';
+import { Store, ShoppingBag, User, Settings, Layers, ShieldAlert, BarChart3, Trophy } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const BottomNavigation = ({ activeTab, onTabChange }) => {
@@ -42,6 +42,24 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
           activeTab === 'orders' ? 'text-slate-900 font-black' : 'text-slate-400'
         }`}>
           My Orders
+        </span>
+      </button>
+
+      <button
+        onClick={() => onTabChange('savings')}
+        className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
+      >
+        <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
+          activeTab === 'savings'
+            ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
+            : 'text-slate-400 hover:text-slate-600'
+        }`}>
+          <Trophy className="w-4.5 h-4.5" />
+        </div>
+        <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
+          activeTab === 'savings' ? 'text-slate-900 font-black' : 'text-slate-400'
+        }`}>
+          My Savings
         </span>
       </button>
 
@@ -102,6 +120,24 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
           activeTab === 'seller-settings' ? 'text-slate-900 font-black' : 'text-slate-400'
         }`}>
           Store Config
+        </span>
+      </button>
+
+      <button
+        onClick={() => onTabChange('seller-analytics')}
+        className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
+      >
+        <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
+          activeTab === 'seller-analytics'
+            ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
+            : 'text-slate-400 hover:text-slate-600'
+        }`}>
+          <BarChart3 className="w-4.5 h-4.5" />
+        </div>
+        <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
+          activeTab === 'seller-analytics' ? 'text-slate-900 font-black' : 'text-slate-400'
+        }`}>
+          Insights
         </span>
       </button>
 

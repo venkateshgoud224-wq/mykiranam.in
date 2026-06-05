@@ -67,7 +67,12 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
       'pickup_ready',
       'order_delivered',
       'order_cancelled',
-      'revision_requested'
+      'revision_requested',
+      'pickup_overdue',
+      'pickup_reminder',
+      'pickup_recurring_reminder',
+      'new_message',
+      'refund_processed'
     ];
 
     if (user.whatsapp_number && user.verified_whatsapp && allowedWhatsAppTypes.includes(type)) {
@@ -102,7 +107,8 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
           text
         );
       } else if (type === 'pickup_ready') {
-        const text = `Your grocery bag is packed and waiting for you at ${shopName}!\n\n📦 Order ID: ${orderIdStr}\n🏪 Status: Ready for Pickup\n\nPlease present your Order ID at the counter to skip the queue.`;
+        const otpText = metadata.pickupOtp ? `\n🔑 Pickup OTP: *${metadata.pickupOtp}*` : '';
+        const text = `Your grocery bag is packed and waiting for you at ${shopName}!\n\n📦 Order ID: ${orderIdStr}\n🏪 Status: Ready for Pickup${otpText}\n\nPlease present your Order ID and OTP at the counter to collect your items.`;
         waPromise = whatsappService.sendWhatsAppMessage(
           user.whatsapp_number,
           '🎒 Ready for Pickup',
@@ -122,11 +128,46 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
           '❌ Order Cancelled',
           text
         );
+      } else if (type === 'refund_processed') {
+        const text = `Refund Processed!\n\n📦 Order ID: ${orderIdStr}\n💰 Refund Amount: ₹${amount}\n\nYour refund has been successfully initiated via Razorpay and will reflect in your original payment method in 5-7 business days.`;
+        waPromise = whatsappService.sendWhatsAppMessage(
+          user.whatsapp_number,
+          '💸 Refund Initiated',
+          text
+        );
       } else if (type === 'revision_requested') {
         const text = `Revision Requested!\n\n📦 Order ID: ${orderIdStr}\n👤 Customer: ${customerName}\n\nThe customer has requested revision/modifications to their order. Please review items and update the bill.`;
         waPromise = whatsappService.sendWhatsAppMessage(
           user.whatsapp_number,
           '🔄 Revision Requested',
+          text
+        );
+      } else if (type === 'pickup_overdue') {
+        const text = `Pickup Overdue!\n\n📦 Order ID: ${orderIdStr}\n🏪 Shop: ${shopName}\n\nThis order has exceeded its pickup deadline and is now marked as overdue. Please contact the ${user.role === 'seller' ? 'customer' : 'seller'} as soon as possible.`;
+        waPromise = whatsappService.sendWhatsAppMessage(
+          user.whatsapp_number,
+          '⚠️ Pickup Overdue',
+          text
+        );
+      } else if (type === 'pickup_reminder') {
+        const text = `Pickup Reminder!\n\n📦 Order ID: ${orderIdStr}\n🏪 Shop: ${shopName}\n\nJust a friendly reminder to pick up your order! The deadline is in approximately 2 hours.`;
+        waPromise = whatsappService.sendWhatsAppMessage(
+          user.whatsapp_number,
+          '⏰ Pickup Reminder',
+          text
+        );
+      } else if (type === 'pickup_recurring_reminder') {
+        const text = `Pickup Reminder!\n\n📦 Order ID: ${orderIdStr}\n🏪 Shop: ${shopName}\n\nYour order is ready for pickup! Please collect it as soon as possible before the shop closes.`;
+        waPromise = whatsappService.sendWhatsAppMessage(
+          user.whatsapp_number,
+          '⏰ Pickup Reminder',
+          text
+        );
+      } else if (type === 'new_message') {
+        const text = `You have a new chat message regarding Order ${orderIdStr}!\n\n👤 From: ${metadata.senderName || 'User'}\n💬 Message: "${metadata.chatMessage || ''}"\n\nPlease check your app to reply.`;
+        waPromise = whatsappService.sendWhatsAppMessage(
+          user.whatsapp_number,
+          '💬 New Message',
           text
         );
       }

@@ -1,6 +1,8 @@
 const db = require('../config/db');
 const socketService = require('../services/socketService');
 const { uploadImage } = require('../services/storageService');
+const priceEngine = require('../services/priceEngine');
+const commitmentService = require('../services/commitmentPaymentService');
 
 // Helper: Update shop's active orders count in the DB
 const updateShopQueueCount = async (shopId) => {
@@ -82,6 +84,64 @@ const createOrder = async (req, res) => {
   }
 
   try {
+    // --- Phase 7A: Seller Block Check ---
+    const blockResult = await db.query(
+      `SELECT * FROM seller_customer_blocks 
+       WHERE customer_id = $1 AND seller_id = (SELECT owner_id FROM shops WHERE id = $2)`,
+      [customerId, shop_id]
+    );
+    if (blockResult.rows.length > 0) {
+      return res.status(403).json({ error: 'You are not allowed to place orders with this shop.' });
+    }
+
+    // --- Phase 7A: Active Order Limitation & Suspension Check ---
+    const trustResult = await db.query(`SELECT * FROM customer_trust WHERE customer_id = $1`, [customerId]);
+    let activeLimit = 2; // default
+    if (trustResult.rows.length > 0) {
+      const trust = trustResult.rows[0];
+      
+      if (trust.suspension_end_date && new Date(trust.suspension_end_date) > new Date()) {
+        return res.status(403).json({ error: `Your account is suspended until ${new Date(trust.suspension_end_date).toLocaleDateString()} due to policy violations.` });
+      }
+      activeLimit = trust.active_order_limit || 2;
+    }
+
+    const activeStates = [
+      'Waiting For Seller', 'Accepted', 'Bill Uploaded', 
+      'Waiting For Customer Confirmation', 'Confirmed', 'Packing Started', 
+      'Packing Completed', 'Ready For Pickup'
+    ];
+    
+    const activeOrdersResult = await db.query(
+      `SELECT COUNT(*) FROM orders WHERE customer_id = $1 AND order_status = ANY($2::varchar[])`,
+      [customerId, activeStates]
+    );
+    
+    const activeCount = parseInt(activeOrdersResult.rows[0].count);
+    
+    if (activeCount >= activeLimit) {
+      return res.status(400).json({ error: `You already have ${activeLimit} active orders. Complete or cancel an existing order before creating a new one.` });
+    }
+    // ------------------------------------------------
+
+    // --- SUSPICIOUS ACTIVITY DETECTION (Phase 7B) ---
+    const fifteenMinsAgo = new Date(Date.now() - 15 * 60000);
+    const recentOrdersResult = await db.query(
+      `SELECT shop_id FROM orders WHERE customer_id = $1 AND created_at >= $2`,
+      [customerId, fifteenMinsAgo]
+    );
+
+    const uniqueShops = new Set(recentOrdersResult.rows.map(row => row.shop_id));
+    if (uniqueShops.size >= 2 && !uniqueShops.has(parseInt(shop_id))) {
+      // Flag suspicious activity: same customer, multiple shops within 15 minutes
+      await db.query(
+        `INSERT INTO suspicious_activities (customer_id, reason, risk_score, status) 
+         VALUES ($1, $2, $3, 'Pending Review')`,
+        [customerId, `Placed orders at ${uniqueShops.size + 1} different shops within 15 minutes.`, 75]
+      );
+    }
+    // ------------------------------------------------
+
     // Check shop exists and is accepting orders
     const shopResult = await db.query('SELECT * FROM shops WHERE id = $1', [shop_id]);
     if (shopResult.rows.length === 0) {
@@ -143,8 +203,8 @@ const createOrder = async (req, res) => {
 
     // Insert order (Waiting For Seller) with custom_order_id
     const result = await db.query(
-      `INSERT INTO orders (customer_id, shop_id, original_chitti, notes, preferred_pickup_time, order_status, custom_order_id, order_type, digital_item_list) 
-       VALUES ($1, $2, $3, $4, $5, 'Waiting For Seller', $6, $7, $8) 
+      `INSERT INTO orders (customer_id, shop_id, original_chitti, notes, preferred_pickup_time, order_status, custom_order_id, order_type, digital_item_list, gateway_fee) 
+       VALUES ($1, $2, $3, $4, $5, 'Waiting For Seller', $6, $7, $8, $9) 
        RETURNING *`,
       [
         customerId, 
@@ -154,7 +214,8 @@ const createOrder = async (req, res) => {
         preferred_pickup_time || '', 
         customOrderId, 
         order_type || 'handwritten', 
-        isDigital ? JSON.stringify(itemsList) : null
+        isDigital ? JSON.stringify(itemsList) : null,
+        0
       ]
     );
 
@@ -162,6 +223,16 @@ const createOrder = async (req, res) => {
 
     // Trigger shop queue update
     await updateShopQueueCount(shop_id);
+
+    // --- Phase 7A: Increment total_orders ---
+    await db.query(
+      `INSERT INTO customer_trust (customer_id, total_orders) 
+       VALUES ($1, 1) 
+       ON CONFLICT (customer_id) 
+       DO UPDATE SET total_orders = customer_trust.total_orders + 1`,
+      [customerId]
+    );
+    // ----------------------------------------
 
     // Realtime alert using Socket.IO (for dashboard list update checks)
     socketService.alertNewOrder(shop_id, order);
@@ -200,10 +271,11 @@ const getOrders = async (req, res) => {
     let result;
     if (role === 'customer') {
       result = await db.query(
-        `SELECT o.*, s.shop_name, s.upi_id, s.qr_code_image, u.name as customer_name
+        `SELECT o.*, s.shop_name, s.upi_id, s.qr_code_image, u.name as customer_name, cp.status as commitment_status
          FROM orders o 
          JOIN shops s ON o.shop_id = s.id 
          JOIN users u ON o.customer_id = u.id
+         LEFT JOIN commitment_payments cp ON o.id = cp.order_id
          WHERE o.customer_id = $1 
          ORDER BY o.created_at DESC`,
         [userId]
@@ -217,9 +289,22 @@ const getOrders = async (req, res) => {
       const shopId = shopResult.rows[0].id;
 
       result = await db.query(
-        `SELECT o.*, u.name as customer_name, u.phone as customer_phone 
+        `SELECT o.*, u.name as customer_name, u.phone as customer_phone,
+                COALESCE(ct.trust_score, 100) as customer_trust_score,
+                COALESCE(ct.customer_level, 'Standard Customer') as customer_level,
+                COALESCE(ct.successful_pickups, 0) as successful_pickups,
+                COALESCE(ct.cancellations, 0) as cancellations,
+                COALESCE(ct.total_orders, 0) as total_customer_orders,
+                COALESCE(ct.abandoned_orders, 0) as abandoned_orders,
+                CASE 
+                   WHEN COALESCE(ct.total_orders, 0) > 0 
+                   THEN ROUND((COALESCE(ct.successful_pickups, 0) * 100.0) / COALESCE(ct.total_orders, 1))
+                END as reliability_score,
+                cp.status as commitment_status
          FROM orders o 
          JOIN users u ON o.customer_id = u.id 
+         LEFT JOIN customer_trust ct ON u.id = ct.customer_id
+         LEFT JOIN commitment_payments cp ON o.id = cp.order_id
          WHERE o.shop_id = $1 
          ORDER BY o.created_at DESC`,
         [shopId]
@@ -292,9 +377,9 @@ const updateOrderStatus = async (req, res) => {
         if (status !== 'Cancelled') {
           return res.status(403).json({ error: 'Customers can only cancel orders.' });
         }
-        const uncancelable = ['Packing Started', 'Packing Completed', 'Ready For Pickup', 'Confirmed', 'Delivered', 'Cancelled'];
+        const uncancelable = ['Delivered', 'Cancelled'];
         if (uncancelable.includes(order.order_status)) {
-          return res.status(400).json({ error: 'Cannot cancel order once packing has started.' });
+          return res.status(400).json({ error: 'Cannot cancel an already completed or cancelled order.' });
         }
       }
     }
@@ -308,6 +393,15 @@ const updateOrderStatus = async (req, res) => {
     else if (status === 'Ready For Pickup') timestampColumn = ', ready_for_pickup_at = CURRENT_TIMESTAMP';
     else if (status === 'Delivered') timestampColumn = ', delivered_at = CURRENT_TIMESTAMP, payment_status = \'Paid\'';
     else if (status === 'Cancelled') timestampColumn = ', cancelled_at = CURRENT_TIMESTAMP';
+
+    let additionalQueryVars = [];
+    if (status === 'Ready For Pickup') {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const deadline = new Date();
+      deadline.setHours(deadline.getHours() + 6); // default 6 hours
+      timestampColumn += ', pickup_otp = $3, otp_generated_at = CURRENT_TIMESTAMP, pickup_deadline = $4';
+      additionalQueryVars.push(otp, deadline);
+    }
 
     // Perform update
     let updateResult;
@@ -323,10 +417,8 @@ const updateOrderStatus = async (req, res) => {
         [status, historyNotes, typeof item_change_history === 'string' ? item_change_history : JSON.stringify(item_change_history), id]
       );
     } else {
-      updateResult = await db.query(
-        `UPDATE orders SET order_status = $1, updated_at = CURRENT_TIMESTAMP${timestampColumn} WHERE id = $2 RETURNING *`,
-        [status, id]
-      );
+      let queryText = `UPDATE orders SET order_status = $1, updated_at = CURRENT_TIMESTAMP${timestampColumn} WHERE id = $2 RETURNING *`;
+      updateResult = await db.query(queryText, [status, id, ...additionalQueryVars]);
     }
 
     const updatedOrder = updateResult.rows[0];
@@ -338,10 +430,12 @@ const updateOrderStatus = async (req, res) => {
     if (status === 'Delivered') {
       // 1. Customer Trust increment successful pickups
       await db.query(
-        `INSERT INTO customer_trust (customer_id, successful_pickups) 
-         VALUES ($1, 1) 
+        `INSERT INTO customer_trust (customer_id, successful_pickups, trust_score) 
+         VALUES ($1, 1, 101) 
          ON CONFLICT (customer_id) 
-         DO UPDATE SET successful_pickups = customer_trust.successful_pickups + 1`,
+         DO UPDATE SET 
+           successful_pickups = customer_trust.successful_pickups + 1,
+           trust_score = LEAST(100, COALESCE(customer_trust.trust_score, 100) + 1)`,
         [order.customer_id]
       );
 
@@ -356,24 +450,114 @@ const updateOrderStatus = async (req, res) => {
            total_completed_orders = seller_performance.total_completed_orders + 1`,
         [order.shop_id, responseTimeSec]
       );
-    } else if (status === 'Cancelled') {
-      // 1. Customer cancellations update
-      await db.query(
-        `INSERT INTO customer_trust (customer_id, cancellations) 
-         VALUES ($1, 1) 
-         ON CONFLICT (customer_id) 
-         DO UPDATE SET cancellations = customer_trust.cancellations + 1`,
-        [order.customer_id]
-      );
 
-      // 2. Seller cancellation performance
-      await db.query(
-        `INSERT INTO seller_performance (shop_id, total_cancelled_orders) 
-         VALUES ($1, 1) 
-         ON CONFLICT (shop_id) 
-         DO UPDATE SET total_cancelled_orders = seller_performance.total_cancelled_orders + 1`,
-        [order.shop_id]
-      );
+      // Phase 8A: Extract historical prices
+      const priceEngine = require('../services/priceEngine');
+      await priceEngine.extractOrderPrices(updatedOrder.id);
+
+      // Phase 8B / Phase 6: Savings Engine
+      try {
+        const estimatedDeliverySavings = 35;
+        const myKiranamPrice = parseFloat(order.amount || 0);
+        const baseFee = myKiranamPrice * 0.02;
+        const gst = baseFee * 0.18;
+        const estimatedPlatformSavings = Math.round(baseFee + gst) + 10;
+        const estimatedSurgeSavings = 5;
+        let productSavings = 0;
+        
+        if (order.order_type === 'digital' && order.modified_item_list) {
+          try {
+            const items = typeof order.modified_item_list === 'string' ? JSON.parse(order.modified_item_list) : order.modified_item_list;
+            let totalMrp = 0;
+            items.forEach(item => {
+              if (item.mrp) {
+                totalMrp += (parseFloat(item.mrp) * parseFloat(item.quantity));
+              }
+            });
+            if (totalMrp > order.amount) {
+              productSavings = totalMrp - order.amount;
+            }
+          } catch(e) {}
+        }
+        
+        const totalSavings = estimatedDeliverySavings + estimatedPlatformSavings + estimatedSurgeSavings + productSavings;
+        const estimatedTimeSaved = 30; // 10m queue + 15m shop + 5m bill
+
+        if (!db.getIsMock()) {
+          // Update Customer Savings
+          await db.query(
+            `INSERT INTO customer_savings (
+               customer_id, total_orders, total_savings, total_time_saved, last_order_date, favorite_shop_id
+             ) 
+             VALUES ($1, 1, $2, $3, CURRENT_TIMESTAMP, $4)
+             ON CONFLICT (customer_id)
+             DO UPDATE SET 
+               total_orders = customer_savings.total_orders + 1,
+               total_savings = customer_savings.total_savings + $2,
+               total_time_saved = customer_savings.total_time_saved + $3,
+               last_order_date = CURRENT_TIMESTAMP,
+               favorite_shop_id = $4`,
+            [order.customer_id, totalSavings, estimatedTimeSaved, order.shop_id]
+          );
+
+          // Update Community Savings
+          await db.query(
+            `UPDATE community_savings 
+             SET total_orders = total_orders + 1,
+                 total_savings = total_savings + $1,
+                 total_time_saved = total_time_saved + $2,
+                 last_updated = CURRENT_TIMESTAMP
+             WHERE id = (SELECT MIN(id) FROM community_savings)`,
+            [totalSavings, estimatedTimeSaved]
+          );
+        }
+
+
+      } catch (err) {
+        console.error('Error in Phase 8B Savings & Achievements logic:', err);
+      }
+    } else if (status === 'Cancelled') {
+      if (role === 'customer') {
+        // 1. Customer cancellations update (Only penalize customer if they cancelled)
+        const trustRes = await db.query(
+          `INSERT INTO customer_trust (customer_id, cancellations, trust_score) 
+           VALUES ($1, 1, 95) 
+           ON CONFLICT (customer_id) 
+           DO UPDATE SET 
+             cancellations = customer_trust.cancellations + 1,
+             trust_score = GREATEST(0, COALESCE(customer_trust.trust_score, 100) - 5)
+           RETURNING cancellations`,
+          [order.customer_id]
+        );
+
+        // Phase 7A: Customer Cancellation Penalty Logic (Strict 3 chances, warn 4th, restrict 5th)
+        try {
+          const cancellations = trustRes.rows[0].cancellations;
+          const notificationEngine = require('../services/notificationEngine');
+          
+          if (cancellations === 4) {
+            // 4th time: Warning
+            await notificationEngine.dispatchNotification(order.customer_id, 'Warning: Frequent Cancellations', 'Warning: You have cancelled multiple orders recently. Further cancellations will result in account restrictions.', 'warning', { orderId: order.id });
+          } else if (cancellations >= 5) {
+            // 5th time+: Restriction
+            await db.query(`UPDATE customer_trust SET suspension_end_date = CURRENT_TIMESTAMP + INTERVAL '7 days', active_order_limit = 2 WHERE customer_id = $1`, [order.customer_id]);
+            await notificationEngine.dispatchNotification(order.customer_id, 'Account Suspended', 'Your account has been temporarily suspended for 7 days due to excessive cancellations.', 'warning', { orderId: order.id });
+          }
+        } catch (e) {
+          console.error('Error in Phase 7A cancellation logic:', e);
+        }
+      } else if (role === 'seller') {
+        // 2. Seller cancellation performance (Only penalize seller if they cancelled)
+        await db.query(
+          `INSERT INTO seller_performance (shop_id, total_cancelled_orders, trust_score) 
+           VALUES ($1, 1, 95) 
+           ON CONFLICT (shop_id) 
+           DO UPDATE SET 
+             total_cancelled_orders = seller_performance.total_cancelled_orders + 1,
+             trust_score = GREATEST(0, COALESCE(seller_performance.trust_score, 100) - 5)`,
+          [order.shop_id]
+        );
+      }
     }
 
     // Trigger Notification setup
@@ -422,7 +606,7 @@ const updateOrderStatus = async (req, res) => {
         if (status === 'Ready For Pickup') {
           notifType = 'pickup_ready';
           notifTitle = 'Ready For Pickup';
-          notifyMessage = `🎉 Your order at ${order.shop_name} is Ready For Pickup!`;
+          notifyMessage = `🎉 Your order at ${order.shop_name} is Ready For Pickup! Your Pickup OTP is ${updatedOrder.pickup_otp}. Share this OTP with the seller.`;
         } else if (status === 'Delivered') {
           notifType = 'order_delivered';
           notifTitle = 'Order Delivered';
@@ -452,7 +636,8 @@ const updateOrderStatus = async (req, res) => {
             orderId: order.id,
             customOrderId: order.custom_order_id,
             shopName: order.shop_name,
-            customerName: order.customer_name || 'Customer'
+            customerName: order.customer_name || 'Customer',
+            pickupOtp: updatedOrder.pickup_otp
           }
         );
       }
@@ -585,6 +770,109 @@ const uploadBill = async (req, res) => {
   }
 };
 
+// 4b. Seller Requests Commitment Payment
+// Routes moved to orderRoutes.js
+const requestCommitment = async (req, res) => {
+  const { id } = req.params;
+  const sellerId = req.user.id;
+  try {
+    // Fetch order
+    const orderResult = await db.query(
+      `SELECT o.*, s.owner_id as seller_user_id FROM orders o JOIN shops s ON o.shop_id = s.id WHERE o.id = $1`,
+      [id]
+    );
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+    const order = orderResult.rows[0];
+    if (Number(order.seller_user_id) !== Number(sellerId)) {
+      return res.status(403).json({ error: 'Unauthorized to request commitment for this order.' });
+    }
+      if (order.order_status !== 'Bill Uploaded') {
+        return res.status(400).json({ error: 'Commitment can only be requested after bill is uploaded.' });
+      }
+      // Validate order amount exists
+      if (!order.amount) {
+        console.error('Commitment request error: order amount missing for order id', id);
+        return res.status(400).json({ error: 'Order amount is missing; cannot calculate commitment.' });
+      }
+      const orderAmountPaise = Math.round(parseFloat(order.amount) * 100);
+      const commitmentPaise = commitmentService.calculateCommitment(orderAmountPaise);
+      const razorOrder = await commitmentService.createPayment(order.id, commitmentPaise);
+    await db.query(
+      `UPDATE orders SET order_status = 'Waiting For Customer Confirmation', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [order.id]
+    );
+    const notificationEngine = require('../services/notificationEngine');
+    await notificationEngine.dispatchNotification(
+      order.customer_id,
+      'Commitment Payment Required',
+      `Please pay a commitment of ₹${(commitmentPaise/100).toFixed(2)} to confirm your order #${order.custom_order_id || order.id}.`,
+      'commitment_required',
+      { orderId: order.id, amount: commitmentPaise }
+    );
+    socketService.emitOrderStatus(order, order.customer_id, order.shop_id);
+    return res.status(200).json({ razororder: razorOrder, commitmentAmount: commitmentPaise });
+  } catch (err) {
+    console.error('Request commitment error:', err);
+    return res.status(500).json({ error: 'Server error requesting commitment.' });
+  }
+};
+
+// 4c. Verify Commitment Payment by Customer
+const verifyCommitment = async (req, res) => {
+  const { id } = req.params;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+  const customerId = req.user.id;
+
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    return res.status(400).json({ error: 'Missing Razorpay payment verification details.' });
+  }
+
+  try {
+    // Fetch order
+    const orderResult = await db.query(
+      `SELECT o.*, s.owner_id as seller_user_id FROM orders o JOIN shops s ON o.shop_id = s.id WHERE o.id = $1`,
+      [id]
+    );
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+    const order = orderResult.rows[0];
+    if (Number(order.customer_id) !== Number(customerId)) {
+      return res.status(403).json({ error: 'Unauthorized to verify commitment for this order.' });
+    }
+    if (order.order_status !== 'Waiting For Customer Confirmation') {
+      return res.status(400).json({ error: 'Commitment payment not expected at this stage.' });
+    }
+
+    // Verify Razorpay signature via commitment service
+    await commitmentService.verifyPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature });
+    // Mark commitment as paid in DB
+    await commitmentService.markPaid(order.id, razorpay_payment_id);
+
+    // Update order status to Confirmed so customer can proceed
+    await db.query(
+      `UPDATE orders SET order_status = 'Confirmed', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [order.id]
+    );
+
+    const notificationEngine = require('../services/notificationEngine');
+    await notificationEngine.dispatchNotification(
+      order.seller_user_id,
+      'Commitment Paid',
+      `Customer has paid the commitment for order #${order.custom_order_id || order.id}.`,
+      'commitment_paid',
+      { orderId: order.id }
+    );
+    socketService.emitOrderStatus(order, order.customer_id, order.shop_id);
+    return res.status(200).json({ success: true, message: 'Commitment payment verified.' });
+  } catch (err) {
+    console.error('Verify commitment error:', err);
+    return res.status(500).json({ error: 'Server error verifying commitment payment.' });
+  }
+};
+
 // 5. Customer Confirms Order & Selects Payment (Optionally uploads UPI receipt screenshot)
 const confirmOrder = async (req, res) => {
   const { id } = req.params;
@@ -616,6 +904,9 @@ const confirmOrder = async (req, res) => {
 
     if (Number(order.customer_id) !== Number(customerId)) {
       return res.status(403).json({ error: 'Unauthorized.' });
+    }
+    if (order.order_status !== 'Confirmed') {
+      return res.status(400).json({ error: 'Order must be confirmed after commitment payment before proceeding.' });
     }
 
     let proofUrl = null;
@@ -672,10 +963,278 @@ const confirmOrder = async (req, res) => {
   }
 };
 
+// 6. Verify OTP and Mark Delivered (Seller Action)
+const verifyOTP = async (req, res) => {
+  const { id } = req.params;
+  const { otp } = req.body;
+  const sellerId = req.user.id;
+
+  if (!otp) {
+    return res.status(400).json({ error: 'OTP is required.' });
+  }
+
+  try {
+    const orderResult = await db.query(
+      `SELECT o.*, s.owner_id as seller_user_id 
+       FROM orders o 
+       JOIN shops s ON o.shop_id = s.id 
+       WHERE o.id = $1`,
+      [id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    const order = orderResult.rows[0];
+
+    if (Number(order.seller_user_id) !== Number(sellerId)) {
+      return res.status(403).json({ error: 'Unauthorized.' });
+    }
+
+    if (order.order_status !== 'Ready For Pickup' && order.order_status !== 'Pickup Overdue') {
+      return res.status(400).json({ error: 'Order is not ready for pickup.' });
+    }
+
+    if (order.pickup_otp !== otp) {
+      return res.status(400).json({ error: 'Invalid OTP.' });
+    }
+
+    const result = await db.query(
+      `UPDATE orders 
+       SET order_status = $1, 
+           otp_verified_at = CURRENT_TIMESTAMP, 
+           delivered_at = CURRENT_TIMESTAMP, 
+           payment_status = 'Paid', 
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2 RETURNING *`,
+      ['Delivered', id]
+    );
+
+    const updatedOrder = result.rows[0];
+    await updateShopQueueCount(order.shop_id);
+
+    // Settle commitment amount to seller if they paid advance online
+    try {
+      if (order.payment_method === 'Razorpay UPI') {
+        const commitmentService = require('../services/commitmentPaymentService');
+        await commitmentService.settleToSeller(order.id);
+      }
+    } catch (err) {
+      console.error('Failed to auto-settle commitment on OTP verify:', err);
+    }
+
+    // Track Seller Performance & Customer Trust
+    await db.query(
+      `INSERT INTO customer_trust (customer_id, successful_pickups) 
+       VALUES ($1, 1) 
+       ON CONFLICT (customer_id) 
+       DO UPDATE SET successful_pickups = customer_trust.successful_pickups + 1`,
+      [order.customer_id]
+    );
+
+    const responseTimeSec = Math.round((new Date() - new Date(order.created_at)) / 1000 / 60);
+    await db.query(
+      `INSERT INTO seller_performance (shop_id, response_time_avg, total_completed_orders) 
+       VALUES ($1, $2, 1) 
+       ON CONFLICT (shop_id) 
+       DO UPDATE SET 
+         response_time_avg = ROUND((seller_performance.response_time_avg * seller_performance.total_completed_orders + $2) / (seller_performance.total_completed_orders + 1)),
+         total_completed_orders = seller_performance.total_completed_orders + 1`,
+      [order.shop_id, responseTimeSec]
+    );
+
+    const notificationEngine = require('../services/notificationEngine');
+    await notificationEngine.dispatchNotification(
+      order.customer_id,
+      'Order Delivered',
+      `Your order at ${order.shop_name || 'the shop'} has been successfully picked up!`,
+      'order_delivered',
+      { orderId: order.id, amount: order.amount }
+    );
+    await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id, order.order_status);
+
+    socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
+
+    return res.status(200).json(updatedOrder);
+  } catch (err) {
+    console.error('Verify OTP error:', err);
+    return res.status(500).json({ error: 'Server error verifying OTP.' });
+  }
+};
+
+// 7. Get Order Chats
+const getChats = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const orderResult = await db.query(
+      `SELECT o.*, s.owner_id as seller_user_id 
+       FROM orders o 
+       JOIN shops s ON o.shop_id = s.id 
+       WHERE o.id = $1`,
+      [id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+    const order = orderResult.rows[0];
+
+    if (Number(order.customer_id) !== Number(userId) && Number(order.seller_user_id) !== Number(userId)) {
+      return res.status(403).json({ error: 'Unauthorized access to chat.' });
+    }
+
+    const chatsResult = await db.query(
+      `SELECT * FROM order_chats WHERE order_id = $1 ORDER BY created_at ASC`,
+      [id]
+    );
+
+    return res.status(200).json(chatsResult.rows);
+  } catch (err) {
+    console.error('Get chats error:', err);
+    return res.status(500).json({ error: 'Server error fetching chats.' });
+  }
+};
+
+// 8. Send Order Chat
+const sendChat = async (req, res) => {
+  const { id } = req.params;
+  const { message } = req.body;
+  const file = req.file;
+  const userId = req.user.id;
+  const role = req.user.role;
+
+  if (!message && !file) {
+    return res.status(400).json({ error: 'Message or attachment cannot be empty.' });
+  }
+
+  try {
+    let finalMessage = message ? message.trim() : '';
+
+    if (file) {
+      const attachmentUrl = await uploadImage(file);
+      if (finalMessage) {
+        finalMessage += `\n[Attachment: ${attachmentUrl}]`;
+      } else {
+        finalMessage = `[Attachment: ${attachmentUrl}]`;
+      }
+    }
+
+    const orderResult = await db.query(
+      `SELECT o.*, s.owner_id as seller_user_id, s.shop_name 
+       FROM orders o 
+       JOIN shops s ON o.shop_id = s.id 
+       WHERE o.id = $1`,
+      [id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+    const order = orderResult.rows[0];
+
+
+    if (Number(order.customer_id) !== Number(userId) && Number(order.seller_user_id) !== Number(userId)) {
+      return res.status(403).json({ error: 'Unauthorized to send chat.' });
+    }
+
+    const result = await db.query(
+      `INSERT INTO order_chats (order_id, sender_id, sender_role, message) 
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [id, userId, role, finalMessage]
+    );
+
+    const newChat = result.rows[0];
+
+    // Notification
+    const recipientId = role === 'seller' ? order.customer_id : order.seller_user_id;
+    const senderName = role === 'seller' ? order.shop_name : 'Customer';
+    
+    const notificationEngine = require('../services/notificationEngine');
+    notificationEngine.dispatchNotification(
+      recipientId,
+      'New Message',
+      `New message from ${senderName}: ${message.substring(0, 50)}...`,
+      'new_message',
+      { orderId: order.id, chatMessage: message, senderName }
+    ).catch(err => console.error('Background notification error:', err));
+
+    socketService.io.emit('new_chat', newChat); // Basic global emit, ideally should emit to room
+
+    return res.status(201).json(newChat);
+  } catch (err) {
+    console.error('Send chat error:', err);
+    return res.status(500).json({ error: 'Server error sending chat.' });
+  }
+};
+
+const getMarketComparison = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const orderRes = await db.query('SELECT amount, modified_item_list, order_type FROM orders WHERE id = $1', [id]);
+    if (orderRes.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
+    const order = orderRes.rows[0];
+
+    let marketPriceTotal = 0;
+    const itemsDetail = [];
+    
+    if (order.order_type === 'digital' && order.modified_item_list) {
+      let items = [];
+      try {
+        items = typeof order.modified_item_list === 'string' ? JSON.parse(order.modified_item_list) : order.modified_item_list;
+      } catch(e) {}
+      
+      for (const item of items) {
+         if (!item.name) continue;
+         const q = item.name.toLowerCase().trim();
+         
+         let mPrice = 0;
+         if (db.getIsMock && db.getIsMock()) {
+             mPrice = parseFloat(item.price || 0) * 1.15;
+         } else {
+             const match = await db.query('SELECT market_price FROM products_dictionary WHERE product_name ILIKE $1 LIMIT 1', [`%${q}%`]);
+             if (match.rows.length > 0) {
+                 mPrice = parseFloat(match.rows[0].market_price) || 0;
+             } else {
+                 mPrice = parseFloat(item.price || 0) * 1.15;
+             }
+         }
+         marketPriceTotal += (mPrice * parseFloat(item.quantity || 1));
+         itemsDetail.push({ name: item.name, my_price: parseFloat(item.price || 0), market_price: mPrice, quantity: item.quantity });
+      }
+    } else {
+      const amt = parseFloat(order.amount || 0);
+      marketPriceTotal = amt * 1.15; // Assume 15% higher in online apps
+    }
+    
+    const myKiranamPrice = parseFloat(order.amount || 0);
+    let productSavings = marketPriceTotal - myKiranamPrice;
+    if (productSavings < 0) productSavings = 0;
+
+    return res.status(200).json({
+       marketPriceTotal: Math.round(marketPriceTotal),
+       myKiranamPrice: Math.round(myKiranamPrice),
+       productSavings: Math.round(productSavings),
+       itemsDetail
+    });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 module.exports = {
   createOrder,
   getOrders,
   updateOrderStatus,
+  requestCommitment,
   uploadBill,
-  confirmOrder
+  confirmOrder,
+  verifyCommitment,
+  verifyOTP,
+  getChats,
+  sendChat,
+  getMarketComparison
 };

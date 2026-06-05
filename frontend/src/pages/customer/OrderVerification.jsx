@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ChevronLeft, ArrowRight, Eye, FileText, CheckCircle2, XCircle, AlertCircle, Upload, QrCode, ThumbsUp, ThumbsDown, RefreshCcw } from 'lucide-react';
 import ImageModal from '../../components/common/ImageModal';
@@ -7,9 +7,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const { token, apiUrl } = useAuth();
   
   // States
-  const [paymentMethod, setPaymentMethod] = useState('');
-  const [paymentProofFile, setPaymentProofFile] = useState(null);
-  const [paymentProofPreview, setPaymentProofPreview] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('Razorpay UPI');
   
   // Workflow step switches: review | pay | request_changes
   const [viewState, setViewState] = useState(initialViewState || 'review'); 
@@ -19,22 +17,155 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const [revisionTags, setRevisionTags] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
 
-  // Handle proof screenshot upload
-  const handleProofChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 50 * 1024 * 1024) {
-        setError('File size should be less than 50MB.');
-        return;
-      }
-      setPaymentProofFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPaymentProofPreview(reader.result);
+  const commitmentAmount = Math.min(parseFloat(order.amount || 0) * 0.1, 50);
+  const remainingAmount = (parseFloat(order.amount || 0) - commitmentAmount).toFixed(2);
+
+  // Handle Razorpay Payment
+  const handleRazorpayPayment = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      // 1. Create order on backend
+      const res = await fetch(`${apiUrl}/payment/create-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amount: Math.round(commitmentAmount * 100), // convert to paise
+          receipt: `receipt_order_${order.id}`,
+          order_id: order.id
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create payment order');
+
+      // 2. Open Razorpay Checkout
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: data.amount,
+        currency: data.currency,
+        name: "MyKiranam",
+        description: `Order #${order.custom_order_id || order.id} from ${order.shop_name}`,
+        order_id: data.order_id,
+        handler: async function (response) {
+          try {
+            // 3. Verify Payment
+            const verifyRes = await fetch(`${apiUrl}/payment/verify-payment`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                order_id: order.id
+              })
+            });
+
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok) throw new Error(verifyData.error || 'Payment verification failed');
+
+            onVerifySuccess(); // Refresh to success screen
+          } catch (err) {
+            setError(err.message);
+          }
+        },
+        prefill: {
+          name: order.customer_name || "Customer",
+        },
+        // config removed to allow all payment methods (Netbanking, Cards) for easier testing
+        theme: { color: "#cca725" }
       };
-      reader.readAsDataURL(file);
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        setError(response.error.description || 'Payment failed');
+      });
+      rzp.open();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Handle PhonePe Payment
+  const handlePhonePePayment = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await fetch(`${apiUrl}/payment/phonepe/create-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amount: Math.round(commitmentAmount * 100), 
+          receipt: `order_${order.id}_${Date.now()}`,
+          order_id: order.id,
+          redirect_url: `${window.location.href}&method=phonepe`
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create PhonePe payment order');
+
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      } else {
+        throw new Error('No redirect URL from PhonePe');
+      }
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const method = queryParams.get('method');
+    const transactionId = queryParams.get('transactionId');
+    
+    if (method === 'phonepe' && transactionId && viewState === 'pay') {
+      setLoading(true);
+      fetch(`${apiUrl}/payment/phonepe/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          transactionId: transactionId,
+          order_id: order.id
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          onVerifySuccess();
+        } else {
+          setError(data.error || 'Payment verification failed');
+        }
+      })
+      .catch(err => {
+        setError('Error verifying PhonePe payment.');
+      })
+      .finally(() => {
+        setLoading(false);
+        // Clean URL
+        const cleanUrl = window.location.href.split('&method=phonepe')[0];
+        window.history.replaceState({}, '', cleanUrl);
+      });
+    }
+  }, []);
 
   // Confirm order action (Approve & Pay)
   const handleConfirmOrder = async (e) => {
@@ -44,19 +175,11 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
       return;
     }
 
-    if (paymentMethod === 'Manual UPI Payment' && !paymentProofFile) {
-      setError('Please upload a screenshot of your successful UPI payment to verify your transaction.');
-      return;
-    }
-
     setLoading(true);
     setError('');
 
     const formData = new FormData();
     formData.append('payment_method', paymentMethod);
-    if (paymentProofFile) {
-      formData.append('payment_proof_image', paymentProofFile);
-    }
 
     try {
       const response = await fetch(`${apiUrl}/orders/${order.id}/confirm`, {
@@ -356,18 +479,60 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
 
             {/* Pricing Invoice Summary card */}
             <div className="bg-slate-50 rounded-2xl p-5 border border-slate-150 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Total Bill Amount</span>
-                <h3 className="text-2xl font-black text-slate-900">₹{order.amount}</h3>
-                {order.notes && (
-                  <p className="text-xs text-slate-655 mt-2 bg-white px-3 py-2 rounded-xl border border-slate-100 italic">
-                    <strong>Shop note:</strong> "{order.notes}"
-                  </p>
-                )}
+              <div className="space-y-3">
+                {(() => {
+                  const onlineTotalEst = originalItems.reduce((sum, item) => sum + ((parseFloat(item.mrp) || 0) * (parseFloat(item.quantity) || 1)), 0);
+                  const myKiranamTotal = parseFloat(order.amount) || 0;
+                  const savings = onlineTotalEst > myKiranamTotal ? onlineTotalEst - myKiranamTotal : 0;
+                  
+                  return (
+                    <>
+                      {onlineTotalEst > 0 && (
+                        <div className="bg-white border border-slate-200 p-3 rounded-xl mb-3 shadow-sm max-w-sm">
+                          <div className="flex justify-between items-center text-xs mb-1">
+                            <span className="text-slate-500 font-semibold">Online Market Est. Total</span>
+                            <span className="text-slate-400 font-black line-through">₹{onlineTotalEst.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-800 font-bold">MyKiranam Final Bill</span>
+                            <span className="text-kirana-600 font-black">₹{myKiranamTotal.toFixed(2)}</span>
+                          </div>
+                          {savings > 0 && (
+                            <div className="mt-2 text-[10px] bg-emerald-50 text-emerald-700 px-2 py-1.5 rounded-lg font-bold flex items-center">
+                              <span>🎉 You saved ₹{savings.toFixed(2)} compared to online quick-commerce apps!</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div>
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Total Bill Amount</span>
+                        <h3 className="text-2xl font-black text-slate-900 mb-2">₹{order.amount}</h3>
+                        
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1 mb-2">
+                          <div className="flex justify-between items-center text-xs text-slate-700">
+                            <span>10% Advance Payment (Pay Now)</span>
+                            <span className="font-bold text-amber-700">₹{commitmentAmount.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs text-slate-700 font-bold border-t border-amber-200 pt-1 mt-1">
+                            <span>Remaining (Pay at Shop)</span>
+                            <span className="text-slate-900">₹{remainingAmount}</span>
+                          </div>
+                        </div>
+
+                        {order.notes && (
+                          <p className="text-xs text-slate-655 mt-2 bg-white px-3 py-2 rounded-xl border border-slate-100 italic">
+                            <strong>Shop note:</strong> "{order.notes}"
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Hybrid Review Action Layout */}
-              <div className="flex flex-wrap justify-end gap-2 w-full sm:w-auto">
+              <div className="flex flex-wrap justify-end gap-2 w-full sm:w-auto mt-4 sm:mt-0">
                 {order.order_status !== 'Ready For Pickup' && (
                   <>
                     <button
@@ -558,120 +723,40 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
         {/* --- CONFIRM & PAYMENT MODE --- */}
         {viewState === 'pay' && (
           <div className="max-w-md mx-auto space-y-6 animate-fadeIn">
-            <h3 className="text-lg font-extrabold text-slate-900">Select Payment Option</h3>
+            <h3 className="text-lg font-extrabold text-slate-900">Payment Option</h3>
             
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => { setPaymentMethod('Pay During Pickup'); setError(''); }}
-                className={`p-4 rounded-2xl border text-center transition-all ${
-                  paymentMethod === 'Pay During Pickup'
-                    ? 'border-kirana-500 bg-kirana-50/50 text-kirana-950 font-bold'
-                    : 'border-slate-200 hover:bg-slate-50 text-slate-655'
-                }`}
-              >
-                <span className="block text-xl mb-1.5">💵</span>
-                <span className="text-xs">Pay during Pickup</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setPaymentMethod('Manual UPI Payment'); setError(''); }}
-                className={`p-4 rounded-2xl border text-center transition-all ${
-                  paymentMethod === 'Manual UPI Payment'
-                    ? 'border-kirana-500 bg-kirana-50/50 text-kirana-950 font-bold'
-                    : 'border-slate-200 hover:bg-slate-50 text-slate-655'
-                }`}
-              >
-                <span className="block text-xl mb-1.5">📱</span>
-                <span className="text-xs">Manual UPI QR</span>
-              </button>
+            <div className="p-4 rounded-2xl border border-blue-500 bg-blue-50 text-blue-900 font-bold text-center transition-all shadow-sm">
+              <span className="block text-xl mb-1.5">⚡</span>
+              <span className="text-xs">Pay 10% Advance (₹{commitmentAmount.toFixed(2)}) Securely</span>
+              <div className="text-[10px] text-blue-700 font-normal mt-1">Remaining ₹{remainingAmount} to be paid offline at the shop.</div>
             </div>
 
-            {paymentMethod === 'Manual UPI Payment' && (
-              <div className="space-y-4 p-4 border border-slate-150 bg-slate-50 rounded-2xl">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Seller UPI ID</span>
-                  <span className="text-xs font-bold text-slate-800 bg-white px-3 py-1.5 rounded-lg border border-slate-100 select-all block mt-1">
-                    {order.upi_id || 'Seller hasn\'t added UPI ID. Pay on pickup.'}
-                  </span>
-                </div>
-
-                {order.upi_id && (
-                  <div className="pt-1">
-                    <a
-                      href={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name.replace(/[^a-zA-Z0-9 ]/g, ''))}&am=${parseFloat(order.amount).toFixed(2)}&cu=INR&mc=0000&mode=02&purpose=00`}
-                      className="w-full py-2 bg-kirana-500 hover:bg-kirana-600 text-slate-950 text-xs font-extrabold rounded-xl shadow-sm transition-all flex items-center justify-center space-x-1"
-                    >
-                      <span>📱 Pay Directly via UPI App</span>
-                    </a>
-                    <p className="text-[9px] text-slate-400 text-center mt-1">Clicking above automatically opens GPay, PhonePe, or BHIM UPI on mobile devices</p>
-                    <div className="mt-2 p-2 bg-amber-50/80 border border-amber-200/50 rounded-xl flex items-start space-x-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <p className="text-[9px] text-amber-800 leading-tight">
-                        <strong>PhonePe Users:</strong> If the payment button is blocked by PhonePe security, please <strong>Scan the QR Code below</strong> or use Google Pay / Paytm.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {(order.qr_code_image || order.upi_id) && (
-                  <div className="flex flex-col items-center py-2.5">
-                    <span className="text-[10px] font-bold text-slate-500 mb-2">Scan Shop QR Code to Pay ₹{order.amount}</span>
-                    <img
-                      src={
-                        order.qr_code_image
-                          ? getFullImageUrl(order.qr_code_image)
-                          : `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
-                              `upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name.replace(/[^a-zA-Z0-9 ]/g, ''))}&am=${parseFloat(order.amount).toFixed(2)}&cu=INR&mc=0000&mode=02&purpose=00`
-                            )}`
-                      }
-                      alt="UPI QR Code"
-                      className="w-40 h-40 object-contain bg-white p-2 rounded-xl border border-slate-200 shadow-sm"
-                    />
-                  </div>
-                )}
-
-                {/* Upload proof receipt */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 flex items-center space-x-1">
-                    <Upload className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Upload Payment Proof Screenshot (Required)</span>
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleProofChange}
-                    className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-900 file:text-white hover:file:bg-slate-950 file:cursor-pointer"
-                  />
-                  {paymentProofPreview && (
-                    <img
-                      src={paymentProofPreview}
-                      alt="Receipt Preview"
-                      className="max-h-32 rounded-xl mt-2 border border-slate-200 object-contain mx-auto cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => setPreviewImage(paymentProofPreview)}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="flex space-x-2">
+            <div className="flex flex-col space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={handleRazorpayPayment}
+                disabled={loading}
+                className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+              >
+                {loading ? 'Processing...' : 'Pay Securely via Razorpay'}
+              </button>
+              <button
+                type="button"
+                onClick={handlePhonePePayment}
+                disabled={loading}
+                className="w-full py-4 bg-purple-600 hover:bg-purple-700 text-white text-sm font-extrabold rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+              >
+                {loading ? 'Processing...' : 'Pay Securely via PhonePe'}
+              </button>
               <button
                 type="button"
                 onClick={() => setViewState('review')}
-                className="flex-1 py-3 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all"
+                disabled={loading}
+                className="w-full py-3 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all disabled:opacity-50"
               >
-                Go Back
+                Go Back to Review
               </button>
-              <button
-                type="button"
-                onClick={handleConfirmOrder}
-                disabled={loading || (paymentMethod === 'Manual UPI Payment' && !order.upi_id)}
-                className="flex-1 py-3 bg-gradient-to-r from-kirana-500 to-amber-500 text-slate-950 text-xs font-extrabold rounded-xl shadow-lg active:scale-[0.99] transition-all disabled:opacity-50"
-              >
-                {loading ? 'Confirming...' : 'Submit Confirmation'}
-              </button>
+              <p className="text-[10px] text-center text-slate-400 mt-2">Zero fees. Secure payments powered by Razorpay.</p>
             </div>
           </div>
         )}

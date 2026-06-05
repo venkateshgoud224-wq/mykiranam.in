@@ -1,9 +1,112 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { ShoppingBag, Calendar, User, Clock, AlertTriangle, Eye, CheckCircle2, ChevronRight, RefreshCcw } from 'lucide-react';
+import { ShoppingBag, Calendar, User, Clock, AlertTriangle, Eye, CheckCircle2, ChevronRight, RefreshCcw, MessageCircle, Phone, Smartphone, Star, ChevronDown } from 'lucide-react';
 import OrderVerification from './OrderVerification';
 import ImageModal from '../../components/common/ImageModal';
+import OrderChat from '../../components/common/OrderChat';
+import ReportComplaintModal from '../../components/customer/ReportComplaintModal';
+import RateExperienceModal from '../../components/customer/RateExperienceModal';
+
+const SavingsSummary = ({ order }) => {
+  const { apiUrl, token } = useAuth();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSavings = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/orders/${order.id}/market-comparison`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (isMounted) setData(json);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchSavings();
+    return () => { isMounted = false; };
+  }, [order.id, apiUrl, token]);
+
+  const deliverySavings = 35;
+  
+  if (loading) {
+    return (
+      <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 shadow-inner animate-pulse">
+        <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wider mb-3">
+           Loading Savings...
+        </h4>
+      </div>
+    );
+  }
+
+  const productSavings = data?.productSavings || 0;
+  const marketPriceTotal = data?.marketPriceTotal || 0;
+  const myKiranamPrice = data?.myKiranamPrice || order.amount || 0;
+
+  const baseFee = myKiranamPrice * 0.02;
+  const gst = baseFee * 0.18;
+  const platformSavings = Math.round(baseFee + gst) + 10;
+
+  const totalSavings = deliverySavings + platformSavings + productSavings;
+
+  return (
+    <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 shadow-inner">
+      <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <span className="text-emerald-500">✨</span> MyKiranam Savings Summary
+      </h4>
+      
+      <div className="space-y-2 text-xs">
+        {marketPriceTotal > myKiranamPrice && (
+          <>
+             <div className="flex justify-between items-center text-slate-500">
+               <span>Est. Online App Price:</span>
+               <span className="font-bold line-through">₹{marketPriceTotal}</span>
+             </div>
+             <div className="flex justify-between items-center text-emerald-900">
+               <span>MyKiranam Order Value:</span>
+               <span className="font-bold text-emerald-700">₹{myKiranamPrice}</span>
+             </div>
+             <div className="flex justify-between items-center text-emerald-700 bg-emerald-100/50 p-1 rounded">
+               <span>Savings on Groceries:</span>
+               <span className="font-bold text-emerald-600">₹{productSavings}</span>
+             </div>
+          </>
+        )}
+        {marketPriceTotal <= myKiranamPrice && (
+           <div className="flex justify-between items-center text-emerald-900">
+             <span>Order Value:</span>
+             <span className="font-bold">₹{myKiranamPrice}</span>
+           </div>
+        )}
+
+        <div className="flex justify-between items-center text-emerald-700">
+          <span>Est. Delivery Charges Avoided:</span>
+          <span className="font-bold">₹{deliverySavings}</span>
+        </div>
+        <div className="flex justify-between items-center text-emerald-700">
+          <span>Est. Platform Charges Avoided:</span>
+          <span className="font-bold">₹{platformSavings}</span>
+        </div>
+        <div className="flex justify-between items-center text-emerald-700 border-b border-emerald-200/50 pb-2">
+          <span>Est. Waiting Time Saved:</span>
+          <span className="font-bold text-teal-700">30 Minutes</span>
+        </div>
+        
+        <div className="flex justify-between items-center text-emerald-900 pt-1 font-black">
+          <span>Estimated Total Savings:</span>
+          <span className="text-sm">₹{totalSavings}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const MyOrders = () => {
   const { token, apiUrl } = useAuth();
@@ -14,6 +117,18 @@ const MyOrders = () => {
   const [trackingOrder, setTrackingOrder] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [activeTab, setActiveTab] = useState('active');
+  const [chatOrderId, setChatOrderId] = useState(null);
+  const [chatShopName, setChatShopName] = useState('');
+  const [reportingOrder, setReportingOrder] = useState(null);
+  const [ratingOrder, setRatingOrder] = useState(null);
+  const [expandedOrders, setExpandedOrders] = useState({});
+
+  const toggleOrderDetails = (orderId) => {
+    setExpandedOrders(prev => ({
+      ...prev,
+      [orderId]: !prev[orderId]
+    }));
+  };
 
   const fetchOrders = async () => {
     try {
@@ -79,6 +194,24 @@ const MyOrders = () => {
       }
     } catch (err) {
       console.error('Error cancelling order:', err);
+    }
+  };
+
+  // Handle commitment payment request
+  const handlePayCommitment = async (orderId) => {
+    try {
+      const response = await fetch(`${apiUrl}/orders/${orderId}/commitment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to request commitment');
+      alert(`Commitment amount: ₹${(data.commitmentAmount / 100).toFixed(2)}`);
+    } catch (err) {
+      console.error('Commitment error:', err);
+      alert(err.message || 'Error requesting commitment');
     }
   };
 
@@ -217,7 +350,8 @@ const MyOrders = () => {
             const hasSelectedPayment = order.payment_method !== null && order.payment_method !== undefined;
             const isVerificationAwaiting = ['Bill Uploaded', 'Waiting For Customer Confirmation'].includes(order.order_status) && !hasSelectedPayment;
             const isPaymentAwaiting = order.order_status === 'Ready For Pickup' && !hasSelectedPayment;
-            const isCancellable = ['Waiting For Seller'].includes(order.order_status);
+            const isCancellable = !['Delivered', 'Cancelled'].includes(order.order_status);
+            const isExpanded = !!expandedOrders[order.id];
             
             return (
               <div
@@ -225,7 +359,7 @@ const MyOrders = () => {
                 className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium space-y-4 transition-all"
               >
                 {/* Order header details */}
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start cursor-pointer" onClick={() => toggleOrderDetails(order.id)}>
                   <div>
                     <h3 className="font-extrabold text-sm text-slate-900">{order.shop_name}</h3>
                     <div className="flex items-center space-x-1.5 mt-1 text-[10px] text-slate-400">
@@ -241,22 +375,84 @@ const MyOrders = () => {
                   </span>
                 </div>
 
-                {/* Amount / Note display */}
-                <div className="flex items-center justify-between text-xs border-t border-b border-slate-50 py-3">
+                {/* Quick Summary (Always Visible) */}
+                <div className="flex justify-between items-center mt-1 cursor-pointer" onClick={() => toggleOrderDetails(order.id)}>
                   <div>
-                    <span className="block text-[10px] text-slate-400">Bill Amount</span>
+                    <span className="block text-[10px] text-slate-400">Total Bill Amount</span>
                     <span className="font-extrabold text-slate-800 text-sm">
                       {order.amount ? `₹${order.amount}` : 'Calculating...'}
                     </span>
                   </div>
-
-                  <div>
-                    <span className="block text-[10px] text-slate-400">Payment Status</span>
-                    <span className="font-semibold text-slate-700">
-                      {order.payment_method ? `${order.payment_method} (${order.payment_status})` : 'Pending Bill'}
-                    </span>
+                  <div className="flex items-center text-kirana-600 font-bold text-[11px] bg-kirana-50 hover:bg-kirana-100 px-3 py-1.5 rounded-xl border border-kirana-100 transition-colors">
+                    <span>{isExpanded ? 'Hide Details' : 'Open Details'}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 ml-1 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                   </div>
                 </div>
+
+                {/* Expanded Details */}
+                {isExpanded && (
+                  <div className="pt-4 mt-2 border-t border-slate-100 space-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                    {/* Amount / Note display */}
+                    <div className="flex flex-col text-xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[11px] text-slate-500">Payment Status</span>
+                        <div className="text-right">
+                          <span className="font-semibold text-slate-700">
+                            {order.order_status === 'Cancelled' && order.payment_status === 'Refunded' ? (
+                              <div className="text-emerald-600 font-bold flex flex-col items-end gap-0.5">
+                                <span>✓ {order.refund_status === 'Credited' ? 'Refund Credited to Bank' : 'Refund Processed'}</span>
+                                <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Amount Refunded: ₹{order.refund_amount ? (order.refund_amount/100).toFixed(2) : Math.min(Math.floor((parseFloat(order.amount || 0) * 100) / 10) / 100, 50).toFixed(2)}</span>
+                                {order.refund_id && order.refund_id !== 'Manual' && <span className="text-[9px] text-slate-500 font-normal">Ref: {order.refund_id}</span>}
+                                {order.refund_proof_image && (
+                                  <a href={getFullImageUrl(order.refund_proof_image)} target="_blank" rel="noreferrer" className="text-[9px] underline text-blue-500 font-normal" onClick={e => e.stopPropagation()}>View Proof</a>
+                                )}
+                              </div>
+                            ) : order.order_status === 'Cancelled' && ['Paid', 'Uploaded Proof'].includes(order.payment_status) ? (
+                              <span className="text-amber-600 font-bold flex items-center justify-end gap-1">
+                                Refund Initiated (2-3 Days)
+                              </span>
+                            ) : order.payment_method ? (
+                              `${order.payment_method} (${order.payment_status})`
+                            ) : (
+                              'Pending Bill'
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                  {order.payment_method === 'Razorpay UPI' && order.payment_status === 'Paid' && (
+                    <div className="bg-amber-50 rounded-lg p-2.5 flex flex-col space-y-1.5 border border-amber-200 mt-1">
+                      <div className="flex justify-between items-center text-[11px] text-emerald-700 font-bold">
+                        <span>Advance Paid Online:</span>
+                        <span>₹{Math.min(parseFloat(order.amount) * 0.1, 50).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[12px] text-amber-600 font-black pt-1 border-t border-amber-200/50">
+                        <span>Pending to Pay at Shop:</span>
+                        <span>₹{(parseFloat(order.amount) - Math.min(parseFloat(order.amount) * 0.1, 50)).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pickup OTP Display */}
+                {['Ready For Pickup', 'Pickup Overdue'].includes(order.order_status) && order.pickup_otp && (
+                  <div className="bg-kirana-50 border border-kirana-200 rounded-2xl p-4 text-center mt-4">
+                    <span className="block text-xs font-bold text-kirana-800 uppercase tracking-wider mb-1">
+                      Your Pickup OTP
+                    </span>
+                    <span className="block text-3xl font-black text-kirana-900 tracking-[0.2em]">
+                      {order.pickup_otp}
+                    </span>
+                    <p className="text-[10px] text-kirana-700 mt-2">
+                      Please share this OTP with the seller to collect your order.
+                    </p>
+                    {order.pickup_deadline && (
+                      <p className="text-xs text-crimson font-bold mt-2">
+                        Pickup Before: {new Date(order.pickup_deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Action buttons based on active state */}
                 <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -288,24 +484,68 @@ const MyOrders = () => {
                         <span>Verify Bill</span>
                         <ChevronRight className="w-4 h-4" />
                       </button>
-                    ) : isPaymentAwaiting ? (
+                    ) : (order.order_status === 'Bill Uploaded' && !order.commitment_paid) ? (
                       <button
-                        onClick={() => setVerifyingOrder(order)}
-                        className="px-4 py-2.5 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-kirana-500/10 hover:shadow-kirana-500/20 active:scale-[0.99] transition-all flex items-center space-x-1"
+                        onClick={() => handlePayCommitment(order.id)}
+                        className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-amber-500 hover:from-emerald-600 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.99] transition-all flex items-center space-x-1"
                       >
-                        <span>Pay Now</span>
+                        <span>Pay Commitment</span>
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     ) : (
-                      <button
-                        onClick={() => setTrackingOrder(trackingOrder?.id === order.id ? null : order)}
-                        className="px-4 py-2 bg-slate-900 hover:bg-slate-950 text-white text-xs font-bold rounded-xl transition-all"
-                      >
-                        {trackingOrder?.id === order.id ? 'Close Details' : 'Track Order'}
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        {order.order_status === 'Delivered' && (
+                          <>
+                            <button
+                              onClick={() => setReportingOrder(order)}
+                              className="px-3 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 text-xs font-bold rounded-xl transition-all"
+                            >
+                              Raise Complaint
+                            </button>
+                            <button
+                              onClick={() => setRatingOrder(order)}
+                              className="px-3 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-bold rounded-xl transition-all flex items-center"
+                            >
+                              <Star className="w-3.5 h-3.5 mr-1 fill-amber-500 text-amber-500" />
+                              Rate Experience
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => setTrackingOrder(trackingOrder?.id === order.id ? null : order)}
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-950 text-white text-xs font-bold rounded-xl transition-all"
+                        >
+                          {trackingOrder?.id === order.id ? 'Close Details' : 'Track Order'}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
+
+                {/* Savings Summary (Phase 8B) */}
+                {order.order_status === 'Delivered' && (
+                  <SavingsSummary order={order} />
+                )}
+
+                {/* Communication Actions */}
+                {!['Cancelled', 'Delivered'].includes(order.order_status) && (
+                  <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-50">
+                    <button 
+                      onClick={() => alert('Seller phone number would be dialed here.')} // In a real app, you'd have the seller phone number from the API
+                      className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-xs"
+                    >
+                      <Phone className="w-4 h-4" />
+                      <span>Call Seller</span>
+                    </button>
+                    <button 
+                      onClick={() => { setChatOrderId(order.id); setChatShopName(order.shop_name); }}
+                      className="flex items-center justify-center space-x-2 py-2 px-3 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl transition-colors font-semibold text-xs"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>Chat Seller</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Tracking Progress Timeline Details */}
                 {trackingOrder?.id === order.id && (
@@ -567,8 +807,10 @@ const MyOrders = () => {
                   </div>
                 )}
               </div>
-            );
-          })}
+            )}
+          </div>
+        );
+      })}
         </div>
       )}
 
@@ -576,6 +818,40 @@ const MyOrders = () => {
         <ImageModal
           imageUrl={previewImage}
           onClose={() => setPreviewImage(null)}
+        />
+      )}
+
+      {/* Chat Modal */}
+      {chatOrderId && (
+        <OrderChat 
+          orderId={chatOrderId}
+          otherPartyName={chatShopName}
+          onClose={() => setChatOrderId(null)}
+        />
+      )}
+
+      {/* Report Complaint Modal */}
+      {reportingOrder && (
+        <ReportComplaintModal
+          order={reportingOrder}
+          onClose={() => setReportingOrder(null)}
+          onSuccess={() => {
+            setReportingOrder(null);
+            alert('Your complaint has been submitted for review.');
+          }}
+        />
+      )}
+
+      {/* Rate Experience Modal */}
+      {ratingOrder && (
+        <RateExperienceModal
+          order={ratingOrder}
+          onClose={() => setRatingOrder(null)}
+          onSuccess={() => {
+            setRatingOrder(null);
+            alert('Thank you for your feedback!');
+            fetchOrders();
+          }}
         />
       )}
     </div>

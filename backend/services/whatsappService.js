@@ -61,7 +61,7 @@ const initWhatsAppClient = () => {
         });
 
         // Save to artifacts folder
-        const artifactDir = 'C:/Users/Navi/.gemini/antigravity-ide/brain/0d703475-f244-4790-8220-9bd275e8fc48';
+        const artifactDir = 'C:/Users/Navi/.gemini/antigravity-ide/brain/0dba7bb1-bbda-43b8-bba0-408d6b849719';
         if (fs.existsSync(artifactDir)) {
           const artifactPath = path.join(artifactDir, 'whatsapp_qr.png');
           QRCodeLib.toFile(artifactPath, qr, { width: 300, margin: 2 }, (err) => {

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { FileSpreadsheet, Eye, Play, CheckCircle2, User, ChevronDown, PackageCheck, AlertCircle, Trash2, Send, Download, ListOrdered, Plus, Minus, FileText, ClipboardList } from 'lucide-react';
+import { FileSpreadsheet, Eye, Play, CheckCircle2, User, ChevronDown, PackageCheck, AlertCircle, Trash2, Send, Download, ListOrdered, Plus, Minus, FileText, ClipboardList, MessageCircle, Phone, Smartphone } from 'lucide-react';
 import BillingForm from './BillingForm';
 import ImageModal from '../../components/common/ImageModal';
+import OrderChat from '../../components/common/OrderChat';
+import axios from 'axios';
 
 const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
   const { token, apiUrl } = useAuth();
@@ -24,6 +26,35 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
       playSoundAlert('success');
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const [otpDialogOrderId, setOtpDialogOrderId] = useState(null);
+  const [otpInput, setOtpInput] = useState('');
+  const [chatOrderId, setChatOrderId] = useState(null);
+  const [chatCustomerName, setChatCustomerName] = useState('');
+
+  const handleVerifyOTP = async () => {
+    if (!otpInput) {
+      alert('Please enter OTP');
+      return;
+    }
+    try {
+      const response = await axios.post(`${apiUrl}/orders/${otpDialogOrderId}/verify-otp`, 
+        { otp: otpInput },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (response.data) {
+        playSoundAlert('success');
+        setOtpDialogOrderId(null);
+        setOtpInput('');
+        // We need to re-fetch orders, ideally onUpdateStatus triggers a refresh. 
+        // For now, we can just call onUpdateStatus with 'Delivered' to trigger the parent's refresh, 
+        // even though backend already updated it. Or we just reload the window.
+        window.location.reload(); 
+      }
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to verify OTP');
     }
   };
 
@@ -52,7 +83,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
           {activeOrders.map((order, idx) => {
             const isAccepted = order.order_status === 'Accepted';
             const showReadyForDelivery = ['Packing Started', 'Confirmed'].includes(order.order_status);
-            const showDeliverOrder = ['Ready For Pickup'].includes(order.order_status);
+            const showDeliverOrder = ['Ready For Pickup', 'Pickup Overdue'].includes(order.order_status);
             const isExpanded = expandedOrderId === order.id;
 
             return (
@@ -69,6 +100,13 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                     <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-1.5 truncate">
                       <span className="truncate">Customer: {order.customer_name}</span>
                     </h3>
+                    {order.customer_level && (
+                      <div className="flex items-center space-x-1 mt-0.5">
+                        <span className={`px-1.5 py-0.5 border rounded text-[9px] font-bold ${Number(order.reliability_score) < 50 ? 'bg-crimson/10 text-crimson border-crimson/20' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                          {Number(order.reliability_score) < 50 ? `High Risk (Reliability: ${order.reliability_score}%)` : `Reliability: ${order.reliability_score || 100}%`}
+                        </span>
+                      </div>
+                    )}
                     <p className="text-[10px] text-slate-400 mt-0.5 truncate">Order #{order.custom_order_id || order.id} • Tel: {order.customer_phone}</p>
                   </div>
 
@@ -128,11 +166,32 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
 
                     {showDeliverOrder && (
                       <button
-                        onClick={() => handleProgress(order.id, 'Delivered')}
+                        onClick={() => setOtpDialogOrderId(order.id)}
                         className="px-4 py-2 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg active:scale-[0.99] transition-all flex items-center justify-center space-x-1 flex-1 sm:flex-none whitespace-nowrap"
                       >
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>Deliver Order</span>
+                        <span>Verify OTP & Deliver</span>
+                      </button>
+                    )}
+
+                    {/* Mark No Pickup button */}
+                    {order.order_status === 'Ready For Pickup' && (
+                      <button
+                        onClick={async () => {
+                          if (window.confirm("Are you sure you want to mark this order as 'No Pickup'? This will cancel the order and apply abandonment penalties to the customer.")) {
+                            try {
+                              await axios.post(`${apiUrl}/seller-protection/order/${order.id}/no-pickup`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                              playSoundAlert('cancelled');
+                              window.location.reload();
+                            } catch (err) {
+                              alert(err.response?.data?.error || 'Failed to mark No Pickup');
+                            }
+                          }
+                        }}
+                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-slate-50 border border-slate-100 rounded-xl transition-all flex-shrink-0"
+                        title="Mark No Pickup / Abandoned"
+                      >
+                        <AlertCircle className="w-4 h-4" />
                       </button>
                     )}
 
@@ -344,13 +403,49 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                           )}
                         </div>
                       )}
+                      )}
+                    </div>
+
+                    {/* Communication Actions */}
+                    <div className="grid grid-cols-2 gap-2 mt-4">
+                      <a 
+                        href={`tel:${order.customer_phone}`}
+                        className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-xs"
+                      >
+                        <Phone className="w-4 h-4" />
+                        <span>Call</span>
+                      </a>
+                      <button 
+                        onClick={() => { setChatOrderId(order.id); setChatCustomerName(order.customer_name); }}
+                        className="flex items-center justify-center space-x-2 py-2 px-3 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl transition-colors font-semibold text-xs"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        <span>Chat</span>
+                      </button>
                     </div>
 
                     {/* Shared pricing notes */}
                     <div className="grid grid-cols-1 gap-3 text-xs bg-white p-3 rounded-2xl border border-slate-100 shadow-sm mt-2">
-                      <div className="flex justify-between items-center text-sm font-black text-slate-900 py-1.5 border-b border-dashed">
-                        <span>Total Bill Amount:</span>
-                        <span>{order.amount ? `₹${order.amount}` : 'Calculating...'}</span>
+                      <div className="flex flex-col py-1.5 border-b border-dashed space-y-1">
+                        <div className="flex justify-between items-center text-sm font-black text-slate-900">
+                          <span>Total Bill Amount:</span>
+                          <span>{order.amount ? `₹${order.amount}` : 'Calculating...'}</span>
+                        </div>
+                        {order.payment_method === 'Razorpay UPI' && order.payment_status === 'Paid' && (
+                          <div className="bg-amber-50 rounded-xl p-2.5 mt-2 border border-amber-200">
+                            <div className="flex justify-between items-center text-xs text-emerald-700 font-bold">
+                              <span>Advance Paid Online (10%):</span>
+                              <span>₹{Math.min(parseFloat(order.amount) * 0.1, 50).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm text-amber-600 font-black mt-1 pt-1 border-t border-amber-200/50">
+                              <span>Pending Amount to Collect:</span>
+                              <span>₹{(parseFloat(order.amount) - Math.min(parseFloat(order.amount) * 0.1, 50)).toFixed(2)}</span>
+                            </div>
+                            <p className="text-[10px] text-amber-700 mt-1.5 leading-tight">
+                              ⚠️ The customer only paid an advance. You must collect the pending amount in cash/UPI at your shop when verifying the OTP.
+                            </p>
+                          </div>
+                        )}
                       </div>
                       
                       {order.notes && (
@@ -420,6 +515,64 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
         <ImageModal 
           imageUrl={previewImage} 
           onClose={() => setPreviewImage(null)} 
+        />
+      )}
+
+      {/* OTP Dialog Modal */}
+      {otpDialogOrderId && (() => {
+        const order = activeOrders.find(o => o.id === otpDialogOrderId);
+        const isAdvancePaid = order?.payment_method === 'Razorpay UPI' && order?.payment_status === 'Paid';
+        const pendingAmount = isAdvancePaid 
+          ? (parseFloat(order.amount) - Math.min(parseFloat(order.amount) * 0.1, 50)).toFixed(2)
+          : order?.amount;
+          
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+              <h3 className="font-bold text-lg text-slate-800 mb-2">Verify Pickup OTP</h3>
+              <p className="text-sm text-slate-600 mb-4">
+                Ask the customer for their 6-digit Pickup OTP to mark this order as delivered.
+              </p>
+              
+              {isAdvancePaid && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                  <span className="block text-xs text-amber-700 font-bold mb-1">Please collect remaining balance:</span>
+                  <span className="block text-3xl font-black text-amber-600">₹{pendingAmount}</span>
+                </div>
+              )}
+            <input 
+              type="text" 
+              value={otpInput}
+              onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              className="w-full text-center text-2xl tracking-widest font-bold py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-kirana-500 outline-none mb-4"
+              placeholder="000000"
+            />
+            <div className="flex space-x-3">
+              <button 
+                onClick={() => { setOtpDialogOrderId(null); setOtpInput(''); }}
+                className="flex-1 py-2 bg-slate-100 text-slate-600 font-semibold rounded-xl hover:bg-slate-200"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleVerifyOTP}
+                disabled={otpInput.length !== 6}
+                className="flex-1 py-2 bg-kirana-500 hover:bg-kirana-600 disabled:opacity-50 text-slate-900 font-bold rounded-xl"
+              >
+                Verify
+              </button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
+
+      {/* Chat Modal */}
+      {chatOrderId && (
+        <OrderChat 
+          orderId={chatOrderId}
+          otherPartyName={chatCustomerName}
+          onClose={() => setChatOrderId(null)}
         />
       )}
     </div>

@@ -1,4 +1,5 @@
--- Drop tables if they exist (for clean migrations/resets)
+-- DROP TABLE IF EXISTS customer_reports;
+-- DROP TABLE IF EXISTS seller_customer_blocks;
 -- DROP TABLE IF EXISTS seller_performance;
 -- DROP TABLE IF EXISTS customer_trust;
 -- DROP TABLE IF EXISTS notifications;
@@ -17,10 +18,12 @@ CREATE TABLE IF NOT EXISTS users (
     profile_image VARCHAR(255),
     whatsapp_number VARCHAR(20),
     verified_whatsapp BOOLEAN DEFAULT false,
+    verified_email BOOLEAN DEFAULT false,
     pref_browser_notif BOOLEAN DEFAULT true,
     pref_sounds BOOLEAN DEFAULT true,
     pref_whatsapp BOOLEAN DEFAULT true,
     pref_email BOOLEAN DEFAULT true,
+    last_login TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -63,6 +66,13 @@ CREATE TABLE IF NOT EXISTS shops (
     online_end_time VARCHAR(5) DEFAULT '22:00',
     upi_id VARCHAR(100),
     qr_code_image VARCHAR(255),
+    
+    -- Phase 6B: Quality & Accountability
+    verified_complaints_count INT DEFAULT 0,
+    warning_level VARCHAR(50) DEFAULT 'None' CHECK (warning_level IN ('None', 'Warning', 'Monitoring', 'Final Warning', 'Suspended', 'Banned')),
+    suspension_end_date TIMESTAMP WITH TIME ZONE,
+    total_reviews INT DEFAULT 0,
+    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -74,6 +84,7 @@ CREATE TABLE IF NOT EXISTS orders (
     original_chitti TEXT,
     modified_bill TEXT,
     amount DECIMAL(10,2),
+    gateway_fee DECIMAL(10,2) DEFAULT 0,
     payment_method VARCHAR(30) CHECK (payment_method IN ('Pay During Pickup', 'Manual UPI Payment')),
     payment_status VARCHAR(20) DEFAULT 'Pending' CHECK (payment_status IN ('Pending', 'Uploaded Proof', 'Paid', 'Failed')),
     payment_proof_image TEXT,
@@ -89,6 +100,7 @@ CREATE TABLE IF NOT EXISTS orders (
         'Packing Completed', 
         'Ready For Pickup', 
         'Delivered', 
+        'Pickup Overdue',
         'Cancelled'
     )),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -103,7 +115,11 @@ CREATE TABLE IF NOT EXISTS orders (
     order_type VARCHAR(20) DEFAULT 'handwritten',
     digital_item_list TEXT,
     modified_item_list TEXT,
-    item_change_history TEXT
+    item_change_history TEXT,
+    pickup_otp VARCHAR(10),
+    otp_generated_at TIMESTAMP WITH TIME ZONE,
+    otp_verified_at TIMESTAMP WITH TIME ZONE,
+    pickup_deadline TIMESTAMP WITH TIME ZONE
 );
 
 -- Notifications Table
@@ -124,7 +140,39 @@ CREATE TABLE IF NOT EXISTS customer_trust (
     customer_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     successful_pickups INT DEFAULT 0,
     cancellations INT DEFAULT 0,
-    no_show_count INT DEFAULT 0
+    no_show_count INT DEFAULT 0,
+    -- Phase 7A additions
+    total_orders INT DEFAULT 0,
+    active_order_limit INT DEFAULT 2,
+    suspension_end_date TIMESTAMP WITH TIME ZONE,
+    abandoned_orders INT DEFAULT 0,
+    cancellation_warnings INT DEFAULT 0,
+    no_pickup_warnings INT DEFAULT 0,
+    trust_score INT DEFAULT 100,
+    customer_level VARCHAR(50) DEFAULT 'Platinum Customer',
+    fake_complaints INT DEFAULT 0,
+    abuse_reports INT DEFAULT 0
+);
+
+-- Seller Customer Blocks
+CREATE TABLE IF NOT EXISTS seller_customer_blocks (
+    id SERIAL PRIMARY KEY,
+    seller_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    customer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    reason TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(seller_id, customer_id)
+);
+
+-- Customer Reports
+CREATE TABLE IF NOT EXISTS customer_reports (
+    id SERIAL PRIMARY KEY,
+    seller_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    customer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    reason VARCHAR(100) NOT NULL,
+    description TEXT,
+    status VARCHAR(50) DEFAULT 'Pending Review',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Seller Performance Table
@@ -134,7 +182,150 @@ CREATE TABLE IF NOT EXISTS seller_performance (
     order_completion_pct DECIMAL(5,2) DEFAULT 100.00,
     cancellation_pct DECIMAL(5,2) DEFAULT 0.00,
     total_completed_orders INT DEFAULT 0,
-    total_cancelled_orders INT DEFAULT 0
+    total_cancelled_orders INT DEFAULT 0,
+    trust_score INT DEFAULT 100,
+    seller_level VARCHAR(50) DEFAULT 'Platinum Seller',
+    complaint_rate DECIMAL(5,2) DEFAULT 0.00,
+    verified_complaints INT DEFAULT 0
 );
 
+-- Suspicious Activities Table (Phase 7B)
+CREATE TABLE IF NOT EXISTS suspicious_activities (
+    id SERIAL PRIMARY KEY,
+    customer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    risk_score INT DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'Pending Review' CHECK (status IN ('Pending Review', 'Approved', 'Dismissed')),
+    related_orders JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
+-- Platform Analytics (Hits)
+CREATE TABLE IF NOT EXISTS platform_hits (
+    hit_date DATE PRIMARY KEY DEFAULT CURRENT_DATE,
+    count INT DEFAULT 0
+);
+
+-- Customer Savings Table
+CREATE TABLE IF NOT EXISTS customer_savings (
+    customer_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    total_orders INT DEFAULT 0,
+    total_savings DECIMAL(10,2) DEFAULT 0.00,
+    total_time_saved INT DEFAULT 0,
+    last_order_date TIMESTAMP WITH TIME ZONE,
+    favorite_shop_id INTEGER REFERENCES shops(id) ON DELETE SET NULL
+);
+
+-- Community Savings Table
+CREATE TABLE IF NOT EXISTS community_savings (
+    id SERIAL PRIMARY KEY,
+    total_orders INT DEFAULT 0,
+    total_savings DECIMAL(15,2) DEFAULT 0.00,
+    total_time_saved INT DEFAULT 0,
+    last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Initialize community savings with one row
+INSERT INTO community_savings (total_orders, total_savings, total_time_saved) 
+SELECT 0, 0, 0 
+WHERE NOT EXISTS (SELECT 1 FROM community_savings);
+
+-- Order Chats Table (Phase 6A)
+CREATE TABLE IF NOT EXISTS order_chats (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+    sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    sender_role VARCHAR(20) NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Complaints Table (Phase 6B)
+CREATE TABLE IF NOT EXISTS complaints (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+    customer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE,
+    issue_type VARCHAR(50) NOT NULL,
+    description TEXT NOT NULL,
+    evidence_images JSONB,
+    status VARCHAR(50) DEFAULT 'Open' CHECK (status IN ('Open', 'Under Review', 'Seller Responded', 'Resolved', 'Closed')),
+    is_verified BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Reviews Table (Phase 6B)
+CREATE TABLE IF NOT EXISTS reviews (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+    customer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE,
+    product_quality INT CHECK (product_quality BETWEEN 1 AND 5),
+    service_quality INT CHECK (service_quality BETWEEN 1 AND 5),
+    order_accuracy INT CHECK (order_accuracy BETWEEN 1 AND 5),
+    overall_experience INT CHECK (overall_experience BETWEEN 1 AND 5),
+    review_text TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Suspension History Table (Phase 6B)
+CREATE TABLE IF NOT EXISTS suspension_history (
+    id SERIAL PRIMARY KEY,
+    shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE,
+    warning_level VARCHAR(50) NOT NULL,
+    reason TEXT NOT NULL,
+    suspended_until TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+-- Phase 8A: Central Item Database & Quote Engine
+
+CREATE TABLE IF NOT EXISTS products (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    category VARCHAR(100) DEFAULT 'General',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS product_aliases (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+    alias_name VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS historical_prices (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+    shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE,
+    order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    price_per_unit DECIMAL(10,2) NOT NULL,
+    quantity DECIMAL(10,3) DEFAULT 1.0,
+    unit VARCHAR(50) DEFAULT 'unit',
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS shop_price_index (
+    shop_id INTEGER PRIMARY KEY REFERENCES shops(id) ON DELETE CASCADE,
+    average_basket_index INT DEFAULT 100,
+    last_calculated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS quote_history (
+    id SERIAL PRIMARY KEY,
+    customer_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    items_requested TEXT NOT NULL,
+    generated_quotes TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS price_analytics (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+    shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE, -- NULL means platform-wide
+    average_7_day DECIMAL(10,2),
+    average_30_day DECIMAL(10,2),
+    average_90_day DECIMAL(10,2),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(product_id, shop_id)
+);

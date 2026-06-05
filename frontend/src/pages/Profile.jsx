@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { User, Mail, Phone, ShoppingBag, ShieldAlert, Award, Star, History, Clock, Bell, Volume2, MessageSquare, CheckCircle2, AlertCircle } from 'lucide-react';
+import { User, Mail, Phone, ShoppingBag, ShieldAlert, Award, Star, History, Clock, Bell, Volume2, MessageSquare, CheckCircle2, AlertCircle, Info, FileText, ShieldCheck, ScrollText } from 'lucide-react';
 
 const Profile = () => {
   const { user, extraData, refreshProfile, apiUrl } = useAuth();
@@ -696,6 +696,110 @@ const Profile = () => {
               <p className="text-[10px] text-slate-550 leading-normal text-center italic">
                 Keep cancellation and no-show counts low to receive high priority queues and early acceptance!
               </p>
+            </div>
+          )}
+
+          {/* --- PLATFORM INFO & POLICIES (CUSTOMER ONLY) --- */}
+          {user?.role === 'customer' && (
+            <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-md space-y-4">
+              <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400 flex items-center space-x-1.5">
+                <Info className="w-4 h-4 text-amber-500" />
+                <span>Platform Information & Policies</span>
+              </h3>
+              
+              <div className="space-y-3">
+                {/* About Accordion */}
+                <details className="group border border-slate-100 bg-slate-50 rounded-2xl overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                  <summary className="flex items-center justify-between cursor-pointer p-4 font-bold text-xs text-slate-700 hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center space-x-2">
+                      <Info className="w-4 h-4 text-blue-500" />
+                      <span>About MyKiranam.in</span>
+                    </div>
+                    <span className="text-slate-400 group-open:-rotate-180 transition-transform duration-300">▼</span>
+                  </summary>
+                  <div className="p-4 pt-0 text-[11px] text-slate-600 leading-relaxed border-t border-slate-100 bg-white">
+                    <p className="mb-2"><strong>What is MyKiranam.in?</strong><br/>
+                    We are a hyperlocal platform directly connecting neighborhood Kirana stores with consumers. We eliminate heavy commissions, empowering local businesses while giving consumers instant access to real-time inventory.</p>
+                    <p className="mb-2"><strong>Our Goal</strong><br/>
+                    To bridge the digital gap for local retailers and offer consumers a sustainable, wait-free shopping experience within their own community.</p>
+                    <p><strong>How are we different?</strong><br/>
+                    Unlike quick-commerce models relying on dark stores, we uplift existing local shops. You get absolute transparency, no inflated pricing, and direct interaction with sellers.</p>
+                  </div>
+                </details>
+
+                {/* Why 10% Commitment Payment Accordion */}
+                <details className="group border border-slate-100 bg-slate-50 rounded-2xl overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                  <summary className="flex items-center justify-between cursor-pointer p-4 font-bold text-xs text-slate-700 hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center space-x-2">
+                      <ShieldAlert className="w-4 h-4 text-amber-500" />
+                      <span>Why a 10% Commitment Payment?</span>
+                    </div>
+                    <span className="text-slate-400 group-open:-rotate-180 transition-transform duration-300">▼</span>
+                  </summary>
+                  <div className="p-4 pt-0 text-[11px] text-slate-600 leading-relaxed border-t border-slate-100 bg-white">
+                    <p className="mb-2"><strong>1. To protect our local shopkeepers and ensure genuine orders.</strong></p>
+                    <p className="mb-2">When you place an order, the seller immediately invests time to pack your items and set them aside. The 10% payment acts as a <strong>token of commitment</strong> to guarantee the order is genuine, protecting sellers from "no-shows" and fake orders.</p>
+                    <p className="mb-2"><strong>2. To skip heavy online platform fees and keep your prices low!</strong></p>
+                    <p className="mb-2">Payment gateways charge around 2-3% on every online transaction. If you paid 100% online, the fees would be much higher, leading to increased product prices. By paying only 10% online, the transaction fee is negligible. You pay the remaining 90% <strong>directly to the shopkeeper</strong> via UPI or Cash (which has 0% fee). This completely eliminates heavy platform commissions and allows you to buy at original store prices without any hidden markups!</p>
+                    <ul className="list-disc pl-4 space-y-1 mt-2 bg-amber-50 p-3 rounded-xl border border-amber-100 text-amber-800">
+                      <li>The 10% is <strong>fully adjusted</strong> against your final bill at the store (you only pay the remaining 90%).</li>
+                      <li>If the seller cannot fulfill your order or cancels it, your 10% is <strong>100% refunded</strong> instantly.</li>
+                    </ul>
+                  </div>
+                </details>
+
+                {/* Refund Rules Accordion */}
+                <details className="group border border-slate-100 bg-slate-50 rounded-2xl overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                  <summary className="flex items-center justify-between cursor-pointer p-4 font-bold text-xs text-slate-700 hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center space-x-2">
+                      <ScrollText className="w-4 h-4 text-emerald-500" />
+                      <span>Refund Rules</span>
+                    </div>
+                    <span className="text-slate-400 group-open:-rotate-180 transition-transform duration-300">▼</span>
+                  </summary>
+                  <div className="p-4 pt-0 text-[11px] text-slate-600 leading-relaxed border-t border-slate-100 bg-white">
+                    <ul className="list-disc pl-4 space-y-1.5">
+                      <li>Online payments are protected. If an order is cancelled by the seller, a refund is automatically initiated.</li>
+                      <li>Refunds typically process within 3-5 business days back to your original payment source.</li>
+                      <li>For commitment payments, if the seller declines the order, the full amount is refunded.</li>
+                      <li>Customer-initiated cancellations post-acceptance may be subject to a nominal processing fee deduction as per platform rules.</li>
+                    </ul>
+                  </div>
+                </details>
+
+                {/* Privacy Policy Accordion */}
+                <details className="group border border-slate-100 bg-slate-50 rounded-2xl overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                  <summary className="flex items-center justify-between cursor-pointer p-4 font-bold text-xs text-slate-700 hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center space-x-2">
+                      <ShieldCheck className="w-4 h-4 text-purple-500" />
+                      <span>Privacy Policy</span>
+                    </div>
+                    <span className="text-slate-400 group-open:-rotate-180 transition-transform duration-300">▼</span>
+                  </summary>
+                  <div className="p-4 pt-0 text-[11px] text-slate-600 leading-relaxed border-t border-slate-100 bg-white">
+                    <p>We deeply respect your privacy. Your contact details, address, and shopping history are kept highly secure. We only share essential order information with your selected seller to ensure smooth fulfillment. MyKiranam.in will <strong>never</strong> sell your personal data to third-party advertisers or external agencies.</p>
+                  </div>
+                </details>
+
+                {/* Terms & Conditions Accordion */}
+                <details className="group border border-slate-100 bg-slate-50 rounded-2xl overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                  <summary className="flex items-center justify-between cursor-pointer p-4 font-bold text-xs text-slate-700 hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="w-4 h-4 text-slate-500" />
+                      <span>Terms & Conditions</span>
+                    </div>
+                    <span className="text-slate-400 group-open:-rotate-180 transition-transform duration-300">▼</span>
+                  </summary>
+                  <div className="p-4 pt-0 text-[11px] text-slate-600 leading-relaxed border-t border-slate-100 bg-white">
+                    <ul className="list-disc pl-4 space-y-1.5">
+                      <li>By placing an order, you commit to picking up or receiving the goods as per the shop's timings.</li>
+                      <li>Repeated no-shows or frivolous cancellations will result in account suspension to protect our sellers.</li>
+                      <li>MyKiranam acts purely as a technology facilitator. The contract of sale is strictly between you and the shop owner.</li>
+                      <li>Prices shown are estimated based on local prevailing rates or seller updates. The final bill provided by the seller at checkout is binding.</li>
+                    </ul>
+                  </div>
+                </details>
+              </div>
             </div>
           )}
 

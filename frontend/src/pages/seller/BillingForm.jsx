@@ -14,6 +14,7 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
   const [billingNotes, setBillingNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [commitmentPaid, setCommitmentPaid] = useState(false);
 
   const units = ['KG', 'Gram', 'Litre', 'Packet', 'Piece', 'Dozen', 'Box'];
 
@@ -112,6 +113,10 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
     setEditableItems([...editableItems, newItem]);
   };
 
+  const calculateItemSubtotal = (item) => {
+    return (parseFloat(item.price) || 0).toFixed(2);
+  };
+  const [billUploaded, setBillUploaded] = useState(false);
   const handleAcceptSubmit = async (e) => {
     e.preventDefault();
     const isDigital = order.order_type === 'digital';
@@ -175,18 +180,15 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
       }
 
       if (!response.ok) {
-        const text = await response.text();
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (e) {
-          throw new Error(response.ok ? 'Failed to parse server response.' : `Server Error: ${text.substring(0, 100)}`);
-        }
-        
-        if (!response.ok) throw new Error(data.error || 'Failed to generate bill.');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload bill.');
       }
-      playSoundAlert('success');
+
+      // After successful bill upload, notify parent
+      setLoading(false);
+      setError('');
       if (onSuccess) onSuccess();
+      return;
     } catch (err) {
       setError(err.message || 'Error uploading bill.');
     } finally {
@@ -202,6 +204,7 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
 
   return (
     <div className="mt-4 p-4 border border-kirana-500/30 bg-kirana-50/20 rounded-2xl space-y-4 animate-fadeIn">
+      <form onSubmit={handleAcceptSubmit} className="space-y-4">
       <div className="flex justify-between items-center border-b border-slate-200 pb-2">
         <h4 className="text-sm font-extrabold text-slate-900">
           {order.order_type === 'digital' ? 'Price Digital Grocery Chitti' : 'Upload Rewritten Invoice Bill'}
@@ -254,8 +257,10 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
 
       {error && <div className="text-crimson text-xs font-semibold">{error}</div>}
 
-      <form onSubmit={handleAcceptSubmit} className="space-y-4">
+      
         {order.order_type === 'digital' ? (
+          // Digital order UI remains unchanged
+
           <div className="space-y-3">
             <span className="block text-[10px] font-black text-slate-500 uppercase tracking-wide">
               Grocery Items Pricing Sheet
@@ -367,6 +372,11 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
               <span className="font-extrabold text-slate-800">Grand Total:</span>
               <span className="text-sm font-black text-slate-950">₹{calculateGrandTotal()}</span>
             </div>
+
+            <div className="p-3 bg-amber-100/20 border border-amber-200 rounded-xl flex justify-between items-center text-xs mt-2">
+              
+              <span className="text-sm font-bold text-slate-950">₹{Math.min(parseFloat(calculateGrandTotal()) * 0.1, 50).toFixed(2)}</span>
+            </div>
           </div>
         ) : (
           <>
@@ -392,7 +402,9 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
         </div>
 
         <div className="flex space-x-2 pt-1">
-          <button type="button" onClick={onCancel} className="flex-1 py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-750">Cancel</button>
+          <button type="button" onClick={onCancel} className="flex-1 py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-750">
+            Cancel
+          </button>
           <button type="submit" disabled={loading} className="flex-1 py-2 text-xs font-bold rounded-lg bg-kirana-500 text-slate-950 shadow-md">
             {loading ? 'Submitting...' : (order.order_type === 'digital' ? 'Send Invoice to Customer' : 'Send Invoice & Pack')}
           </button>

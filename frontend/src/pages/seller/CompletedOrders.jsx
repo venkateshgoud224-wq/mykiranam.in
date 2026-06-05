@@ -1,12 +1,36 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { History, ShoppingBag, Eye, Calendar, DollarSign, Check, X, Download } from 'lucide-react';
+import { History, ShoppingBag, Eye, Calendar, DollarSign, Check, X, Download, AlertCircle } from 'lucide-react';
 import ImageModal from '../../components/common/ImageModal';
+import ReportCustomerModal from '../../components/seller/ReportCustomerModal';
 
 const CompletedOrders = ({ completedOrders }) => {
-  const { apiUrl } = useAuth();
+  const { apiUrl, token } = useAuth();
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const [reportingOrder, setReportingOrder] = useState(null);
+  const [refundingOrderId, setRefundingOrderId] = useState(null);
+
+  const handleRefund = async (orderId) => {
+    if (!window.confirm('Are you sure you want to mark this order as refunded?')) return;
+    try {
+      setRefundingOrderId(orderId);
+      const response = await fetch(`${apiUrl}/payment/orders/${orderId}/refund`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to process refund');
+      
+      alert('Refund processed successfully via Razorpay! The customer has been notified.');
+      setSelectedOrder(prev => ({...prev, payment_status: 'Refunded'}));
+    } catch (err) {
+      alert(`Refund Error: ${err.message}`);
+    } finally {
+      setRefundingOrderId(null);
+    }
+  };
 
   const getStatusColor = (status) => {
     if (status === 'Delivered') return 'bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20';
@@ -49,9 +73,17 @@ const CompletedOrders = ({ completedOrders }) => {
               </div>
 
               <div className="flex flex-col sm:flex-row items-end sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 flex-shrink-0">
-                <span className={`px-2 py-0.5 rounded text-[9px] font-bold border whitespace-nowrap ${getStatusColor(order.order_status)}`}>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold border whitespace-nowrap ${getStatusColor(order.order_status)}`}
+                >
                   {order.order_status}
                 </span>
+                <button
+                  onClick={() => setReportingOrder(order)}
+                  className="p-2 bg-slate-50 hover:bg-red-50 rounded-xl text-slate-500 hover:text-red-600 border border-slate-100 transition-all"
+                  title="Raise Complaint"
+                >
+                  <AlertCircle className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => setSelectedOrder(order)}
                   className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 border border-slate-100 transition-all"
@@ -170,12 +202,42 @@ const CompletedOrders = ({ completedOrders }) => {
               {/* Invoicing details */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs space-y-1.5">
                 <p className="text-slate-700"><strong>Final Price:</strong> ₹{selectedOrder.amount || '0.00'}</p>
+                <p className="text-slate-700"><strong>Gateway Fee:</strong> ₹{selectedOrder.gateway_fee ? (selectedOrder.gateway_fee/100).toFixed(2) : '0.00'}</p>
                 <p className="text-slate-700"><strong>Payment:</strong> {selectedOrder.payment_method} ({selectedOrder.payment_status})</p>
                 {selectedOrder.notes && (
                   <p className="text-slate-750"><strong>Closing notes:</strong> "{selectedOrder.notes}"</p>
                 )}
                 <p className="text-[10px] text-slate-400">Created: {new Date(selectedOrder.created_at).toLocaleString()}</p>
               </div>
+
+              {/* Refund Action UI */}
+              {selectedOrder.order_status === 'Cancelled' && selectedOrder.payment_method === 'Razorpay UPI' && (
+                <div className="pt-2">
+                  {selectedOrder.payment_status === 'Paid' ? (
+                    <button
+                      onClick={() => handleRefund(selectedOrder.id)}
+                      disabled={refundingOrderId === selectedOrder.id}
+                      className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex justify-center items-center space-x-2"
+                    >
+                      {refundingOrderId === selectedOrder.id ? 'Processing Refund...' : 'Process Refund to Customer (Razorpay)'}
+                    </button>
+                  ) : selectedOrder.payment_status === 'Refunded' ? (
+                    <div className="w-full py-3 bg-green-50 text-green-700 border border-green-200 text-xs font-bold rounded-xl text-center">
+                      ✓ {selectedOrder.refund_status === 'Credited' ? 'Refund Credited to Customer Bank' : 'Refund Processed Successfully'}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              {/* Settlement UI for Delivered Orders with Advance Payment */}
+              {selectedOrder.order_status === 'Delivered' && selectedOrder.payment_method === 'Razorpay UPI' && (
+                <div className="pt-2 mt-2 border-t border-slate-100">
+                  <div className={`w-full py-2.5 px-3 text-xs font-bold rounded-xl flex items-center justify-between ${selectedOrder.commitment_status === 'credited' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                    <span>Advance Payment Settlement:</span>
+                    <span>{selectedOrder.commitment_status === 'credited' ? '✓ Credited to Bank' : selectedOrder.commitment_status === 'settled' ? 'Processing Settlement...' : 'Pending Transfer'}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -186,6 +248,16 @@ const CompletedOrders = ({ completedOrders }) => {
           imageUrl={previewImage}
           onClose={() => setPreviewImage(null)}
         />
+      )}
+
+      {reportingOrder && (
+        <ReportCustomerModal
+          order={reportingOrder}
+          onClose={() => setReportingOrder(null)}
+          onSuccess={() => { setReportingOrder(null); alert('Your complaint has been submitted for review.'); }}
+        />
+      )}
+
       )}
     </div>
   );

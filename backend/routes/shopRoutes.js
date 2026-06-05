@@ -34,4 +34,10 @@ router.post('/verify-otp', authMiddleware, shopController.verifyOtp);
 // Upload 5 verification images and submit shop for Under Review status
 router.post('/verify', authMiddleware, verificationUploads, shopController.verifyShop);
 
+// Razorpay Bank Account Linking for Automated Payouts
+router.post('/link-bank-account', authMiddleware, shopController.linkBankAccount);
+
+// Premium Seller Analytics
+router.get('/premium-analytics', authMiddleware, shopController.getPremiumAnalytics);
+
 module.exports = router;

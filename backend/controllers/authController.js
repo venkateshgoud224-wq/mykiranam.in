@@ -119,8 +119,13 @@ const login = async (req, res) => {
       user = updateResult.rows[0];
     }
 
+    try {
+      await db.query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
+    } catch(e) {}
+
+
     const token = generateToken(user);
-    const responseUser = { id: user.id, role: user.role, name: user.name, email: user.email, phone: user.phone, profile_image: user.profile_image, whatsapp_number: user.whatsapp_number, verified_whatsapp: user.verified_whatsapp };
+    const responseUser = { id: user.id, role: user.role, name: user.name, email: user.email, phone: user.phone, profile_image: user.profile_image, whatsapp_number: user.whatsapp_number, verified_whatsapp: user.verified_whatsapp, verified_email: user.verified_email };
     
     return res.status(200).json({ user: responseUser, token });
   } catch (err) {
@@ -187,8 +192,12 @@ const googleLogin = async (req, res) => {
       }
     }
 
+    try {
+      await db.query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
+    } catch(e) {}
+
     const token = generateToken(user);
-    const responseUser = { id: user.id, role: user.role, name: user.name, email: user.email, phone: user.phone, profile_image: user.profile_image, whatsapp_number: user.whatsapp_number, verified_whatsapp: user.verified_whatsapp };
+    const responseUser = { id: user.id, role: user.role, name: user.name, email: user.email, phone: user.phone, profile_image: user.profile_image, whatsapp_number: user.whatsapp_number, verified_whatsapp: user.verified_whatsapp, verified_email: user.verified_email };
     
     return res.status(200).json({ user: responseUser, token });
   } catch (err) {
@@ -256,7 +265,7 @@ const getProfile = async (req, res) => {
 
   try {
     const userResult = await db.query(
-      'SELECT id, role, name, email, phone, profile_image, whatsapp_number, verified_whatsapp, pref_browser_notif, pref_sounds, pref_whatsapp, pref_email FROM users WHERE id = $1',
+      'SELECT id, role, name, email, phone, profile_image, whatsapp_number, verified_whatsapp, verified_email, pref_browser_notif, pref_sounds, pref_whatsapp, pref_email FROM users WHERE id = $1',
       [userId]
     );
     if (userResult.rows.length === 0) {

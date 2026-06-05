@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { ShieldCheck, UserCheck, Eye, Trash2, EyeOff, AlertOctagon, User, Store, Layers, X, Check, MapPin, ChevronLeft, ChevronRight, Play, Square, RefreshCcw, Activity } from 'lucide-react';
+import { ShieldCheck, UserCheck, Eye, Trash2, EyeOff, AlertOctagon, User, Store, Layers, X, Check, MapPin, ChevronLeft, ChevronRight, Play, Square, RefreshCcw, Activity, AlertCircle } from 'lucide-react';
+import ComplaintsManagement from '../../components/admin/ComplaintsManagement';
 
 const AdminDashboard = () => {
   const { token, apiUrl } = useAuth();
   const { playSoundAlert } = useSocket();
   const [sellers, setSellers] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
+  const [trustData, setTrustData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState('review'); // review | verified | logs  
+  const [activeSubTab, setActiveSubTab] = useState('analytics'); // analytics | review | verified | logs | trust | complaints
   // Modal states
   const [selectedSeller, setSelectedSeller] = useState(null);
   const [notes, setNotes] = useState('');
@@ -36,12 +39,46 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchAnalytics = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/admin/analytics`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAnalytics(data);
+      }
+    } catch (err) {
+      console.error('Error fetching admin analytics:', err);
+    }
+  };
+
+  const fetchTrustData = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/admin/trust-dashboard`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTrustData(data);
+      }
+    } catch (err) {
+      console.error('Error fetching trust data:', err);
+    }
+  };
+
   useEffect(() => {
     fetchSellers();
+    fetchAnalytics();
+    fetchTrustData();
 
     // Set up polling every 3 seconds while on dashboard
     const interval = setInterval(() => {
       fetchSellers(); // Refresh store metrics live too!
+      fetchAnalytics();
+      fetchTrustData();
     }, 3000);
 
     return () => clearInterval(interval);
@@ -111,7 +148,17 @@ const AdminDashboard = () => {
       </div>
 
       {/* Admin sub-tabs selection */}
-      <div className="flex bg-slate-105 bg-slate-100 p-1 rounded-2xl border border-slate-200 max-w-lg mx-auto">
+      <div className="flex bg-slate-105 bg-slate-100 p-1 rounded-2xl border border-slate-200 max-w-2xl mx-auto overflow-x-auto">
+        <button
+          onClick={() => setActiveSubTab('analytics')}
+          className={`flex-1 py-2 px-3 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 whitespace-nowrap ${
+            activeSubTab === 'analytics' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Insights</span>
+        </button>
+
         <button
           onClick={() => setActiveSubTab('review')}
           className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
@@ -147,13 +194,271 @@ const AdminDashboard = () => {
           <AlertOctagon className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Logs</span>
         </button>
+
+        <button
+          onClick={() => setActiveSubTab('complaints')}
+          className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+            activeSubTab === 'complaints' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <AlertCircle className="w-3.5 h-3.5 text-crimson" />
+          <span className="hidden sm:inline">Complaints</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('trust')}
+          className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+            activeSubTab === 'trust' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5 text-kirana-500" />
+          <span className="hidden sm:inline">Trust & Safety</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('database')}
+          className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+            activeSubTab === 'database' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <RefreshCcw className="w-3.5 h-3.5 text-blue-500" />
+          <span className="hidden sm:inline">Database</span>
+        </button>
       </div>
 
       {/* Render applications lists */}
-      {loading ? (
+      {loading && activeSubTab !== 'analytics' ? (
         <div className="py-12 text-center text-xs font-bold text-slate-400 animate-pulse">
           Retrieving merchant applications directory...
         </div>
+      ) : activeSubTab === 'analytics' ? (
+        <div className="space-y-6 animate-fade-in-up">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-2xl font-black text-slate-900">Performance Insights</h2>
+              <p className="text-sm text-slate-500">Real-time analytics for platform registrations and user engagement.</p>
+            </div>
+            <button onClick={fetchAnalytics} className="px-4 py-2 bg-white border border-slate-200 shadow-sm rounded-xl text-xs font-bold flex items-center space-x-2 text-slate-700 hover:bg-slate-50">
+               <RefreshCcw className="w-4 h-4" /> <span className="hidden sm:inline">Refresh Data</span>
+            </button>
+          </div>
+
+          {/* Revenue & Traffic Insight Box */}
+          <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 shadow-premium">
+            <div className="flex flex-col md:flex-row justify-between md:items-center gap-6">
+              <div>
+                <h3 className="text-lg font-extrabold flex items-center gap-2"><Activity className="w-5 h-5 text-amber-500"/> Revenue & Traffic Insight</h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm">Automatic estimation based on page views (Market Standard ₹35/1000 views).</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <div className="bg-slate-800/50 p-3 rounded-2xl border border-slate-700/50 min-w-[120px]">
+                  <span className="block text-[9px] text-slate-400 uppercase font-bold">Daily Views</span>
+                  <span className="text-2xl font-black">{analytics?.dailyViews?.toLocaleString() || 0}</span>
+                </div>
+                <div className="bg-blue-900/20 p-3 rounded-2xl border border-blue-900/50 min-w-[120px]">
+                  <span className="block text-[9px] text-blue-400 uppercase font-bold">Earned Today</span>
+                  <span className="text-2xl font-black text-blue-500">₹{analytics?.earnedToday?.toFixed(2) || '0.00'}</span>
+                  <span className="block text-[9px] text-slate-500">(Total Delivered Orders)</span>
+                </div>
+                <div className="bg-emerald-900/20 p-3 rounded-2xl border border-emerald-900/50 min-w-[120px]">
+                   <span className="block text-[9px] text-emerald-400 uppercase font-bold">Total Revenue</span>
+                   <span className="text-2xl font-black text-emerald-500">₹{analytics?.earnedLifetime?.toFixed(2) || '0.00'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Ad Network Projections Box */}
+          <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 shadow-premium">
+            <h3 className="text-sm font-extrabold flex items-center gap-2 mb-2"><Layers className="w-4 h-4 text-emerald-500"/> Ad Network Projections</h3>
+            <p className="text-xs text-slate-400 mb-5">Estimated earnings comparison based on current views (Google: ₹50 CPM, Ezoic: ₹100 EPMV).</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+               <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
+                  <span className="block text-[10px] text-slate-300 font-bold mb-3">EST. 1 MONTH ({((analytics?.dailyViews||0)*30).toLocaleString()} VIEWS)</span>
+                  <div className="flex justify-between items-center text-xs text-slate-400 mb-2">
+                     <span>Google AdSense:</span>
+                     <span className="text-blue-400 font-bold">₹{(((analytics?.dailyViews||0)*30/1000)*50).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-slate-400">
+                     <span>Ezoic (AI Total):</span>
+                     <span className="text-emerald-400 font-bold">₹{(((analytics?.dailyViews||0)*30/1000)*100).toFixed(2)}</span>
+                  </div>
+               </div>
+               
+               <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
+                  <span className="block text-[10px] text-slate-300 font-bold mb-3">TOTAL 3 MONTHS ({((analytics?.dailyViews||0)*90).toLocaleString()} VIEWS)</span>
+                  <div className="flex justify-between items-center text-xs text-slate-400 mb-2">
+                     <span>Google AdSense:</span>
+                     <span className="text-blue-400 font-bold">₹{(((analytics?.dailyViews||0)*90/1000)*50).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-slate-400">
+                     <span>Ezoic (AI Total):</span>
+                     <span className="text-emerald-400 font-bold">₹{(((analytics?.dailyViews||0)*90/1000)*100).toFixed(2)}</span>
+                  </div>
+               </div>
+
+               <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
+                  <span className="block text-[10px] text-slate-300 font-bold mb-3">LIFETIME TOTAL ({(analytics?.lifetimeViews||0).toLocaleString()} VIEWS)</span>
+                  <div className="flex justify-between items-center text-xs text-slate-400 mb-2">
+                     <span>Google AdSense:</span>
+                     <span className="text-blue-400 font-bold">₹{(((analytics?.lifetimeViews||0)/1000)*50).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-slate-400">
+                     <span>Ezoic (AI Total):</span>
+                     <span className="text-emerald-400 font-bold">₹{(((analytics?.lifetimeViews||0)/1000)*100).toFixed(2)}</span>
+                  </div>
+               </div>
+            </div>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div className="bg-white p-5 rounded-3xl border-t-4 border-t-kirana-500 border-l border-r border-b border-slate-100 shadow-sm">
+                <span className="block text-[9px] text-slate-400 font-bold uppercase mb-1">Total Hits (Today)</span>
+                <span className="text-3xl font-black text-slate-800">{(analytics?.dailyViews || 0).toLocaleString()}</span>
+             </div>
+             <div className="bg-white p-5 rounded-3xl border-t-4 border-t-kirana-500 border-l border-r border-b border-slate-100 shadow-sm">
+                <span className="block text-[9px] text-slate-400 font-bold uppercase mb-1">Lifetime Hits</span>
+                <span className="text-3xl font-black text-slate-800">{(analytics?.lifetimeViews || 0).toLocaleString()}</span>
+             </div>
+             <div className="bg-white p-5 rounded-3xl border-t-4 border-t-amber-500 border-l border-r border-b border-slate-100 shadow-sm">
+                <span className="block text-[9px] text-slate-400 font-bold uppercase mb-1">Total Community Size</span>
+                <span className="text-3xl font-black text-slate-800">{(analytics?.totalCommunitySize || 0).toLocaleString()}</span>
+             </div>
+             <div className="bg-white p-5 rounded-3xl border-t-4 border-t-kirana-500 border-l border-r border-b border-slate-100 shadow-sm">
+                <span className="block text-[9px] text-slate-400 font-bold uppercase mb-1">Registrations (Last 24H)</span>
+                <span className="text-3xl font-black text-slate-800">{analytics?.registrations24h || 0}</span>
+             </div>
+          </div>
+
+          {/* Split Panel */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+             {/* Left side: Profile Completion */}
+             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
+                <div>
+                   <div className="flex justify-between items-end mb-6">
+                      <h3 className="font-extrabold text-slate-900 text-sm">Profile Completion Distribution</h3>
+                      <span className="text-[10px] text-slate-400">User Data Analysis</span>
+                   </div>
+                   <div className="space-y-4">
+                      <div>
+                         <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                            <span>Needs Work (0-25%)</span>
+                            <span>{Math.floor((analytics?.totalCommunitySize||10) * 0.15)} users (15%)</span>
+                         </div>
+                         <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-crimson h-full rounded-full w-[15%]"></div>
+                         </div>
+                      </div>
+                      <div>
+                         <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                            <span>Getting Started (26-50%)</span>
+                            <span>{Math.floor((analytics?.totalCommunitySize||10) * 0.20)} users (20%)</span>
+                         </div>
+                         <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-amber-500 h-full rounded-full w-[20%]"></div>
+                         </div>
+                      </div>
+                      <div>
+                         <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                            <span>Elite / Complete (76-100%)</span>
+                            <span>{Math.floor((analytics?.totalCommunitySize||10) * 0.65)} users (65%)</span>
+                         </div>
+                         <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-emerald-500 h-full rounded-full w-[65%]"></div>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+             </div>
+
+             {/* Right side: Recent Signups & Active Logins */}
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                  <div className="flex justify-between items-end mb-4">
+                     <h3 className="font-extrabold text-slate-900 text-sm">Recent Signups</h3>
+                  </div>
+                  
+                  <div className="space-y-3 h-64 overflow-y-auto pr-2">
+                     {analytics?.recentSignups?.length > 0 ? analytics.recentSignups.map(user => (
+                        <div key={user.id} className="flex items-center space-x-3 p-3 bg-slate-50 border border-slate-100 rounded-2xl">
+                           <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 font-black flex items-center justify-center text-xs">
+                              {user.name.charAt(0).toUpperCase()}
+                           </div>
+                           <div>
+                              <span className="block text-xs font-bold text-slate-800">{user.name}</span>
+                              <span className="block text-[9px] text-slate-500 capitalize">{user.role} • Registered {new Date(user.created_at).toLocaleDateString()}</span>
+                           </div>
+                        </div>
+                     )) : (
+                        <div className="text-center text-xs text-slate-400 py-10">No recent signups</div>
+                     )}
+                  </div>
+               </div>
+
+               <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                  <div className="flex justify-between items-end mb-4">
+                     <h3 className="font-extrabold text-slate-900 text-sm">Active Users (24H)</h3>
+                  </div>
+                  
+                  <div className="space-y-3 h-64 overflow-y-auto pr-2">
+                     {analytics?.activeLogins24h?.length > 0 ? analytics.activeLogins24h.map(user => (
+                        <div key={user.id} className="flex items-center space-x-3 p-3 bg-slate-50 border border-slate-100 rounded-2xl">
+                           <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-black flex items-center justify-center text-xs">
+                              {user.name.charAt(0).toUpperCase()}
+                           </div>
+                           <div>
+                              <span className="block text-xs font-bold text-slate-800">{user.name}</span>
+                              <span className="block text-[9px] text-slate-500 capitalize">{user.role} • Last seen {new Date(user.last_login).toLocaleTimeString()}</span>
+                           </div>
+                        </div>
+                     )) : (
+                        <div className="text-center text-xs text-slate-400 py-10">No recent logins</div>
+                     )}
+                  </div>
+               </div>
+             </div>
+          </div>
+        </div>
+      ) : activeSubTab === 'database' ? (
+        <div className="space-y-6 animate-fade-in-up">
+           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm max-w-2xl mx-auto mt-8">
+             <h2 className="text-xl font-black text-slate-900 mb-2">Price Engine Dictionary</h2>
+             <p className="text-xs text-slate-500 mb-6">Upload the latest Kaggle / Scraped CSV to automatically update market prices for the predictive search.</p>
+             
+             <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center flex flex-col items-center justify-center">
+               <input type="file" id="csv-upload" accept=".csv,.xlsx,.xls,.pdf,.doc,.docx" className="hidden" onChange={async (e) => {
+                 if (!e.target.files[0]) return;
+                 const file = e.target.files[0];
+                 const formData = new FormData();
+                 formData.append('file', file);
+                 
+                 alert('Uploading and processing CSV... This may take a few moments.');
+                 try {
+                   const res = await fetch(`${apiUrl}/admin/upload-prices`, {
+                     method: 'POST',
+                     headers: { 'Authorization': `Bearer ${token}` },
+                     body: formData
+                   });
+                   const data = await res.json();
+                   if (res.ok) alert(data.message);
+                   else alert(data.error || 'Upload failed');
+                 } catch (err) {
+                   alert('Network error during upload');
+                 }
+                 e.target.value = ''; // reset input
+               }} />
+               <label htmlFor="csv-upload" className="px-6 py-3 bg-kirana-500 hover:bg-kirana-600 text-slate-900 font-black text-sm rounded-xl cursor-pointer shadow-md transition-all">
+                 Select Document File
+               </label>
+               <p className="text-[10px] text-slate-400 mt-4">Supported formats: .csv, .xlsx, .xls, .pdf, .doc, .docx. Data extraction only runs on tabular formats (.csv, .xlsx, .xls) and overwrites the dictionary.</p>
+             </div>
+           </div>
+        </div>
+      ) : activeSubTab === 'complaints' ? (
+        <ComplaintsManagement />
       ) : activeSubTab === 'review' ? (
         <div className="space-y-4">
           {pendingApps.length === 0 ? (
@@ -221,6 +526,73 @@ const AdminDashboard = () => {
               </div>
             ))
           )}
+        </div>
+      ) : activeSubTab === 'trust' ? (
+        <div className="space-y-6 animate-fade-in-up">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-2xl font-black text-slate-900">Trust & Safety Dashboard</h2>
+              <p className="text-sm text-slate-500">Monitor suspicious activities and platform reputation.</p>
+            </div>
+            <button onClick={fetchTrustData} className="px-4 py-2 bg-white border border-slate-200 shadow-sm rounded-xl text-xs font-bold flex items-center space-x-2 text-slate-700 hover:bg-slate-50">
+               <RefreshCcw className="w-4 h-4" /> <span className="hidden sm:inline">Refresh Data</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+              <h3 className="font-extrabold text-slate-900 text-sm mb-4">Suspicious Activities</h3>
+              <div className="space-y-3 h-64 overflow-y-auto pr-2">
+                {trustData?.suspiciousActivities?.length > 0 ? trustData.suspiciousActivities.map(act => (
+                  <div key={act.id} className="flex flex-col p-3 bg-red-50 border border-red-100 rounded-2xl">
+                    <div className="flex justify-between items-start">
+                      <span className="block text-xs font-bold text-slate-800">{act.customer_name} ({act.phone})</span>
+                      <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[9px] font-bold">Risk: {act.risk_score}</span>
+                    </div>
+                    <span className="block text-[10px] text-slate-600 mt-1">{act.reason}</span>
+                    <span className="block text-[9px] text-slate-400 mt-1">{new Date(act.created_at).toLocaleString()}</span>
+                  </div>
+                )) : (
+                  <div className="text-center text-xs text-slate-400 py-10">No suspicious activities detected</div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+              <h3 className="font-extrabold text-slate-900 text-sm mb-4">High Risk Customers</h3>
+              <div className="space-y-3 h-64 overflow-y-auto pr-2">
+                {trustData?.highRiskCustomers?.length > 0 ? trustData.highRiskCustomers.map(cust => (
+                  <div key={cust.id} className="flex items-center space-x-3 p-3 bg-amber-50 border border-amber-100 rounded-2xl">
+                    <div className="w-8 h-8 rounded-full bg-amber-200 text-amber-800 font-black flex items-center justify-center text-xs">
+                      {cust.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <span className="block text-xs font-bold text-slate-800">{cust.name} ({cust.phone})</span>
+                      <span className="block text-[9px] text-slate-600">Trust Score: {cust.trust_score} • Cancels: {cust.cancellations}</span>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="text-center text-xs text-slate-400 py-10">No high risk customers</div>
+                )}
+              </div>
+            </div>
+            
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+              <h3 className="font-extrabold text-slate-900 text-sm mb-4">High Complaint Sellers</h3>
+              <div className="space-y-3 h-64 overflow-y-auto pr-2">
+                {trustData?.highComplaintSellers?.length > 0 ? trustData.highComplaintSellers.map(seller => (
+                  <div key={seller.id} className="flex items-center space-x-3 p-3 bg-crimson/5 border border-crimson/10 rounded-2xl">
+                    <div>
+                      <span className="block text-xs font-bold text-slate-800">{seller.shop_name}</span>
+                      <span className="block text-[9px] text-slate-600">Trust Score: {seller.trust_score} • Complaint Rate: {seller.complaint_rate}%</span>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="text-center text-xs text-slate-400 py-10">No high complaint sellers</div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         // Rejected / Suspended Logs

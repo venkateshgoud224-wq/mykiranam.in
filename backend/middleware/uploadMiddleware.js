@@ -20,14 +20,9 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter to allow only image uploads
+// File filter to allow any file upload
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only JPEG, PNG, JPG, and WEBP image files are allowed!'), false);
-  }
+  cb(null, true);
 };
 
 const upload = multer({
