@@ -257,8 +257,6 @@ const CompletedOrders = ({ completedOrders }) => {
           onSuccess={() => { setReportingOrder(null); alert('Your complaint has been submitted for review.'); }}
         />
       )}
-
-      )}
     </div>
   );
 };

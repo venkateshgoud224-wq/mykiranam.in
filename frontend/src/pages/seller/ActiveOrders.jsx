@@ -403,7 +403,6 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                           )}
                         </div>
                       )}
-                      )}
                     </div>
 
                     {/* Communication Actions */}

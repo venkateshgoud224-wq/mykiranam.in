@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 
 const OrderChat = ({ orderId, onClose, otherPartyName }) => {
@@ -28,10 +27,11 @@ const OrderChat = ({ orderId, onClose, otherPartyName }) => {
 
   const fetchChats = async () => {
     try {
-      const response = await axios.get(`${apiUrl}/orders/${orderId}/chats`, {
+      const response = await fetch(`${apiUrl}/orders/${orderId}/chats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setMessages(response.data);
+      const data = await response.json();
+      setMessages(data);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching chats:', error);
@@ -55,16 +55,13 @@ const OrderChat = ({ orderId, onClose, otherPartyName }) => {
       if (messageToSend.trim()) formData.append('message', messageToSend);
       if (fileToSend) formData.append('attachment', fileToSend);
 
-      const response = await axios.post(`${apiUrl}/orders/${orderId}/chats`, 
-        formData,
-        { 
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          } 
-        }
-      );
-      setMessages((prev) => [...prev, response.data]);
+      const response = await fetch(`${apiUrl}/orders/${orderId}/chats`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await response.json();
+      setMessages((prev) => [...prev, data]);
     } catch (error) {
       console.error('Error sending message:', error);
       // Restore input if it failed
