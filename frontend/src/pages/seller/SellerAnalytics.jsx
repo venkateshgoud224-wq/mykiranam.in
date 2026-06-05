@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Crown, TrendingUp, AlertTriangle, Package, CheckCircle2, DollarSign, BarChart3, Clock, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import axios from 'axios';
 
 const SellerAnalytics = () => {
   const [analytics, setAnalytics] = useState(null);
@@ -19,9 +18,10 @@ const SellerAnalytics = () => {
 
   const fetchAnalytics = async () => {
     try {
-      const { data } = await axios.get(`${apiUrl}/shops/premium-analytics`, {
+      const response = await fetch(`${apiUrl}/shops/premium-analytics`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      const data = await response.json();
       setAnalytics(data);
       setLoading(false);
     } catch (err) {
