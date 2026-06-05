@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Upload, FileText, Calendar, Store, ChevronLeft, CheckCircle2, Plus, Minus, Trash2, Edit3, ShoppingBag } from 'lucide-react';
+import OrderVerification from './OrderVerification';
 
 const PREDEFINED_ITEMS = [
   { name: 'Rice', price: 43 },
@@ -62,6 +63,7 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [placedOrder, setPlacedOrder] = useState(null);
 
   const units = ['KG', 'Gram', 'Litre', 'Packet', 'Piece', 'Dozen', 'Box'];
 
@@ -125,7 +127,9 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
 
       try {
         const res = await fetch(`${apiUrl}/products/search?q=${val}`);
-        const data = await res.json();
+        const text = await res.text();
+        let data = [];
+        try { data = JSON.parse(text); } catch(e) { throw new Error('Server returned HTML'); }
         
         const mergedResults = [...localResults];
         data.forEach(apiItem => {
@@ -194,9 +198,10 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
     formData.append('preferred_pickup_time', preferredPickup);
     formData.append('order_type', orderMethod);
 
+    let estimatedTotal = 0;
     if (isDigital) {
       // Attach the estimated amount to the order body so backend knows
-      const estimatedTotal = items.reduce((sum, item) => sum + (parseFloat(item.mrp) * parseFloat(item.quantity) || 0), 0);
+      estimatedTotal = items.reduce((sum, item) => sum + (parseFloat(item.mrp) * parseFloat(item.quantity) || 0), 0);
       formData.append('digital_item_list', JSON.stringify(items));
       if (estimatedTotal > 0) {
         formData.append('estimated_amount', estimatedTotal);
@@ -224,6 +229,12 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
       
       if (!response.ok) throw new Error(data.error || 'Failed to place order.');
 
+      // TEMPORARY BYPASS: Directly show payment screen for digital orders with amount
+      if (isDigital && estimatedTotal > 0) {
+         setPlacedOrder(data);
+         return;
+      }
+
       setSuccess(true);
       setTimeout(() => {
         onTabChange('orders'); // Redirect to orders list
@@ -248,6 +259,17 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
           View Nearby Shops
         </button>
       </div>
+    );
+  }
+
+  if (placedOrder) {
+    return (
+      <OrderVerification
+        order={placedOrder}
+        initialViewState="pay"
+        onBack={() => { setPlacedOrder(null); onTabChange('orders'); }}
+        onVerifySuccess={() => onTabChange('orders')}
+      />
     );
   }
 
@@ -595,7 +617,7 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
                 disabled={loading}
                 className="w-full py-3.5 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 text-xs font-extrabold rounded-xl shadow-lg shadow-kirana-500/10 active:scale-[0.99] transition-all disabled:opacity-50"
               >
-                {loading ? 'Submitting Order Chitti...' : `Submit Order (Queue wait ~${selectedShop.waiting_time}m)`}
+                {loading ? 'Processing...' : (orderMethod === 'digital' && items.reduce((sum, item) => sum + (parseFloat(item.mrp) * parseFloat(item.quantity) || 0), 0) > 0 ? 'Pay Order Now (Skip Wait)' : `Submit Order (Queue wait ~${selectedShop.waiting_time}m)`)}
               </button>
             </form>
           </div>

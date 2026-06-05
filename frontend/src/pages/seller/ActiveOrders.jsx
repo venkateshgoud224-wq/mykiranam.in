@@ -47,7 +47,9 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
         },
         body: JSON.stringify({ otp: otpInput })
       });
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { throw new Error('Server returned HTML'); }
       if (!response.ok) throw new Error(data.error || 'Failed to verify OTP');
       if (data) {
         playSoundAlert('success');
@@ -189,7 +191,9 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                                 method: 'POST',
                                 headers: { Authorization: `Bearer ${token}` }
                               });
-                              const data = await res.json();
+                              const text = await res.text();
+                              let data;
+                              try { data = JSON.parse(text); } catch(e) { throw new Error('Server returned HTML'); }
                               if (!res.ok) throw new Error(data.error || 'Failed to mark No Pickup');
                               playSoundAlert('cancelled');
                               window.location.reload();

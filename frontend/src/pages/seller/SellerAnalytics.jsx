@@ -21,8 +21,10 @@ const SellerAnalytics = () => {
       const response = await fetch(`${apiUrl}/shops/premium-analytics`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = await response.json();
-      setAnalytics(data);
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { throw new Error('Server returned HTML'); }
+      if (response.ok) setAnalytics(data);
       setLoading(false);
     } catch (err) {
       console.error('Error fetching premium analytics:', err);

@@ -30,8 +30,10 @@ const OrderChat = ({ orderId, onClose, otherPartyName }) => {
       const response = await fetch(`${apiUrl}/orders/${orderId}/chats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = await response.json();
-      setMessages(data);
+      const text = await response.text();
+      let data = [];
+      try { data = JSON.parse(text); } catch(e) { throw new Error('Server returned HTML'); }
+      if (response.ok) setMessages(data);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching chats:', error);
@@ -60,7 +62,10 @@ const OrderChat = ({ orderId, onClose, otherPartyName }) => {
         headers: { Authorization: `Bearer ${token}` },
         body: formData
       });
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { throw new Error('Server returned HTML'); }
+      if (!response.ok) throw new Error(data.error || 'Failed to send message');
       setMessages((prev) => [...prev, data]);
     } catch (error) {
       console.error('Error sending message:', error);

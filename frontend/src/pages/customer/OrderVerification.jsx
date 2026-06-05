@@ -7,7 +7,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const { token, apiUrl } = useAuth();
   
   // States
-  const [paymentMethod, setPaymentMethod] = useState('Razorpay UPI');
+  const [paymentMethod, setPaymentMethod] = useState('PhonePe UPI');
   
   // Workflow step switches: review | pay | request_changes
   const [viewState, setViewState] = useState(initialViewState || 'review'); 
@@ -108,7 +108,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          amount: Math.round(commitmentAmount * 100), 
+          amount: Math.round(parseFloat(order.amount || 0) * 100), 
           receipt: `order_${order.id}_${Date.now()}`,
           order_id: order.id,
           redirect_url: `${window.location.href}&method=phonepe`
@@ -509,14 +509,10 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                         <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Total Bill Amount</span>
                         <h3 className="text-2xl font-black text-slate-900 mb-2">₹{order.amount}</h3>
                         
-                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1 mb-2">
-                          <div className="flex justify-between items-center text-xs text-slate-700">
-                            <span>10% Advance Payment (Pay Now)</span>
-                            <span className="font-bold text-amber-700">₹{commitmentAmount.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-xs text-slate-700 font-bold border-t border-amber-200 pt-1 mt-1">
-                            <span>Remaining (Pay at Shop)</span>
-                            <span className="text-slate-900">₹{remainingAmount}</span>
+                        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 mb-2">
+                          <div className="flex justify-between items-center text-xs text-slate-700 font-bold">
+                            <span>Online Payment via PhonePe (Full Amount)</span>
+                            <span className="text-purple-700 font-black">₹{parseFloat(order.amount || 0).toFixed(2)}</span>
                           </div>
                         </div>
 
@@ -725,21 +721,13 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
           <div className="max-w-md mx-auto space-y-6 animate-fadeIn">
             <h3 className="text-lg font-extrabold text-slate-900">Payment Option</h3>
             
-            <div className="p-4 rounded-2xl border border-blue-500 bg-blue-50 text-blue-900 font-bold text-center transition-all shadow-sm">
+            <div className="p-4 rounded-2xl border border-purple-500 bg-purple-50 text-purple-900 font-bold text-center transition-all shadow-sm">
               <span className="block text-xl mb-1.5">⚡</span>
-              <span className="text-xs">Pay 10% Advance (₹{commitmentAmount.toFixed(2)}) Securely</span>
-              <div className="text-[10px] text-blue-700 font-normal mt-1">Remaining ₹{remainingAmount} to be paid offline at the shop.</div>
+              <span className="text-xs">Pay Full Amount (₹{parseFloat(order.amount || 0).toFixed(2)}) Securely</span>
+              <div className="text-[10px] text-purple-700 font-normal mt-1">Pay instantly online using PhonePe.</div>
             </div>
 
             <div className="flex flex-col space-y-2 pt-2">
-              <button
-                type="button"
-                onClick={handleRazorpayPayment}
-                disabled={loading}
-                className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
-              >
-                {loading ? 'Processing...' : 'Pay Securely via Razorpay'}
-              </button>
               <button
                 type="button"
                 onClick={handlePhonePePayment}
@@ -756,7 +744,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
               >
                 Go Back to Review
               </button>
-              <p className="text-[10px] text-center text-slate-400 mt-2">Zero fees. Secure payments powered by Razorpay.</p>
+              <p className="text-[10px] text-center text-slate-400 mt-2">Zero fees. Secure payments powered by PhonePe.</p>
             </div>
           </div>
         )}

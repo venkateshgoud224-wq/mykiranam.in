@@ -290,8 +290,48 @@ const mockQuery = async (text, params = []) => {
 
     if (normalizedText.includes('from customer_trust')) {
       const customerId = params[0];
-      let trust = mockDb.customer_trust[customerId] || { customer_id: customerId, successful_pickups: 3, cancellations: 0, no_show_count: 0 };
+      let trust = mockDb.customer_trust[customerId] || {
+        customer_id: Number(customerId),
+        successful_pickups: 3,
+        cancellations: 0,
+        no_show_count: 0,
+        total_orders: 0,
+        active_order_limit: 2,
+        suspension_end_date: null,
+        abandoned_orders: 0,
+        cancellation_warnings: 0,
+        no_pickup_warnings: 0,
+        trust_score: 100,
+        customer_level: 'Platinum Customer',
+        fake_complaints: 0,
+        abuse_reports: 0
+      };
+      if (!mockDb.customer_trust[customerId]) {
+        mockDb.customer_trust[customerId] = trust;
+        isMockDbDirty = true;
+      }
       return { rows: [trust] };
+    }
+
+    if (normalizedText.includes('from seller_performance')) {
+      const shopId = params[0];
+      let perf = mockDb.seller_performance[shopId] || {
+        shop_id: Number(shopId),
+        response_time_avg: 5,
+        order_completion_pct: 100,
+        cancellation_pct: 0,
+        total_completed_orders: 0,
+        total_cancelled_orders: 0,
+        trust_score: 100,
+        seller_level: 'Platinum Seller',
+        complaint_rate: 0,
+        verified_complaints: 0
+      };
+      if (!mockDb.seller_performance[shopId]) {
+        mockDb.seller_performance[shopId] = perf;
+        isMockDbDirty = true;
+      }
+      return { rows: [perf] };
     }
 
     if (normalizedText.includes('from order_chats')) {
@@ -333,6 +373,82 @@ const mockQuery = async (text, params = []) => {
   // INSERT queries
   if (normalizedText.startsWith('insert')) {
     isMockDbDirty = true;
+  }
+  if (normalizedText.startsWith('insert into customer_trust')) {
+    const customerId = Number(params[0]);
+    if (!mockDb.customer_trust[customerId]) {
+      mockDb.customer_trust[customerId] = {
+        customer_id: customerId,
+        successful_pickups: 0,
+        cancellations: 0,
+        no_show_count: 0,
+        total_orders: 0,
+        active_order_limit: 2,
+        suspension_end_date: null,
+        abandoned_orders: 0,
+        cancellation_warnings: 0,
+        no_pickup_warnings: 0,
+        trust_score: 100,
+        customer_level: 'Platinum Customer',
+        fake_complaints: 0,
+        abuse_reports: 0
+      };
+    }
+    const record = mockDb.customer_trust[customerId];
+    
+    if (normalizedText.includes('total_orders')) {
+      record.total_orders = (record.total_orders || 0) + 1;
+    }
+    if (normalizedText.includes('successful_pickups')) {
+      record.successful_pickups = (record.successful_pickups || 0) + 1;
+      if (normalizedText.includes('trust_score')) {
+        record.trust_score = Math.min(100, (record.trust_score || 100) + 1);
+      }
+    }
+    if (normalizedText.includes('cancellations')) {
+      record.cancellations = (record.cancellations || 0) + 1;
+      if (normalizedText.includes('trust_score')) {
+        record.trust_score = Math.max(0, (record.trust_score || 100) - 5);
+      }
+    }
+    if (normalizedText.includes('abandoned_orders')) {
+      record.abandoned_orders = (record.abandoned_orders || 0) + 1;
+    }
+    
+    return { rows: [record] };
+  }
+
+  if (normalizedText.startsWith('insert into seller_performance')) {
+    const shopId = Number(params[0]);
+    if (!mockDb.seller_performance[shopId]) {
+      mockDb.seller_performance[shopId] = {
+        shop_id: shopId,
+        response_time_avg: 5,
+        order_completion_pct: 100.00,
+        cancellation_pct: 0.00,
+        total_completed_orders: 0,
+        total_cancelled_orders: 0,
+        trust_score: 100,
+        seller_level: 'Platinum Seller',
+        complaint_rate: 0.00,
+        verified_complaints: 0
+      };
+    }
+    const record = mockDb.seller_performance[shopId];
+    
+    if (normalizedText.includes('response_time_avg')) {
+      const responseTimeSec = Number(params[1]) || 0;
+      record.response_time_avg = Math.round(((record.response_time_avg || 5) * (record.total_completed_orders || 0) + responseTimeSec) / ((record.total_completed_orders || 0) + 1));
+      record.total_completed_orders = (record.total_completed_orders || 0) + 1;
+    }
+    if (normalizedText.includes('total_cancelled_orders')) {
+      record.total_cancelled_orders = (record.total_cancelled_orders || 0) + 1;
+      if (normalizedText.includes('trust_score')) {
+        record.trust_score = Math.max(0, (record.trust_score || 100) - 5);
+      }
+    }
+    
+    return { rows: [record] };
   }
   if (normalizedText.startsWith('insert into users')) {
     const newUser = {
@@ -389,33 +505,54 @@ const mockQuery = async (text, params = []) => {
   }
 
   if (normalizedText.startsWith('insert into orders')) {
+    const colMatch = text.match(/\(([^)]+)\)/);
+    const columns = colMatch ? colMatch[1].split(',').map(c => c.trim().toLowerCase()) : [];
+
     const newOrder = {
       id: mockDb.orders.length + 1,
-      customer_id: Number(params[0]),
-      shop_id: Number(params[1]),
-      original_chitti: params[2],
+      customer_id: null,
+      shop_id: null,
+      original_chitti: null,
       modified_bill: null,
       amount: null,
       payment_method: null,
       payment_status: 'Pending',
       payment_proof_image: null,
-      notes: params[3] || '',
-      preferred_pickup_time: params[4] || null,
+      notes: '',
+      preferred_pickup_time: null,
       order_status: 'Waiting For Seller',
       created_at: new Date(),
       updated_at: new Date(),
-      custom_order_id: params[5] || null,
+      custom_order_id: null,
       accepted_at: null,
       packing_started_at: null,
       ready_for_pickup_at: null,
       confirmed_at: null,
       delivered_at: null,
       cancelled_at: null,
-      order_type: params[6] || 'handwritten',
-      digital_item_list: params[7] || null,
-      modified_item_list: params[8] || null,
-      item_change_history: params[9] || null
+      order_type: 'handwritten',
+      digital_item_list: null,
+      modified_item_list: null,
+      item_change_history: null
     };
+
+    columns.forEach((col, idx) => {
+      const val = params[idx];
+      if (col === 'customer_id') newOrder.customer_id = val !== null && val !== undefined ? Number(val) : null;
+      else if (col === 'shop_id') newOrder.shop_id = val !== null && val !== undefined ? Number(val) : null;
+      else if (col === 'original_chitti') newOrder.original_chitti = val;
+      else if (col === 'notes') newOrder.notes = val || '';
+      else if (col === 'preferred_pickup_time') newOrder.preferred_pickup_time = val;
+      else if (col === 'order_status') newOrder.order_status = val || 'Waiting For Seller';
+      else if (col === 'custom_order_id') newOrder.custom_order_id = val;
+      else if (col === 'order_type') newOrder.order_type = val || 'handwritten';
+      else if (col === 'digital_item_list') newOrder.digital_item_list = val;
+      else if (col === 'modified_item_list') newOrder.modified_item_list = val;
+      else if (col === 'amount') newOrder.amount = val !== null && val !== undefined ? Number(val) : null;
+      else if (col === 'gateway_fee') newOrder.gateway_fee = val !== null && val !== undefined ? Number(val) : 0;
+      else if (col === 'item_change_history') newOrder.item_change_history = val;
+    });
+
     mockDb.orders.push(newOrder);
 
     // Increment active orders
@@ -537,6 +674,25 @@ const mockQuery = async (text, params = []) => {
   // UPDATE queries
   if (normalizedText.startsWith('update')) {
     isMockDbDirty = true;
+    if (normalizedText.includes('update customer_trust')) {
+      const customerId = Number(params[params.length - 1]);
+      const record = mockDb.customer_trust[customerId];
+      if (record) {
+        if (normalizedText.includes('suspension_end_date')) {
+          const date = new Date();
+          date.setDate(date.getDate() + 7);
+          record.suspension_end_date = date;
+          record.active_order_limit = 2;
+        }
+        if (normalizedText.includes('no_pickup_warnings')) {
+          record.no_pickup_warnings = (record.no_pickup_warnings || 0) + 1;
+        }
+        if (normalizedText.includes('abandoned_orders = 0')) {
+          record.abandoned_orders = 0;
+        }
+      }
+      return { rows: record ? [record] : [] };
+    }
     if (normalizedText.includes('update users')) {
       if (normalizedText.includes('set reset_token =') || normalizedText.includes('reset_token =')) {
         const resetToken = params[0];

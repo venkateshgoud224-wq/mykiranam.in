@@ -201,10 +201,21 @@ const createOrder = async (req, res) => {
     const orderSeqStr = String(orderSeq).padStart(2, '0');
     const customOrderId = `${prefix}${dateStr}${orderSeqStr}`;
 
-    // Insert order (Waiting For Seller) with custom_order_id
+    // TEMPORARY: PhonePe testing bypass
+    let initialStatus = 'Waiting For Seller';
+    let initialAmount = null;
+    let initialModifiedList = null;
+    
+    if (isDigital && req.body.estimated_amount) {
+      initialStatus = 'Waiting For Customer Confirmation';
+      initialAmount = parseFloat(req.body.estimated_amount);
+      initialModifiedList = JSON.stringify(itemsList);
+    }
+
+    // Insert order
     const result = await db.query(
-      `INSERT INTO orders (customer_id, shop_id, original_chitti, notes, preferred_pickup_time, order_status, custom_order_id, order_type, digital_item_list, gateway_fee) 
-       VALUES ($1, $2, $3, $4, $5, 'Waiting For Seller', $6, $7, $8, $9) 
+      `INSERT INTO orders (customer_id, shop_id, original_chitti, notes, preferred_pickup_time, order_status, custom_order_id, order_type, digital_item_list, gateway_fee, amount, modified_item_list) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
        RETURNING *`,
       [
         customerId, 
@@ -212,10 +223,13 @@ const createOrder = async (req, res) => {
         chittiUrl, 
         notes || '', 
         preferred_pickup_time || '', 
+        initialStatus, 
         customOrderId, 
         order_type || 'handwritten', 
         isDigital ? JSON.stringify(itemsList) : null,
-        0
+        0,
+        initialAmount,
+        initialModifiedList
       ]
     );
 
