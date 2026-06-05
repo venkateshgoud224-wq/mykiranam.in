@@ -5,7 +5,6 @@ import { FileSpreadsheet, Eye, Play, CheckCircle2, User, ChevronDown, PackageChe
 import BillingForm from './BillingForm';
 import ImageModal from '../../components/common/ImageModal';
 import OrderChat from '../../components/common/OrderChat';
-import axios from 'axios';
 
 const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
   const { token, apiUrl } = useAuth();
@@ -40,11 +39,17 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
       return;
     }
     try {
-      const response = await axios.post(`${apiUrl}/orders/${otpDialogOrderId}/verify-otp`, 
-        { otp: otpInput },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (response.data) {
+      const response = await fetch(`${apiUrl}/orders/${otpDialogOrderId}/verify-otp`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ otp: otpInput })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to verify OTP');
+      if (data) {
         playSoundAlert('success');
         setOtpDialogOrderId(null);
         setOtpInput('');
@@ -54,7 +59,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
         window.location.reload(); 
       }
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to verify OTP');
+      alert(error.message || 'Failed to verify OTP');
     }
   };
 
@@ -180,11 +185,16 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                         onClick={async () => {
                           if (window.confirm("Are you sure you want to mark this order as 'No Pickup'? This will cancel the order and apply abandonment penalties to the customer.")) {
                             try {
-                              await axios.post(`${apiUrl}/seller-protection/order/${order.id}/no-pickup`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                              const res = await fetch(`${apiUrl}/seller-protection/order/${order.id}/no-pickup`, {
+                                method: 'POST',
+                                headers: { Authorization: `Bearer ${token}` }
+                              });
+                              const data = await res.json();
+                              if (!res.ok) throw new Error(data.error || 'Failed to mark No Pickup');
                               playSoundAlert('cancelled');
                               window.location.reload();
                             } catch (err) {
-                              alert(err.response?.data?.error || 'Failed to mark No Pickup');
+                              alert(err.message || 'Failed to mark No Pickup');
                             }
                           }
                         }}
