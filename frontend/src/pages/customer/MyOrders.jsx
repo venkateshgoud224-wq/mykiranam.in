@@ -197,23 +197,6 @@ const MyOrders = () => {
     }
   };
 
-  // Handle commitment payment request
-  const handlePayCommitment = async (orderId) => {
-    try {
-      const response = await fetch(`${apiUrl}/orders/${orderId}/commitment`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to request commitment');
-      alert(`Commitment amount: ₹${(data.commitmentAmount / 100).toFixed(2)}`);
-    } catch (err) {
-      console.error('Commitment error:', err);
-      alert(err.message || 'Error requesting commitment');
-    }
-  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -482,14 +465,6 @@ const MyOrders = () => {
                         className="px-4 py-2.5 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-kirana-500/10 hover:shadow-kirana-500/20 active:scale-[0.99] transition-all flex items-center space-x-1"
                       >
                         <span>Verify Bill</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    ) : (order.order_status === 'Bill Uploaded' && !order.commitment_paid) ? (
-                      <button
-                        onClick={() => handlePayCommitment(order.id)}
-                        className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-amber-500 hover:from-emerald-600 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.99] transition-all flex items-center space-x-1"
-                      >
-                        <span>Pay Commitment</span>
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     ) : (

@@ -8,13 +8,14 @@ class CommitmentPaymentService {
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
     if (!keyId || !keySecret) {
-      console.error('Razorpay credentials are missing in environment variables');
-      throw new Error('Razorpay credentials not configured');
+      console.warn('⚠️ Razorpay credentials are missing in environment variables. Running in mock/fallback mode for payments.');
+      this.client = null;
+    } else {
+      this.client = new Razorpay({
+        key_id: keyId,
+        key_secret: keySecret,
+      });
     }
-    this.client = new Razorpay({
-      key_id: keyId,
-      key_secret: keySecret,
-    });
   }
 
   // orderAmount in paise
@@ -26,14 +27,22 @@ class CommitmentPaymentService {
 
   async createPayment(orderId, amountPaise) {
     try {
-      const razorOrder = await this.client.orders.create({
-        amount: amountPaise,
-        currency: 'INR',
-        receipt: `commitment_${orderId}_${Date.now()}`,
-        payment_capture: 1,
-      });
-      // Insert commitment record
-        // In mock mode, skip DB insert for commitment payments
+      if (!this.client) {
+        console.log(`[Mock Razorpay] Creating order for receipt commitment_${orderId}_${Date.now()} with amount ${amountPaise}`);
+        const mockOrder = {
+          id: `order_mock_${Math.random().toString(36).substr(2, 9)}`,
+          entity: 'order',
+          amount: amountPaise,
+          amount_paid: 0,
+          amount_due: amountPaise,
+          currency: 'INR',
+          receipt: `commitment_${orderId}_${Date.now()}`,
+          status: 'created',
+          attempts: 0,
+          notes: [],
+          created_at: Math.floor(Date.now() / 1000)
+        };
+        // Insert commitment record
         if (require('../config/db').getIsMock()) {
           console.log('Mock DB: Skipping commitment record insert');
         } else {
@@ -42,6 +51,25 @@ class CommitmentPaymentService {
             [orderId, amountPaise, 'pending']
           );
         }
+        return mockOrder;
+      }
+
+      const razorOrder = await this.client.orders.create({
+        amount: amountPaise,
+        currency: 'INR',
+        receipt: `commitment_${orderId}_${Date.now()}`,
+        payment_capture: 1,
+      });
+      // Insert commitment record
+      // In mock mode, skip DB insert for commitment payments
+      if (require('../config/db').getIsMock()) {
+        console.log('Mock DB: Skipping commitment record insert');
+      } else {
+        await db.query(
+          `INSERT INTO commitment_payments (order_id, amount, status) VALUES ($1, $2, $3)`,
+          [orderId, amountPaise, 'pending']
+        );
+      }
       return razorOrder;
     } catch (err) {
       console.error('Error creating Razorpay payment for order', orderId, err);
@@ -50,6 +78,10 @@ class CommitmentPaymentService {
   }
 
   async verifyPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature }) {
+    if (!this.client) {
+      console.log('[Mock Razorpay] Verifying signature:', { razorpay_order_id, razorpay_payment_id });
+      return true;
+    }
     return this.client.utility.verifyPaymentSignature({
       razorpay_order_id,
       razorpay_payment_id,
@@ -73,10 +105,14 @@ class CommitmentPaymentService {
     // Call Razorpay refund
     if (cp.razorpay_payment_id) {
       try {
-        await this.client.payments.refund(cp.razorpay_payment_id, {
-          amount: refundAmount,
-          speed: 'normal'
-        });
+        if (!this.client) {
+          console.log(`[Mock Razorpay] Refunding payment ${cp.razorpay_payment_id} of amount ${refundAmount}`);
+        } else {
+          await this.client.payments.refund(cp.razorpay_payment_id, {
+            amount: refundAmount,
+            speed: 'normal'
+          });
+        }
       } catch (err) {
         console.error('Razorpay refund error:', err);
         throw new Error('Failed to process refund with payment gateway');
@@ -113,18 +149,22 @@ class CommitmentPaymentService {
     // Execute transfer via Razorpay Route
     if (cp.razorpay_payment_id && cp.razorpay_linked_account_id) {
       try {
-        await this.client.payments.transfer(cp.razorpay_payment_id, {
-          transfers: [
-            {
-              account: cp.razorpay_linked_account_id,
-              amount: sellerAmount,
-              currency: 'INR',
-              notes: { order_id: orderId },
-              linked_account_notes: ['order_id'],
-              on_hold: false
-            }
-          ]
-        });
+        if (!this.client) {
+          console.log(`[Mock Razorpay] Transferring ${sellerAmount} for payment ${cp.razorpay_payment_id} to seller account ${cp.razorpay_linked_account_id}`);
+        } else {
+          await this.client.payments.transfer(cp.razorpay_payment_id, {
+            transfers: [
+              {
+                account: cp.razorpay_linked_account_id,
+                amount: sellerAmount,
+                currency: 'INR',
+                notes: { order_id: orderId },
+                linked_account_notes: ['order_id'],
+                on_hold: false
+              }
+            ]
+          });
+        }
       } catch (err) {
         console.error('Razorpay split transfer error:', err);
       }

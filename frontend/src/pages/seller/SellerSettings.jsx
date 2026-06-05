@@ -23,12 +23,6 @@ const SellerSettings = () => {
   const [bannerPreview, setBannerPreview] = useState(null);
   const [bannerLoading, setBannerLoading] = useState(false);
 
-  // Bank Details for Automated Payouts
-  const [bankAccNumber, setBankAccNumber] = useState('');
-  const [bankIfsc, setBankIfsc] = useState('');
-  const [bankBeneficiaryName, setBankBeneficiaryName] = useState('');
-  const [bankLoading, setBankLoading] = useState(false);
-  const [razorpayLinkedAccountId, setRazorpayLinkedAccountId] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
@@ -50,10 +44,6 @@ const SellerSettings = () => {
       } else {
         setBannerPreview(null);
       }
-      setBankAccNumber(shop.bank_account_number || '');
-      setBankIfsc(shop.bank_ifsc_code || '');
-      setBankBeneficiaryName(shop.bank_beneficiary_name || '');
-      setRazorpayLinkedAccountId(shop.razorpay_linked_account_id || null);
     }
   }, [extraData.shop, apiUrl]);
 
@@ -130,39 +120,6 @@ const SellerSettings = () => {
     }
   };
 
-  const handleBankSubmit = async (e) => {
-    e.preventDefault();
-    setBankLoading(true);
-    setSuccess('');
-    setError('');
-
-    try {
-      const response = await fetch(`${apiUrl}/shops/link-bank-account`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          bank_account_number: bankAccNumber,
-          bank_ifsc_code: bankIfsc,
-          bank_beneficiary_name: bankBeneficiaryName
-        })
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to link bank account.');
-
-      playSoundAlert('success');
-      setSuccess('Bank account linked securely with Razorpay for automated payouts!');
-      setRazorpayLinkedAccountId(data.shop?.razorpay_linked_account_id);
-      refreshProfile();
-    } catch (err) {
-      setError(err.message || 'Error linking bank account.');
-    } finally {
-      setBankLoading(false);
-    }
-  };
 
   const handleBannerChange = (e) => {
     const file = e.target.files[0];
@@ -329,70 +286,6 @@ const SellerSettings = () => {
         </button>
       </form>
 
-      {/* Razorpay Automated Payout Settings */}
-      <form onSubmit={handleBankSubmit} className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium space-y-4">
-        <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-          <div className="flex items-center space-x-1">
-            <Lock className="w-4 h-4 text-kirana-500" />
-            <span>Automated Payout Bank Setup</span>
-          </div>
-          {razorpayLinkedAccountId && (
-             <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-black">Linked</span>
-          )}
-        </h3>
-        <p className="text-[10px] text-slate-400 leading-normal">
-          {razorpayLinkedAccountId 
-            ? "Your bank account is linked to Razorpay. Money from online customer orders will automatically route to this account." 
-            : "Enter your bank details to automatically route payments to your account when customers pay online via Razorpay."}
-        </p>
-
-        <div className="space-y-1">
-          <label className="text-xs font-bold text-slate-700">Account Holder Name</label>
-          <input
-            type="text"
-            required
-            placeholder="Name as per bank records"
-            value={bankBeneficiaryName}
-            onChange={(e) => setBankBeneficiaryName(e.target.value)}
-            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700">Account Number</label>
-            <input
-              type="text"
-              required
-              placeholder="Your Bank A/C Number"
-              value={bankAccNumber}
-              onChange={(e) => setBankAccNumber(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700">IFSC Code</label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. HDFC0001234"
-              value={bankIfsc}
-              onChange={(e) => setBankIfsc(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800"
-            />
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={bankLoading}
-          className="w-full py-3 bg-kirana-600 hover:bg-kirana-700 text-slate-950 font-extrabold text-xs rounded-xl shadow transition-all flex items-center justify-center space-x-2"
-        >
-          <Lock className="w-4 h-4" />
-          <span>{bankLoading ? 'Securing Link...' : (razorpayLinkedAccountId ? 'Update Bank Details' : 'Link Bank for Automated Payouts')}</span>
-        </button>
-      </form>
 
       {/* Shop Banner Upload Form */}
       <form onSubmit={handleBannerSubmit} className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium space-y-4">

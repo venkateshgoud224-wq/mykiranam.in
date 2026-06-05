@@ -2,7 +2,6 @@ const db = require('../config/db');
 const socketService = require('../services/socketService');
 const { uploadImage } = require('../services/storageService');
 const priceEngine = require('../services/priceEngine');
-const commitmentService = require('../services/commitmentPaymentService');
 
 // Helper: Update shop's active orders count in the DB
 const updateShopQueueCount = async (shopId) => {
@@ -784,108 +783,6 @@ const uploadBill = async (req, res) => {
   }
 };
 
-// 4b. Seller Requests Commitment Payment
-// Routes moved to orderRoutes.js
-const requestCommitment = async (req, res) => {
-  const { id } = req.params;
-  const sellerId = req.user.id;
-  try {
-    // Fetch order
-    const orderResult = await db.query(
-      `SELECT o.*, s.owner_id as seller_user_id FROM orders o JOIN shops s ON o.shop_id = s.id WHERE o.id = $1`,
-      [id]
-    );
-    if (orderResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Order not found.' });
-    }
-    const order = orderResult.rows[0];
-    if (Number(order.seller_user_id) !== Number(sellerId)) {
-      return res.status(403).json({ error: 'Unauthorized to request commitment for this order.' });
-    }
-      if (order.order_status !== 'Bill Uploaded') {
-        return res.status(400).json({ error: 'Commitment can only be requested after bill is uploaded.' });
-      }
-      // Validate order amount exists
-      if (!order.amount) {
-        console.error('Commitment request error: order amount missing for order id', id);
-        return res.status(400).json({ error: 'Order amount is missing; cannot calculate commitment.' });
-      }
-      const orderAmountPaise = Math.round(parseFloat(order.amount) * 100);
-      const commitmentPaise = commitmentService.calculateCommitment(orderAmountPaise);
-      const razorOrder = await commitmentService.createPayment(order.id, commitmentPaise);
-    await db.query(
-      `UPDATE orders SET order_status = 'Waiting For Customer Confirmation', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-      [order.id]
-    );
-    const notificationEngine = require('../services/notificationEngine');
-    await notificationEngine.dispatchNotification(
-      order.customer_id,
-      'Commitment Payment Required',
-      `Please pay a commitment of ₹${(commitmentPaise/100).toFixed(2)} to confirm your order #${order.custom_order_id || order.id}.`,
-      'commitment_required',
-      { orderId: order.id, amount: commitmentPaise }
-    );
-    socketService.emitOrderStatus(order, order.customer_id, order.shop_id);
-    return res.status(200).json({ razororder: razorOrder, commitmentAmount: commitmentPaise });
-  } catch (err) {
-    console.error('Request commitment error:', err);
-    return res.status(500).json({ error: 'Server error requesting commitment.' });
-  }
-};
-
-// 4c. Verify Commitment Payment by Customer
-const verifyCommitment = async (req, res) => {
-  const { id } = req.params;
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-  const customerId = req.user.id;
-
-  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-    return res.status(400).json({ error: 'Missing Razorpay payment verification details.' });
-  }
-
-  try {
-    // Fetch order
-    const orderResult = await db.query(
-      `SELECT o.*, s.owner_id as seller_user_id FROM orders o JOIN shops s ON o.shop_id = s.id WHERE o.id = $1`,
-      [id]
-    );
-    if (orderResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Order not found.' });
-    }
-    const order = orderResult.rows[0];
-    if (Number(order.customer_id) !== Number(customerId)) {
-      return res.status(403).json({ error: 'Unauthorized to verify commitment for this order.' });
-    }
-    if (order.order_status !== 'Waiting For Customer Confirmation') {
-      return res.status(400).json({ error: 'Commitment payment not expected at this stage.' });
-    }
-
-    // Verify Razorpay signature via commitment service
-    await commitmentService.verifyPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature });
-    // Mark commitment as paid in DB
-    await commitmentService.markPaid(order.id, razorpay_payment_id);
-
-    // Update order status to Confirmed so customer can proceed
-    await db.query(
-      `UPDATE orders SET order_status = 'Confirmed', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-      [order.id]
-    );
-
-    const notificationEngine = require('../services/notificationEngine');
-    await notificationEngine.dispatchNotification(
-      order.seller_user_id,
-      'Commitment Paid',
-      `Customer has paid the commitment for order #${order.custom_order_id || order.id}.`,
-      'commitment_paid',
-      { orderId: order.id }
-    );
-    socketService.emitOrderStatus(order, order.customer_id, order.shop_id);
-    return res.status(200).json({ success: true, message: 'Commitment payment verified.' });
-  } catch (err) {
-    console.error('Verify commitment error:', err);
-    return res.status(500).json({ error: 'Server error verifying commitment payment.' });
-  }
-};
 
 // 5. Customer Confirms Order & Selects Payment (Optionally uploads UPI receipt screenshot)
 const confirmOrder = async (req, res) => {
@@ -1028,15 +925,6 @@ const verifyOTP = async (req, res) => {
     const updatedOrder = result.rows[0];
     await updateShopQueueCount(order.shop_id);
 
-    // Settle commitment amount to seller if they paid advance online
-    try {
-      if (order.payment_method === 'Razorpay UPI') {
-        const commitmentService = require('../services/commitmentPaymentService');
-        await commitmentService.settleToSeller(order.id);
-      }
-    } catch (err) {
-      console.error('Failed to auto-settle commitment on OTP verify:', err);
-    }
 
     // Track Seller Performance & Customer Trust
     await db.query(
@@ -1243,10 +1131,8 @@ module.exports = {
   createOrder,
   getOrders,
   updateOrderStatus,
-  requestCommitment,
   uploadBill,
   confirmOrder,
-  verifyCommitment,
   verifyOTP,
   getChats,
   sendChat,

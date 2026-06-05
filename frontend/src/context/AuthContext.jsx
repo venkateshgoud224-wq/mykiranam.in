@@ -38,9 +38,11 @@ export const AuthProvider = ({ children }) => {
             spendStats: data.spendStats || null,
             sellerStats: data.sellerStats || null
           });
-        } else {
+        } else if (response.status === 401 || response.status === 403) {
           // Token expired or invalid
           logout();
+        } else {
+          console.error("Server error while loading profile:", response.status);
         }
       } catch (err) {
         console.error('Error loading profile:', err);

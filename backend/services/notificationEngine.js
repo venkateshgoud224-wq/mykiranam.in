@@ -129,7 +129,7 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
           text
         );
       } else if (type === 'refund_processed') {
-        const text = `Refund Processed!\n\n📦 Order ID: ${orderIdStr}\n💰 Refund Amount: ₹${amount}\n\nYour refund has been successfully initiated via Razorpay and will reflect in your original payment method in 5-7 business days.`;
+        const text = `Refund Processed!\n\n📦 Order ID: ${orderIdStr}\n💰 Refund Amount: ₹${amount}\n\nYour refund has been successfully initiated and will reflect in your original payment method in 5-7 business days.`;
         waPromise = whatsappService.sendWhatsAppMessage(
           user.whatsapp_number,
           '💸 Refund Initiated',

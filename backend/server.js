@@ -173,7 +173,7 @@ const startServer = async () => {
         const overdueResult = await db.query(
           `UPDATE orders SET order_status = 'Pickup Overdue', updated_at = CURRENT_TIMESTAMP 
            WHERE order_status = 'Ready For Pickup' AND pickup_deadline < CURRENT_TIMESTAMP RETURNING *`
-        ); // nodemon reload trigger for razorpay keys
+        );
         if (overdueResult.rows.length > 0) {
           const notificationEngine = require('./services/notificationEngine');
           for (let order of overdueResult.rows) {

@@ -852,13 +852,7 @@ const mockQuery = async (text, params = []) => {
         else if (normalizedText.includes('image_banner = $1') || normalizedText.includes('set image_banner =')) {
           shop.image_banner = params[0];
         }
-        // 7. Razorpay Linked Account Setup
-        else if (normalizedText.includes('razorpay_linked_account_id =')) {
-          shop.bank_account_number = params[0];
-          shop.bank_ifsc_code = params[1];
-          shop.bank_beneficiary_name = params[2];
-          shop.razorpay_linked_account_id = params[3];
-        }
+
       }
       return { rows: shop ? [shop] : [] };
     }

@@ -11,26 +11,6 @@ const CompletedOrders = ({ completedOrders }) => {
   const [reportingOrder, setReportingOrder] = useState(null);
   const [refundingOrderId, setRefundingOrderId] = useState(null);
 
-  const handleRefund = async (orderId) => {
-    if (!window.confirm('Are you sure you want to mark this order as refunded?')) return;
-    try {
-      setRefundingOrderId(orderId);
-      const response = await fetch(`${apiUrl}/payment/orders/${orderId}/refund`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to process refund');
-      
-      alert('Refund processed successfully via Razorpay! The customer has been notified.');
-      setSelectedOrder(prev => ({...prev, payment_status: 'Refunded'}));
-    } catch (err) {
-      alert(`Refund Error: ${err.message}`);
-    } finally {
-      setRefundingOrderId(null);
-    }
-  };
 
   const getStatusColor = (status) => {
     if (status === 'Delivered') return 'bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20';
@@ -210,34 +190,7 @@ const CompletedOrders = ({ completedOrders }) => {
                 <p className="text-[10px] text-slate-400">Created: {new Date(selectedOrder.created_at).toLocaleString()}</p>
               </div>
 
-              {/* Refund Action UI */}
-              {selectedOrder.order_status === 'Cancelled' && selectedOrder.payment_method === 'Razorpay UPI' && (
-                <div className="pt-2">
-                  {selectedOrder.payment_status === 'Paid' ? (
-                    <button
-                      onClick={() => handleRefund(selectedOrder.id)}
-                      disabled={refundingOrderId === selectedOrder.id}
-                      className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex justify-center items-center space-x-2"
-                    >
-                      {refundingOrderId === selectedOrder.id ? 'Processing Refund...' : 'Process Refund to Customer (Razorpay)'}
-                    </button>
-                  ) : selectedOrder.payment_status === 'Refunded' ? (
-                    <div className="w-full py-3 bg-green-50 text-green-700 border border-green-200 text-xs font-bold rounded-xl text-center">
-                      ✓ {selectedOrder.refund_status === 'Credited' ? 'Refund Credited to Customer Bank' : 'Refund Processed Successfully'}
-                    </div>
-                  ) : null}
-                </div>
-              )}
 
-              {/* Settlement UI for Delivered Orders with Advance Payment */}
-              {selectedOrder.order_status === 'Delivered' && selectedOrder.payment_method === 'Razorpay UPI' && (
-                <div className="pt-2 mt-2 border-t border-slate-100">
-                  <div className={`w-full py-2.5 px-3 text-xs font-bold rounded-xl flex items-center justify-between ${selectedOrder.commitment_status === 'credited' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                    <span>Advance Payment Settlement:</span>
-                    <span>{selectedOrder.commitment_status === 'credited' ? '✓ Credited to Bank' : selectedOrder.commitment_status === 'settled' ? 'Processing Settlement...' : 'Pending Transfer'}</span>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
