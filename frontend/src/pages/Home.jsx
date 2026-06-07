@@ -2,6 +2,23 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Store, Mail, Lock, User, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
+const decodeJwt = (token) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window.atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    console.error('Failed to decode JWT:', e);
+    return null;
+  }
+};
+
 const Home = () => {
   const { login, googleLogin, register, apiUrl } = useAuth();
   const [activeForm, setActiveForm] = useState('signin'); // 'signin', 'signup', 'forgot', 'reset'
@@ -51,7 +68,10 @@ const Home = () => {
                 setSuccessMessage('');
                 setLoading(true);
                 try {
-                  await googleLogin(response.credential);
+                  const decoded = decodeJwt(response.credential);
+                  const email = decoded?.email || '';
+                  const name = decoded?.name || decoded?.given_name || '';
+                  await googleLogin(response.credential, name, email);
                 } catch (err) {
                   setError(err.message || 'Google Authentication failed.');
                 } finally {

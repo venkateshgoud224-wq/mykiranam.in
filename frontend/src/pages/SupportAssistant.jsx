@@ -178,9 +178,37 @@ const SupportAssistant = () => {
 
   const messagesEndRef = useRef(null);
 
+  // Get user-specific storage key for support chat history
+  const getStorageKey = () => {
+    return `kirana_support_chat_history_${user?.id || 'guest'}`;
+  };
+
+  // Helper to initialize a new chat session safely
+  const initNewChat = (storageKey) => {
+    const sessionId = Date.now().toString();
+    const welcomeMsg = {
+      id: 'welcome',
+      sender: 'bot',
+      text: "👋 Welcome to MyKiranam Support. Ask me anything about ordering, payments, pickup, cancellations, refunds, seller policies, ratings, and platform rules.",
+      timestamp: new Date().toISOString()
+    };
+    const newSession = {
+      id: sessionId,
+      title: 'Chat Session ' + new Date().toLocaleDateString(),
+      timestamp: new Date().toISOString(),
+      messages: [welcomeMsg]
+    };
+
+    setMessages([welcomeMsg]);
+    setCurrentSessionId(sessionId);
+    setChatHistory([newSession]);
+    localStorage.setItem(storageKey, JSON.stringify([newSession]));
+  };
+
   // Initialize and load chat sessions
   useEffect(() => {
-    const savedHistory = localStorage.getItem('kirana_support_chat_history');
+    const storageKey = getStorageKey();
+    const savedHistory = localStorage.getItem(storageKey);
     if (savedHistory) {
       try {
         const parsed = JSON.parse(savedHistory);
@@ -190,15 +218,15 @@ const SupportAssistant = () => {
           setCurrentSessionId(parsed[0].id);
           setMessages(parsed[0].messages);
         } else {
-          startNewChat();
+          initNewChat(storageKey);
         }
       } catch (e) {
-        startNewChat();
+        initNewChat(storageKey);
       }
     } else {
-      startNewChat();
+      initNewChat(storageKey);
     }
-  }, []);
+  }, [user?.id]);
 
   // Fetch customer orders when raising a ticket
   useEffect(() => {
@@ -242,7 +270,7 @@ const SupportAssistant = () => {
   }, [searchQuery]);
 
   // Helper to start fresh session
-  const startNewChat = () => {
+  const startNewChat = (customHistory = null) => {
     const sessionId = Date.now().toString();
     const welcomeMsg = {
       id: 'welcome',
@@ -261,9 +289,10 @@ const SupportAssistant = () => {
     setCurrentSessionId(sessionId);
 
     // Save to state and localStorage
-    const updatedHistory = [newSession, ...chatHistory.filter(h => h.id !== sessionId)];
+    const historyToUse = customHistory !== null ? customHistory : chatHistory;
+    const updatedHistory = [newSession, ...historyToUse.filter(h => h.id !== sessionId)];
     setChatHistory(updatedHistory);
-    localStorage.setItem('kirana_support_chat_history', JSON.stringify(updatedHistory));
+    localStorage.setItem(getStorageKey(), JSON.stringify(updatedHistory));
   };
 
   // Switch chat session
@@ -280,14 +309,14 @@ const SupportAssistant = () => {
     e.stopPropagation();
     const updatedHistory = chatHistory.filter(s => s.id !== id);
     setChatHistory(updatedHistory);
-    localStorage.setItem('kirana_support_chat_history', JSON.stringify(updatedHistory));
+    localStorage.setItem(getStorageKey(), JSON.stringify(updatedHistory));
     
     if (currentSessionId === id) {
       if (updatedHistory.length > 0) {
         setCurrentSessionId(updatedHistory[0].id);
         setMessages(updatedHistory[0].messages);
       } else {
-        startNewChat();
+        startNewChat(updatedHistory);
       }
     }
   };
@@ -305,7 +334,7 @@ const SupportAssistant = () => {
       return session;
     });
     setChatHistory(updatedHistory);
-    localStorage.setItem('kirana_support_chat_history', JSON.stringify(updatedHistory));
+    localStorage.setItem(getStorageKey(), JSON.stringify(updatedHistory));
   };
 
   // Typo correction and text normalization

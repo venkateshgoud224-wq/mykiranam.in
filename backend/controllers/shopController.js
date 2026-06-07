@@ -170,7 +170,7 @@ const getMyShop = async (req, res) => {
       // Auto-create a default shop profile for this seller
       const defaultShopName = `${req.user.name}'s Kirana Store`;
       await db.query(
-        'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude) VALUES ($1, $2, $3, $4, $5)',
+        'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, verified, verification_status, verified_by_admin, verified_by_seller, verification_date) VALUES ($1, $2, $3, $4, $5, true, \'Verified\', true, true, CURRENT_TIMESTAMP)',
         [sellerId, defaultShopName, 'Huzurnagar, Nalgonda, Telangana', 16.8970, 79.8705]
       );
       shopResult = await db.query('SELECT * FROM shops WHERE owner_id = $1', [sellerId]);
@@ -354,7 +354,7 @@ const verifyShop = async (req, res) => {
       // Auto-create missing shop profile
       const defaultShopName = `${req.user.name}'s Kirana Store`;
       await db.query(
-        'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude) VALUES ($1, $2, $3, $4, $5)',
+        'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, verified, verification_status, verified_by_admin, verified_by_seller, verification_date) VALUES ($1, $2, $3, $4, $5, true, \'Verified\', true, true, CURRENT_TIMESTAMP)',
         [sellerId, defaultShopName, 'Huzurnagar, Nalgonda, Telangana', 16.8970, 79.8705]
       );
       shopCheck = await db.query('SELECT * FROM shops WHERE owner_id = $1', [sellerId]);

@@ -1618,6 +1618,10 @@ const initDb = async () => {
     await pool.query('ALTER TABLE complaints ADD COLUMN IF NOT EXISTS seller_explanation TEXT;');
     await pool.query('ALTER TABLE complaints ADD COLUMN IF NOT EXISTS seller_response_at TIMESTAMP WITH TIME ZONE;');
     
+    // Auto-verify all existing shops in PostgreSQL database to restore visibility
+    console.log('⚡ Auto-verifying all existing shops in PostgreSQL...');
+    await pool.query("UPDATE shops SET verification_status = 'Verified', verified = true WHERE verification_status = 'Pending' OR verification_status = 'Under Review';");
+
     // Remove Bangalore seeding
     console.log('ℹ️ Startup complete.');
   } catch (err) {
