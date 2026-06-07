@@ -11,7 +11,118 @@ const SellerSettings = () => {
   // Settings states
   const [shopName, setShopName] = useState('');
   const [address, setAddress] = useState('');
+  const [latitude, setLatitude] = useState('16.8970');
+  const [longitude, setLongitude] = useState('79.8705');
   const [availabilityStatus, setAvailabilityStatus] = useState('Available');
+
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const mapContainerRef = React.useRef(null);
+  const mapRef = React.useRef(null);
+  const markerRef = React.useRef(null);
+
+  const hasShop = !!extraData.shop;
+
+  useEffect(() => {
+    // Load Leaflet CSS
+    const cssId = 'leaflet-css';
+    if (!document.getElementById(cssId)) {
+      const link = document.createElement('link');
+      link.id = cssId;
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    // Load Leaflet JS
+    const jsId = 'leaflet-js';
+    const existingScript = document.getElementById(jsId);
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.id = jsId;
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.async = true;
+      script.onload = () => setLeafletLoaded(true);
+      document.body.appendChild(script);
+    } else {
+      if (window.L) {
+        setLeafletLoaded(true);
+      } else {
+        existingScript.addEventListener('load', () => setLeafletLoaded(true));
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!leafletLoaded || !mapContainerRef.current || !hasShop) return;
+
+    if (mapRef.current) return;
+
+    const L = window.L;
+    if (!L) return; // Prevent crashes if Leaflet is not yet ready on window
+
+    const initialLat = parseFloat(latitude) || 16.8970;
+    const initialLng = parseFloat(longitude) || 79.8705;
+
+    const map = L.map(mapContainerRef.current).setView([initialLat, initialLng], 15);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
+
+    marker.on('dragend', (e) => {
+      const { lat, lng } = e.target.getLatLng();
+      setLatitude(lat.toFixed(6));
+      setLongitude(lng.toFixed(6));
+    });
+
+    map.on('click', (e) => {
+      const { lat, lng } = e.latlng;
+      marker.setLatLng([lat, lng]);
+      setLatitude(lat.toFixed(6));
+      setLongitude(lng.toFixed(6));
+    });
+
+    mapRef.current = map;
+    markerRef.current = marker;
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [leafletLoaded, hasShop]);
+
+  // If shop settings change, update map center
+  useEffect(() => {
+    if (mapRef.current && markerRef.current) {
+      const lat = parseFloat(latitude) || 16.8970;
+      const lng = parseFloat(longitude) || 79.8705;
+      mapRef.current.setView([lat, lng]);
+      markerRef.current.setLatLng([lat, lng]);
+    }
+  }, [latitude, longitude]);
+
+  const handleAutoDetect = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setLatitude(lat.toFixed(6));
+        setLongitude(lng.toFixed(6));
+      },
+      (err) => {
+        alert("Failed to get current location. Please allow GPS permissions or select manually on the map.");
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
   const [maxActiveOrders, setMaxActiveOrders] = useState(10);
   const [waitingTime, setWaitingTime] = useState(15);
   const [discounts, setDiscounts] = useState('');
@@ -23,6 +134,11 @@ const SellerSettings = () => {
   const [bannerPreview, setBannerPreview] = useState(null);
   const [bannerLoading, setBannerLoading] = useState(false);
 
+  // UPI settings states
+  const [upiId, setUpiId] = useState('');
+  const [qrFile, setQrFile] = useState(null);
+  const [qrPreview, setQrPreview] = useState(null);
+  const [upiLoading, setUpiLoading] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
@@ -39,13 +155,72 @@ const SellerSettings = () => {
       setDiscounts(shop.discounts || '');
       setStartTime(shop.online_start_time || '08:00');
       setEndTime(shop.online_end_time || '22:00');
+      setLatitude(shop.latitude || '16.8970');
+      setLongitude(shop.longitude || '79.8705');
       if (shop.image_banner) {
         setBannerPreview(shop.image_banner.startsWith('http') ? shop.image_banner : `${apiUrl.replace('/api', '')}${shop.image_banner}`);
       } else {
         setBannerPreview(null);
       }
+      setUpiId(shop.upi_id || '');
+      if (shop.qr_code_image) {
+        setQrPreview(shop.qr_code_image.startsWith('http') ? shop.qr_code_image : `${apiUrl.replace('/api', '')}${shop.qr_code_image}`);
+      } else {
+        setQrPreview(null);
+      }
     }
   }, [extraData.shop, apiUrl]);
+
+  const handleUpiSubmit = async (e) => {
+    e.preventDefault();
+    setUpiLoading(true);
+    setSuccess('');
+    setError('');
+
+    const formData = new FormData();
+    formData.append('upi_id', upiId);
+    if (qrFile) {
+      formData.append('qr_code_image', qrFile);
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/shops/payment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to update UPI settings.');
+
+      playSoundAlert('success');
+      setSuccess('UPI configurations updated successfully!');
+      refreshProfile();
+      setQrFile(null);
+    } catch (err) {
+      setError(err.message || 'Error updating UPI settings.');
+    } finally {
+      setUpiLoading(false);
+    }
+  };
+
+  const handleQrChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        setError('QR file size should be less than 10MB.');
+        return;
+      }
+      setQrFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setQrPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSettingsSubmit = async (e) => {
     e.preventDefault();
@@ -63,6 +238,8 @@ const SellerSettings = () => {
         body: JSON.stringify({
           shop_name: shopName,
           address,
+          latitude,
+          longitude,
           availability_status: availabilityStatus,
           max_active_orders: maxActiveOrders,
           waiting_time: waitingTime,
@@ -193,6 +370,47 @@ const SellerSettings = () => {
           />
         </div>
 
+        {/* Map Pinning and Coordinates */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <label className="text-xs font-bold text-slate-700 block">Pin Shop Location on Map</label>
+            <button
+              type="button"
+              onClick={handleAutoDetect}
+              className="text-[10px] font-bold text-kirana-600 bg-kirana-50 hover:bg-kirana-100 px-2.5 py-1 rounded-lg border border-kirana-200 flex items-center gap-1 transition-all active:scale-[0.98]"
+            >
+              <span>📍</span> Auto-Detect GPS
+            </button>
+          </div>
+
+          <div 
+            ref={mapContainerRef} 
+            className="w-full h-48 rounded-2xl border border-slate-200 overflow-hidden bg-slate-100 z-10" 
+            style={{ minHeight: '180px' }}
+          />
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <span className="text-[10px] text-slate-400 font-bold uppercase">Latitude</span>
+              <input
+                type="text"
+                readOnly
+                value={latitude}
+                className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-500 cursor-not-allowed"
+              />
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] text-slate-400 font-bold uppercase">Longitude</span>
+              <input
+                type="text"
+                readOnly
+                value={longitude}
+                className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-500 cursor-not-allowed"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Availability Toggle */}
         <div className="space-y-1">
           <label className="text-xs font-bold text-slate-700">Live Availability Status</label>
@@ -283,6 +501,61 @@ const SellerSettings = () => {
         >
           <Save className="w-4 h-4" />
           <span>{loading ? 'Saving Store Settings...' : 'Save Queue Settings'}</span>
+        </button>
+      </form>
+
+      {/* 2. UPI & Payment Settings Form */}
+      <form onSubmit={handleUpiSubmit} className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium space-y-4">
+        <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center space-x-1">
+          <QrCode className="w-3.5 h-3.5 text-slate-450" />
+          <span>UPI & Payment Settings</span>
+        </h3>
+        <p className="text-[10px] text-slate-400 leading-normal">
+          Provide your UPI ID and optionally upload your static UPI QR code image so customers can pay you directly at checkout.
+        </p>
+
+        {/* UPI ID */}
+        <div className="space-y-1">
+          <label className="text-xs font-bold text-slate-700">UPI ID / Address (e.g., storename@upi)</label>
+          <input
+            type="text"
+            placeholder="e.g. storename@okaxis"
+            value={upiId}
+            onChange={(e) => setUpiId(e.target.value)}
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800"
+          />
+        </div>
+
+        {/* QR Code file input */}
+        <div className="space-y-1">
+          <label className="text-xs font-bold text-slate-700">Upload UPI QR Code Image (Optional)</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleQrChange}
+            className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-900 file:text-white hover:file:bg-slate-950 file:cursor-pointer"
+          />
+        </div>
+
+        {/* QR Preview */}
+        {qrPreview && (
+          <div className="flex flex-col items-center justify-center p-3 border border-slate-200 rounded-2xl bg-slate-50 max-w-xs mx-auto">
+            <span className="text-[9px] font-bold text-slate-450 uppercase mb-2">QR Code Preview</span>
+            <img
+              src={qrPreview}
+              alt="UPI QR Code Preview"
+              className="w-36 h-36 object-contain bg-white p-2 rounded-xl border"
+            />
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={upiLoading}
+          className="w-full py-3 bg-slate-900 hover:bg-slate-950 text-white font-extrabold text-xs rounded-xl shadow transition-all flex items-center justify-center space-x-2"
+        >
+          <Save className="w-4 h-4" />
+          <span>{upiLoading ? 'Saving UPI Settings...' : 'Save UPI Settings'}</span>
         </button>
       </form>
 

@@ -38,30 +38,53 @@ const Home = () => {
     }
   }, []);
 
-  // Initialize Real Google GSI button
+  // Initialize Real Google GSI button and render standard button in overlay mode
   useEffect(() => {
-    if (window.google && !window.google.accounts.id._isInitializedByMyKiranam) {
-      try {
-        window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "129128617735-mqj7usoj69vcep7ar08u1anpga3o2cvu.apps.googleusercontent.com",
-          callback: async (response) => {
-            setError('');
-            setSuccessMessage('');
-            setLoading(true);
-            try {
-              await googleLogin(response.credential);
-            } catch (err) {
-              setError(err.message || 'Google Authentication failed.');
-            } finally {
-              setLoading(false);
-            }
+    const initializeAndRender = () => {
+      if (window.google) {
+        if (!window.google.accounts.id._isInitializedByMyKiranam) {
+          try {
+            window.google.accounts.id.initialize({
+              client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "129128617735-mqj7usoj69vcep7ar08u1anpga3o2cvu.apps.googleusercontent.com",
+              callback: async (response) => {
+                setError('');
+                setSuccessMessage('');
+                setLoading(true);
+                try {
+                  await googleLogin(response.credential);
+                } catch (err) {
+                  setError(err.message || 'Google Authentication failed.');
+                } finally {
+                  setLoading(false);
+                }
+              }
+            });
+            window.google.accounts.id._isInitializedByMyKiranam = true;
+          } catch (gsiErr) {
+            console.warn('Google Identity Services initialization warning:', gsiErr);
           }
-        });
-        window.google.accounts.id._isInitializedByMyKiranam = true;
-      } catch (gsiErr) {
-        console.warn('Google Identity Services initialization warning:', gsiErr);
+        }
+
+        // Render standard button over our custom button placeholder
+        const btn = document.getElementById("googleGsiButton");
+        if (btn) {
+          try {
+            window.google.accounts.id.renderButton(
+              btn,
+              { type: "icon", shape: "circle", size: "large", theme: "outline" }
+            );
+          } catch (e) {
+            console.warn("Failed to render Google button:", e);
+          }
+        }
       }
-    }
+    };
+
+    initializeAndRender();
+
+    // Check again in case window.google loads slightly later or activeForm changes
+    const timer = setTimeout(initializeAndRender, 150);
+    return () => clearTimeout(timer);
   }, [activeForm, googleLogin]);
 
   const handleSubmit = async (e) => {
@@ -374,6 +397,40 @@ const Home = () => {
         </span>
       </header>
 
+      {/* Left Side: Headline & Subtitle (Desktop only, absolutely positioned on the left side of the screen) */}
+      <div className="hidden lg:flex flex-col space-y-3.5 max-w-[260px] xl:max-w-[320px] text-left absolute left-10 xl:left-20 top-[20%] z-20">
+        <div className="inline-flex items-center space-x-1.5 bg-amber-500/10 text-amber-900 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider w-fit">
+          <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-pulse" />
+          <span>Customers</span>
+        </div>
+        
+        <h2 className="text-2xl xl:text-3xl font-black text-slate-900 tracking-tight leading-snug">
+          Buy What You Need.<br />
+          <span className="text-amber-600 bg-gradient-to-r from-amber-600 to-orange-500 bg-clip-text text-transparent">Save Time & Money.</span>
+        </h2>
+        
+        <p className="text-xs xl:text-sm font-bold text-slate-500 leading-normal">
+          Order Online. Verify. Pick Up Anytime.
+        </p>
+      </div>
+
+      {/* Right Side: Headline & Subtitle (Desktop only, absolutely positioned on the right side of the screen) */}
+      <div className="hidden lg:flex flex-col space-y-3.5 max-w-[260px] xl:max-w-[320px] text-right absolute right-10 xl:right-20 bottom-[20%] z-20 items-end">
+        <div className="inline-flex items-center space-x-1.5 bg-emerald-500/10 text-emerald-900 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider w-fit ml-auto">
+          <span className="h-1.5 w-1.5 bg-emerald-500 rounded-full animate-pulse" />
+          <span>Sellers</span>
+        </div>
+        
+        <h2 className="text-2xl xl:text-3xl font-black text-slate-900 tracking-tight leading-snug">
+          Turn Your Kirana Store<br />
+          <span className="text-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Into An Online Store.</span>
+        </h2>
+        
+        <p className="text-xs xl:text-sm font-bold text-slate-500 leading-normal">
+          When your shop is quiet, let online orders keep it busy.
+        </p>
+      </div>
+
       {/* Centered Main Portal Content - Overflow hidden with custom centered layout */}
       <main className="flex-1 flex flex-col items-center justify-center max-w-md w-full mx-auto px-4 z-10 overflow-hidden py-4 sm:py-6">
         
@@ -441,34 +498,30 @@ const Home = () => {
 
             {/* Bottom Section - Social Login (only visible in signin/signup/forgot forms) */}
             {activeForm !== 'reset' && (
-              <div className="space-y-2 pt-2 border-t border-slate-100 flex-shrink-0">
+              <div className="space-y-2 pt-2 border-t border-slate-150 flex-shrink-0">
                 <div className="relative">
-                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-150"></div></div>
                   <div className="relative flex justify-center text-[9px] font-black uppercase"><span className="bg-white px-3 text-slate-400">Or continue with</span></div>
                 </div>
 
                 <div className="flex justify-center">
-                  {/* Google G-only circular button */}
-                  <button
-                    type="button"
-                    id="googleGsiButton"
-                    onClick={() => {
-                      if (window.google) {
-                        window.google.accounts.id.prompt();
-                      } else {
-                        setError('Google Sign-In is not available. Please try again.');
-                      }
-                    }}
-                    className="w-14 h-14 rounded-full border-2 border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 hover:shadow-lg active:scale-95 transition-all duration-200 flex items-center justify-center shadow-md"
-                    title="Continue with Google"
-                  >
-                    <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.54 5.54 0 0 1-2.4 3.64v3.01h3.89c2.28-2.1 3.59-5.19 3.59-8.89z"/>
-                      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.89-3.01c-1.07.72-2.45 1.15-4.04 1.15-3.11 0-5.74-2.1-6.68-4.92H1.27v3.1C3.26 21.3 7.31 24 12 24z"/>
-                      <path fill="#FBBC05" d="M5.32 14.31A7.17 7.17 0 0 1 4.95 12c0-.81.14-1.59.37-2.31V6.59H1.27A11.94 11.94 0 0 0 0 12c0 1.93.46 3.75 1.27 5.41l4.05-3.1z"/>
-                      <path fill="#EA4335" d="M12 4.77c1.76 0 3.33.6 4.57 1.8l3.42-3.42C17.95 1.19 15.23 0 12 0 7.31 0 3.26 2.7 1.27 6.59l4.05 3.1C6.26 6.87 8.89 4.77 12 4.77z"/>
-                    </svg>
-                  </button>
+                  <div className="relative w-14 h-14 flex items-center justify-center">
+                    {/* Visual Button representation */}
+                    <div className="absolute inset-0 rounded-full border-2 border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 hover:shadow-lg active:scale-95 transition-all duration-200 flex items-center justify-center shadow-md pointer-events-none">
+                      <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.54 5.54 0 0 1-2.4 3.64v3.01h3.89c2.28-2.1 3.59-5.19 3.59-8.89z"/>
+                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.89-3.01c-1.07.72-2.45 1.15-4.04 1.15-3.11 0-5.74-2.1-6.68-4.92H1.27v3.1C3.26 21.3 7.31 24 12 24z"/>
+                        <path fill="#FBBC05" d="M5.32 14.31A7.17 7.17 0 0 1 4.95 12c0-.81.14-1.59.37-2.31V6.59H1.27A11.94 11.94 0 0 0 0 12c0 1.93.46 3.75 1.27 5.41l4.05-3.1z"/>
+                        <path fill="#EA4335" d="M12 4.77c1.76 0 3.33.6 4.57 1.8l3.42-3.42C17.95 1.19 15.23 0 12 0 7.31 0 3.26 2.7 1.27 6.59l4.05 3.1C6.26 6.87 8.89 4.77 12 4.77z"/>
+                      </svg>
+                    </div>
+                    {/* The real Google button rendered invisibly on top */}
+                    <div 
+                      id="googleGsiButton" 
+                      className="absolute inset-0 opacity-0 cursor-pointer overflow-hidden [&_iframe]:!w-full [&_iframe]:!h-full [&_iframe]:!max-w-none"
+                      title="Continue with Google"
+                    ></div>
+                  </div>
                 </div>
               </div>
             )}

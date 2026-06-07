@@ -18,16 +18,16 @@ exports.createReview = async (req, res) => {
     );
 
     // Recalculate shop rating
-    // Current approach: average of overall_experience of all reviews
+    // Taking the average of all 4 sub-ratings for transparency
     const avgResult = await db.query(
-      `SELECT AVG(overall_experience) as new_rating, COUNT(*) as total_reviews
+      `SELECT AVG((product_quality + service_quality + order_accuracy + overall_experience) / 4.0) as new_rating, COUNT(*) as total_reviews
        FROM reviews WHERE shop_id = $1`,
       [shop_id]
     );
 
     if (avgResult.rows.length > 0) {
-      const newRating = parseFloat(avgResult.rows[0].new_rating).toFixed(1);
-      const totalReviews = parseInt(avgResult.rows[0].total_reviews);
+      const newRating = parseFloat(avgResult.rows[0].new_rating || 4.0).toFixed(1);
+      const totalReviews = parseInt(avgResult.rows[0].total_reviews || 0);
 
       await db.query(
         `UPDATE shops SET rating = $1, total_reviews = $2 WHERE id = $3`,

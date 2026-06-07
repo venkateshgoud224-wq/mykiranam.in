@@ -100,15 +100,15 @@ const markNoPickup = async (req, res) => {
     // Apply penalties based on Phase 7A No Pickup tracking rules
     let penaltyMessage = '';
     
-    if (abandonedCount <= 3) {
-      // Chances 1, 2, 3: No severe penalty, just track it
+    if (abandonedCount <= 1) {
+      // Chance 1: No severe penalty, just track it
       penaltyMessage = 'Please ensure you pick up your future orders.';
-    } else if (abandonedCount === 4) {
-      // 4th time: Warning
+    } else if (abandonedCount === 2) {
+      // 2nd time: Warning
       penaltyMessage = 'Warning: You have failed to pick up multiple orders. Further abandoned orders will result in account restrictions.';
       await db.query(`UPDATE customer_trust SET no_pickup_warnings = no_pickup_warnings + 1 WHERE customer_id = $1`, [order.customer_id]);
-    } else if (abandonedCount >= 5) {
-      // Keep doing it (5th time or more): Restriction
+    } else if (abandonedCount >= 3) {
+      // Keep doing it (3rd time or more): Restriction
       penaltyMessage = 'Restriction applied: Account temporarily suspended for 7 days due to excessive no-pickups.';
       await db.query(`UPDATE customer_trust SET suspension_end_date = CURRENT_TIMESTAMP + INTERVAL '7 days', active_order_limit = 2, abandoned_orders = 0 WHERE customer_id = $1`, [order.customer_id]);
     }

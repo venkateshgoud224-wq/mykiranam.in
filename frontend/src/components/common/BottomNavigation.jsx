@@ -1,5 +1,5 @@
 import React from 'react';
-import { Store, ShoppingBag, User, Settings, Layers, ShieldAlert, BarChart3, Trophy } from 'lucide-react';
+import { Store, ShoppingBag, User, Settings, Layers, ShieldAlert, Scale, Trophy, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const BottomNavigation = ({ activeTab, onTabChange }) => {
@@ -64,6 +64,24 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
       </button>
 
       <button
+        onClick={() => onTabChange('support')}
+        className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
+      >
+        <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
+          activeTab === 'support'
+            ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
+            : 'text-slate-400 hover:text-slate-600'
+        }`}>
+          <HelpCircle className="w-4.5 h-4.5" />
+        </div>
+        <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
+          activeTab === 'support' ? 'text-slate-900 font-black' : 'text-slate-400'
+        }`}>
+          Support
+        </span>
+      </button>
+
+      <button
         onClick={() => onTabChange('profile')}
         className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
       >
@@ -124,20 +142,38 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
       </button>
 
       <button
-        onClick={() => onTabChange('seller-analytics')}
+        onClick={() => onTabChange('seller-disputes')}
         className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
       >
         <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
-          activeTab === 'seller-analytics'
+          activeTab === 'seller-disputes'
             ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
             : 'text-slate-400 hover:text-slate-600'
         }`}>
-          <BarChart3 className="w-4.5 h-4.5" />
+          <Scale className="w-4.5 h-4.5" />
         </div>
         <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
-          activeTab === 'seller-analytics' ? 'text-slate-900 font-black' : 'text-slate-400'
+          activeTab === 'seller-disputes' ? 'text-slate-900 font-black' : 'text-slate-400'
         }`}>
-          Insights
+          Disputes
+        </span>
+      </button>
+
+      <button
+        onClick={() => onTabChange('support')}
+        className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
+      >
+        <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
+          activeTab === 'support'
+            ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
+            : 'text-slate-400 hover:text-slate-600'
+        }`}>
+          <HelpCircle className="w-4.5 h-4.5" />
+        </div>
+        <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
+          activeTab === 'support' ? 'text-slate-900 font-black' : 'text-slate-400'
+        }`}>
+          Support
         </span>
       </button>
 

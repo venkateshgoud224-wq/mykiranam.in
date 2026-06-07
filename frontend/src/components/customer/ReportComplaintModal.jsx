@@ -15,12 +15,16 @@ const ReportComplaintModal = ({ order, onClose, onSuccess }) => {
   });
 
   const issueTypes = [
-    'Expired Product',
     'Wrong Product',
     'Missing Product',
-    'Damaged Product',
-    'Poor Quality',
-    'Other'
+    'Expired Product',
+    'Poor Quality Product',
+    'Price Mismatch',
+    'Order Not Ready For Pickup',
+    'Fake Availability',
+    'Seller Misbehavior',
+    'Incorrect Quantity',
+    'Other Verified Issues'
   ];
 
   const handleImageChange = (e, field) => {
@@ -39,8 +43,18 @@ const ReportComplaintModal = ({ order, onClose, onSuccess }) => {
       return;
     }
 
-    if (!images.image_product && !images.image_bill && !images.image_expiry) {
-       setError('Please upload at least one evidence image (Product, Expiry, or Bill).');
+    const qualityIssues = [
+      'Expired Product', 
+      'Poor Quality Product', 
+      'Wrong Product', 
+      'Missing Product', 
+      'Incorrect Quantity', 
+      'Price Mismatch'
+    ];
+    const needsEvidence = qualityIssues.includes(issueType);
+    
+    if (needsEvidence && !images.image_product && !images.image_bill && !images.image_expiry) {
+       setError(`Evidence photos are required for "${issueType}" complaints. Please upload at least one photo (Product, Expiry, or Bill).`);
        return;
     }
 
@@ -131,8 +145,8 @@ const ReportComplaintModal = ({ order, onClose, onSuccess }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2">Evidence Photos (Required)</label>
-              <p className="text-[10px] text-slate-500 mb-3">Please upload clear photos to help us verify your complaint.</p>
+              <label className="block text-xs font-bold text-slate-700 mb-2">Evidence Photos (Required for quality/pricing issues)</label>
+              <p className="text-[10px] text-slate-500 mb-3">Please upload clear photos to help us verify your complaint. False complaints may result in customer trust score penalties.</p>
               
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[

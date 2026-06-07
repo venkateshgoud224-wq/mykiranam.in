@@ -608,6 +608,47 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// 9. Delete User Account
+const deleteAccount = async (req, res) => {
+  const userId = req.user.id;
+  const role = req.user.role;
+
+  try {
+    // 1. Check for active orders
+    let activeOrdersCheck = { rows: [] };
+    if (role === 'customer') {
+      activeOrdersCheck = await db.query(
+        "SELECT id FROM orders WHERE customer_id = $1 AND order_status NOT IN ('Delivered', 'Cancelled')",
+        [userId]
+      );
+    } else if (role === 'seller') {
+      activeOrdersCheck = await db.query(
+        "SELECT id FROM orders WHERE shop_id IN (SELECT id FROM shops WHERE owner_id = $1) AND order_status NOT IN ('Delivered', 'Cancelled')",
+        [userId]
+      );
+    }
+
+    if (activeOrdersCheck.rows.length > 0) {
+      return res.status(400).json({
+        error: 'Cannot delete account. You have active orders in progress. Please complete or cancel them before deleting your account.'
+      });
+    }
+
+    // 2. Perform deletion
+    await db.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    // Force save if mock DB fallback is active
+    if (db.getIsMock && db.getIsMock()) {
+      db.markMockDbDirty();
+    }
+
+    return res.status(200).json({ message: 'Account deleted successfully.' });
+  } catch (err) {
+    console.error('Delete account error:', err);
+    return res.status(500).json({ error: 'Server error deleting account.' });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -619,5 +660,7 @@ module.exports = {
   sendWhatsAppOTP,
   verifyWhatsAppOTP,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  deleteAccount
 };
+

@@ -32,6 +32,9 @@ router.get('/complaints', adminController.getComplaints);
 // Verify a complaint and trigger suspension logic
 router.patch('/complaints/:id/verify', adminController.verifyComplaint);
 
+// Reject a complaint and recalculate seller metrics
+router.patch('/complaints/:id/reject', adminController.rejectComplaint);
+
 // Fetch trust and safety dashboard data
 router.get('/trust-dashboard', adminController.getTrustDashboard);
 

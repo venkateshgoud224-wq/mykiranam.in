@@ -1,0 +1,10 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Allow: /contact.html
+Allow: /privacy.html
+Allow: /refund.html
+Allow: /terms.html
+Disallow: /api/
+
+Sitemap: https://mykiranam.in/sitemap.xml

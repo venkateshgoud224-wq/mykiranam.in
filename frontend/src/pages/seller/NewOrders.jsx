@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { ShoppingBag, Eye, Check, X, BellRing, Clock, Download, ListOrdered, ClipboardList } from 'lucide-react';
+import { ShoppingBag, Eye, Check, X, BellRing, Clock, Download, ListOrdered, ClipboardList, Store } from 'lucide-react';
 import BillingForm from './BillingForm';
 import ImageModal from '../../components/common/ImageModal';
 
-const NewOrders = ({ newOrders, onUpdateStatus, onTabChange }) => {
+const NewOrders = ({ newOrders, onUpdateStatus, onTabChange, isRevision }) => {
   const { token, apiUrl, user } = useAuth();
   const { playSoundAlert } = useSocket();
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -103,6 +103,29 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange }) => {
 
   return (
     <div className="space-y-4">
+      {/* Seller Value Proposition Tagline Banner (Mobile Only, Medium Size) */}
+      {!isRevision && (
+        <div className="md:hidden bg-gradient-to-r from-kirana-500 to-amber-500 text-slate-950 p-3.5 rounded-[22px] shadow-sm relative overflow-hidden flex items-center justify-between gap-3 border border-kirana-600/15">
+          {/* Abstract background shapes */}
+          <div className="absolute right-0 top-0 bottom-0 w-24 bg-white/10 rounded-l-full transform translate-x-8 scale-150 pointer-events-none" />
+          <div className="absolute left-1/3 -top-10 w-16 h-16 bg-white/5 rounded-full pointer-events-none" />
+          
+          <div className="flex items-center space-x-2.5 relative z-10 w-full">
+            <div className="w-9 h-9 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner border border-white/20">
+              <Store className="w-4.5 h-4.5 text-slate-950" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xs font-black tracking-tight leading-snug">
+                Turn Your Kirana Store Into An Online Store.
+              </h2>
+              <p className="text-[10px] font-bold text-slate-800 mt-0.5 leading-tight">
+                When your shop is quiet, let online orders keep it busy
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {newOrders.length === 0 ? (
         <div className="py-12 bg-white border border-slate-100 rounded-3xl text-center p-8 shadow-sm">
           <div className="w-14 h-14 bg-slate-50 text-slate-350 rounded-2xl flex items-center justify-center mx-auto mb-4">

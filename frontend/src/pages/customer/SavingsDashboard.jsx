@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Trophy, Clock, Wallet, Award, Store } from 'lucide-react';
+import { Trophy, Clock, Wallet, Award, Store, ChevronDown, ChevronUp, ShoppingBag, Receipt, Calendar } from 'lucide-react';
 
 const SavingsDashboard = () => {
   const { apiUrl, token } = useAuth();
   const [savingsData, setSavingsData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [expandedOrders, setExpandedOrders] = useState({});
+
+  const toggleOrderExpand = (orderId) => {
+    setExpandedOrders(prev => ({
+      ...prev,
+      [orderId]: !prev[orderId]
+    }));
+  };
 
   useEffect(() => {
     const fetchSavings = async () => {
@@ -34,10 +42,11 @@ const SavingsDashboard = () => {
     );
   }
 
-  const { savings, badges, favoriteShopName } = savingsData || { savings: {}, badges: [], favoriteShopName: 'None' };
+  const { savings, badges, favoriteShopName, completedOrders } = savingsData || { savings: {}, badges: [], favoriteShopName: 'None', completedOrders: [] };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+
       <div className="bg-gradient-to-r from-kirana-500 to-kirana-600 rounded-2xl p-6 text-slate-900 shadow-sm relative overflow-hidden">
         <div className="relative z-10">
           <h1 className="text-2xl font-black mb-2">Your Lifetime Value</h1>
@@ -82,6 +91,89 @@ const SavingsDashboard = () => {
         </div>
       </div>
 
+
+
+      {/* Savings Breakdown by Order */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-slate-100 bg-slate-50">
+          <h2 className="font-bold text-slate-900 flex items-center gap-2">
+            <Receipt className="w-5 h-5 text-kirana-500" />
+            Savings History
+          </h2>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {completedOrders && completedOrders.length > 0 ? (
+            completedOrders.map((order) => {
+              const isExpanded = !!expandedOrders[order.id];
+              return (
+                <div key={order.id} className="p-4 hover:bg-slate-50/50 transition-colors">
+                  <div 
+                    onClick={() => toggleOrderExpand(order.id)}
+                    className="flex justify-between items-center cursor-pointer select-none"
+                  >
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-slate-805 text-sm flex items-center gap-1.5">
+                        <Store className="w-3.5 h-3.5 text-slate-400" />
+                        {order.shop_name}
+                      </h3>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-400 font-semibold">
+                        <span>Order #{order.custom_order_id || order.id}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(order.delivered_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3 text-right">
+                      <div>
+                        <span className="block text-[10px] text-slate-400 uppercase tracking-wider font-bold">Saved</span>
+                        <span className="text-sm font-black text-emerald-600">₹{order.total_savings}</span>
+                      </div>
+                      <div className="text-slate-400 p-1 rounded-lg hover:bg-slate-105 transition-colors">
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expandable detailed breakdown */}
+                  {isExpanded && (
+                    <div className="mt-4 pt-3 border-t border-slate-100/70 grid grid-cols-2 sm:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="bg-emerald-50/30 p-2.5 rounded-xl border border-emerald-100/50 text-center">
+                        <span className="block text-[9px] font-bold text-emerald-700 uppercase tracking-wide">Grocery Savings</span>
+                        <span className="text-xs font-extrabold text-emerald-800">₹{order.grocery_savings}</span>
+                      </div>
+                      <div className="bg-emerald-50/30 p-2.5 rounded-xl border border-emerald-100/50 text-center">
+                        <span className="block text-[9px] font-bold text-emerald-700 uppercase tracking-wide">Delivery Avoided</span>
+                        <span className="text-xs font-extrabold text-emerald-800">₹{order.delivery_savings}</span>
+                      </div>
+                      <div className="bg-emerald-50/30 p-2.5 rounded-xl border border-emerald-100/50 text-center">
+                        <span className="block text-[9px] font-bold text-emerald-700 uppercase tracking-wide">Platform Avoided</span>
+                        <span className="text-xs font-extrabold text-emerald-800">₹{order.platform_savings}</span>
+                      </div>
+                      <div className="bg-teal-50/30 p-2.5 rounded-xl border border-teal-100/50 text-center">
+                        <span className="block text-[9px] font-bold text-teal-700 uppercase tracking-wide">Time Saved</span>
+                        <span className="text-xs font-extrabold text-teal-800">{order.time_saved} Mins</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-8">
+              <ShoppingBag className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+              <p className="text-sm font-bold text-slate-505">No completed orders yet. Complete an order to see savings history!</p>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 bg-slate-50">
           <h2 className="font-bold text-slate-900 flex items-center gap-2">
@@ -115,6 +207,7 @@ const SavingsDashboard = () => {
           )}
         </div>
       </div>
+
     </div>
   );
 };

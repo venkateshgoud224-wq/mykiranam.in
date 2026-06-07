@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { Store, Layers, Bell, CheckSquare, RefreshCw, Clock, ShieldAlert, FileWarning, Award } from 'lucide-react';
+import { Store, Layers, Bell, CheckSquare, RefreshCw, Clock, ShieldAlert, FileWarning, Award, AlertTriangle, Scale } from 'lucide-react';
 import NewOrders from './NewOrders';
 import ActiveOrders from './ActiveOrders';
 import CompletedOrders from './CompletedOrders';
 import SelfVerification from './SelfVerification';
+import SellerDisputes from '../../components/seller/SellerDisputes';
 
 const SellerDashboard = ({ activeTab, onTabChange }) => {
   const { token, apiUrl, extraData, refreshProfile } = useAuth();
@@ -94,14 +95,15 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
   }
 
   const { verification_status } = extraData.shop;
+  const isSuspended = verification_status === 'Suspended' || extraData.shop.warning_level === 'Warning 5';
 
   // --- UNVERIFIED MERCHANT WORKFLOW RENDERING ---
-  if (verification_status !== 'Verified') {
+  if ((verification_status !== 'Verified' || isSuspended) && activeTab !== 'seller-disputes') {
     return (
       <div className="space-y-6">
         
         {/* Under Review Warning */}
-        {verification_status === 'Under Review' && (
+        {verification_status === 'Under Review' && !isSuspended && (
           <div className="max-w-md mx-auto bg-white border border-slate-100 p-8 rounded-3xl text-center space-y-4 shadow-premium">
             <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto animate-pulse">
               ⏳
@@ -123,17 +125,17 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
         )}
 
         {/* Suspended Warning */}
-        {verification_status === 'Suspended' && (
-          <div className="max-w-md mx-auto bg-white border border-crimson/20 p-8 rounded-3xl text-center space-y-4 shadow-premium">
+        {isSuspended && (
+          <div className="max-w-md mx-auto bg-white border border-crimson/25 p-8 rounded-3xl text-center space-y-4 shadow-premium">
             <div className="w-16 h-16 bg-crimson/10 text-crimson rounded-full flex items-center justify-center mx-auto">
               🚨
             </div>
-            <h3 className="font-extrabold text-slate-900 text-base">Store Profile Suspended</h3>
+            <h3 className="font-extrabold text-slate-900 text-base">Store Account Suspended</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Your merchant directory access has been suspended by administration.
+              Your merchant directory access has been temporarily suspended due to repeated verified customer complaints (Warning 5 Strike).
             </p>
             <p className="text-[10px] text-slate-400">
-              Please contact help@mykiranam.in to audit verification logs or resolve disputes.
+              Please contact help@mykiranam.in or resolve active disputes in the Disputes tab to request account review.
             </p>
           </div>
         )}
@@ -177,11 +179,13 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
       case 'seller-new':
         return <NewOrders newOrders={freshOrders} onUpdateStatus={handleUpdateStatus} onTabChange={onTabChange} />;
       case 'seller-revisions':
-        return <NewOrders newOrders={revisionOrders} onUpdateStatus={handleUpdateStatus} onTabChange={onTabChange} />;
+        return <NewOrders newOrders={revisionOrders} onUpdateStatus={handleUpdateStatus} onTabChange={onTabChange} isRevision={true} />;
       case 'seller-active':
         return <ActiveOrders activeOrders={activeQueue} onUpdateStatus={handleUpdateStatus} />;
       case 'seller-completed':
         return <CompletedOrders completedOrders={completedHistory} />;
+      case 'seller-disputes':
+        return <SellerDisputes />;
       default:
         return <ActiveOrders activeOrders={activeQueue} onUpdateStatus={handleUpdateStatus} />;
     }
@@ -195,6 +199,22 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
 
   return (
     <div className="space-y-6 pb-20 w-full">
+      {/* Live Warning Level Strike Banner */}
+      {extraData.shop && extraData.shop.warning_level && extraData.shop.warning_level !== 'None' && extraData.shop.warning_level !== 'Warning 5' && (
+        <div className="p-4 border rounded-2xl flex items-start space-x-3 text-xs leading-relaxed bg-amber-50 border-amber-250 text-amber-950">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-500" />
+          <div>
+            <strong className="font-extrabold">Account Strike Warning: {extraData.shop.warning_level}</strong>
+            <p className="mt-0.5 font-semibold text-slate-700">
+              {extraData.shop.warning_level === 'Warning 1' && 'Please improve product quality and order fulfillment standards immediately.'}
+              {extraData.shop.warning_level === 'Warning 2' && 'Your Trust Score has been reduced. Please audit complaints in your Disputes tab.'}
+              {extraData.shop.warning_level === 'Warning 3' && 'Your store ranking is currently reduced. Your shop will appear lower in search results.'}
+              {extraData.shop.warning_level === 'Warning 4' && 'Your store is placed Under Review. Admin investigation is active.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Store Header */}
       {extraData.shop && (
         <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium flex items-center justify-between">

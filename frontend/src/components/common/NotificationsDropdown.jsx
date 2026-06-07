@@ -2,7 +2,7 @@ import React from 'react';
 import { useSocket } from '../../context/SocketContext';
 import { BellRing, Check, Trash2, X, ShoppingBag, XCircle, FileSpreadsheet } from 'lucide-react';
 
-const NotificationsDropdown = ({ onClose }) => {
+const NotificationsDropdown = ({ onClose, setActiveTab }) => {
   const { notifications, unreadCount, markAllAsRead, clearNotifications, markAsRead, playSoundAlert } = useSocket();
 
   const getIcon = (type) => {
@@ -76,7 +76,13 @@ const NotificationsDropdown = ({ onClose }) => {
           notifications.map((notif, idx) => (
             <div
               key={idx}
-              onClick={() => !notif.read_status && markAsRead(notif.id)}
+              onClick={() => {
+                if (!notif.read_status) markAsRead(notif.id);
+                if (notif.type === 'pickup_ready' && setActiveTab) {
+                  setActiveTab('orders');
+                  onClose();
+                }
+              }}
               className={`flex items-start space-x-3 p-3.5 transition-all cursor-pointer hover:bg-slate-50 ${
                 !notif.read_status ? 'bg-amber-50/20 font-medium' : ''
               }`}

@@ -9,7 +9,6 @@ const CustomerQuotes = ({ onSelectShop, onBackToShops }) => {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showComingSoon, setShowComingSoon] = useState(false);
 
   const units = ['kg', 'g', 'L', 'ml', 'unit', 'packet', 'dozen'];
 
@@ -29,13 +28,46 @@ const CustomerQuotes = ({ onSelectShop, onBackToShops }) => {
     const validItems = items.filter(i => i.name.trim() !== '' && i.quantity > 0);
     if (validItems.length === 0) {
       setError('Please add at least one valid item.');
-      setShowComingSoon(false);
+      setQuotes([]);
       return;
     }
     
     setError(null);
+    setLoading(true);
     setQuotes([]);
-    setShowComingSoon(true);
+    
+    try {
+      const response = await fetch(`${apiUrl}/quotes/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          itemsList: validItems.map(item => ({
+            name: item.name,
+            quantity: parseFloat(item.quantity),
+            unit: item.unit
+          }))
+        })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate quotes.');
+      }
+      
+      if (data.length === 0) {
+        setError('No shops nearby have historical price data for these items. Try generic terms like sugar, rice, or oil.');
+      } else {
+        setQuotes(data);
+      }
+    } catch (err) {
+      console.error('Error generating quotes:', err);
+      setError(err.message || 'Something went wrong while comparing prices.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,7 +81,7 @@ const CustomerQuotes = ({ onSelectShop, onBackToShops }) => {
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back to Shops
         </button>
-        <h2 className="text-xl font-extrabold text-slate-900">Compare Prices</h2>
+        <h2 className="text-base md:text-xl font-extrabold text-slate-900">Compare Prices</h2>
       </div>
 
       <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-premium">
@@ -122,68 +154,110 @@ const CustomerQuotes = ({ onSelectShop, onBackToShops }) => {
         </div>
         
         {error && <p className="text-xs text-red-500 mt-3 font-semibold text-center sm:text-left">{error}</p>}
-        {showComingSoon && (
-          <div className="mt-4 p-4 bg-kirana-50 border border-kirana-200 rounded-xl text-center shadow-sm">
-            <p className="text-sm font-bold text-kirana-800">Price comparison feature will be launched soon.</p>
-          </div>
-        )}
+        {/* Price comparison active */}
       </div>
 
-      {quotes.length > 0 && (
-        <div className="space-y-4 animate-fade-in">
-          <div className="flex items-start p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800">
-            <ShieldAlert className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
-            <p><strong>Disclaimer:</strong> This is an estimated quote based on recent order history. Final seller pricing may vary.</p>
-          </div>
+      {quotes.length > 0 && (() => {
+        // Find the cheapest store estimate to calculate a realistic online benchmark
+        const cheapestQuote = quotes.reduce((cheapest, q) => {
+          const avgQ = (q.min_estimate + q.max_estimate) / 2;
+          const avgC = (cheapest.min_estimate + cheapest.max_estimate) / 2;
+          return avgQ < avgC ? q : cheapest;
+        }, quotes[0]);
+        
+        const onlineMin = Math.round(cheapestQuote.min_estimate * 1.15 + 35 + 15);
+        const onlineMax = Math.round(cheapestQuote.max_estimate * 1.15 + 35 + 15);
 
-          <h3 className="font-extrabold text-lg text-slate-800 pt-2">Available Options ({quotes.length})</h3>
+        return (
+          <div className="space-y-4 animate-fade-in">
+            <div className="flex items-start p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800">
+              <ShieldAlert className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+              <p><strong>Disclaimer:</strong> This is an estimated quote based on recent order history. Final seller pricing may vary.</p>
+            </div>
 
-          <div className="space-y-4">
-            {quotes.map((quote) => (
-              <div key={quote.shop_id} className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                
-                <div className="flex items-start space-x-3 flex-1">
-                  <div className="w-10 h-10 bg-kirana-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Store className="w-5 h-5 text-kirana-700" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-base">{quote.shop_name}</h4>
-                    <p className="text-xs text-slate-500">Rating: {parseFloat(quote.rating).toFixed(1)} ★ • Items Found: {quote.items_found_ratio}</p>
-                    
-                    {/* Item price details preview */}
-                    <div className="mt-2 text-[10px] text-slate-400 max-h-12 overflow-y-auto">
-                      {quote.items_detail.map((idtl, idx) => (
-                        <span key={idx} className="mr-2 inline-block">
-                          {idtl.name}: {idtl.status === 'Estimated' ? `₹${idtl.estimated_price.toFixed(0)}` : 'Unknown'}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+            {/* Benchmark Card */}
+            <div className="bg-gradient-to-r from-red-50 to-orange-50/40 border border-red-150 rounded-3xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start space-x-3 flex-1 text-left">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 text-red-600 text-base">
+                  📱
                 </div>
-
-                <div className="flex flex-row sm:flex-col items-center justify-between sm:items-end w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0 border-slate-100">
-                  <div className="text-right">
-                    <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Estimated Cost</div>
-                    <div className="text-lg font-black text-slate-900">₹{quote.min_estimate} - ₹{quote.max_estimate}</div>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      onSelectShop({ id: quote.shop_id, shop_name: quote.shop_name });
-                      // We could pass the digital items list to InstantOrder here if we modified onSelectShop / routing
-                    }}
-                    className="flex items-center justify-center space-x-1 bg-kirana-500 hover:bg-kirana-600 text-slate-950 font-bold px-4 py-2 rounded-xl text-sm transition-colors mt-0 sm:mt-2"
-                  >
-                    <span>Order Here</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                <div>
+                  <h4 className="font-black text-red-900 text-sm sm:text-base flex items-center gap-1.5 flex-wrap">
+                    <span>Online Delivery Apps Benchmark</span>
+                    <span className="text-[9px] bg-red-100 border border-red-250 text-red-750 px-1.5 py-0.5 rounded font-black uppercase whitespace-nowrap">Higher Cost</span>
+                  </h4>
+                  <p className="text-[11px] text-red-700 mt-1 leading-relaxed">
+                    Estimated total cost on Blinkit, Zepto, or Instamart (includes ~15% item price markup + ₹35 delivery + ₹15 handling & platform fees).
+                  </p>
                 </div>
-                
               </div>
-            ))}
+              <div className="text-right flex-shrink-0 flex sm:flex-col justify-between items-center sm:items-end w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0 border-red-100">
+                <span className="text-[9px] uppercase font-black tracking-wider text-red-500">Estimated Cost</span>
+                <span className="text-base sm:text-lg font-black text-red-700 line-through">₹{onlineMin} - ₹{onlineMax}</span>
+              </div>
+            </div>
+
+            <h3 className="font-extrabold text-base sm:text-lg text-slate-800 pt-2">Available Local Options ({quotes.length})</h3>
+
+            <div className="space-y-4">
+              {quotes.map((quote) => {
+                const savingsMin = Math.round(onlineMin - quote.min_estimate);
+                const savingsMax = Math.round(onlineMax - quote.max_estimate);
+                const avgSavings = Math.round((savingsMin + savingsMax) / 2);
+
+                return (
+                  <div key={quote.shop_id} className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    
+                    <div className="flex items-start space-x-3 flex-1 text-left">
+                      <div className="w-10 h-10 bg-kirana-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Store className="w-5 h-5 text-kirana-700" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                          <h4 className="font-bold text-slate-900 text-base">{quote.shop_name}</h4>
+                          {avgSavings > 0 && (
+                            <span className="text-[9px] bg-emerald-50 border border-emerald-250 text-emerald-700 px-2 py-0.5 rounded font-bold uppercase whitespace-nowrap animate-pulse">
+                              Save ~₹{avgSavings} compared to Online Apps
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">Rating: {parseFloat(quote.rating).toFixed(1)} ★ • Items Found: {quote.items_found_ratio}</p>
+                        
+                        {/* Item price details preview */}
+                        <div className="mt-2 text-[10px] text-slate-400 max-h-12 overflow-y-auto">
+                          {quote.items_detail.map((idtl, idx) => (
+                            <span key={idx} className="mr-2 inline-block">
+                              {idtl.name}: {idtl.status === 'Estimated' ? `₹${idtl.estimated_price.toFixed(0)}` : 'Unknown'}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-row sm:flex-col items-center justify-between sm:items-end w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0 border-slate-100">
+                      <div className="text-right">
+                        <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Estimated Cost</div>
+                        <div className="text-lg font-black text-slate-900">₹{quote.min_estimate} - ₹{quote.max_estimate}</div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          onSelectShop({ id: quote.shop_id, shop_name: quote.shop_name });
+                        }}
+                        className="flex items-center justify-center space-x-1 bg-kirana-500 hover:bg-kirana-600 text-slate-950 font-bold px-4 py-2 rounded-xl text-sm transition-colors mt-0 sm:mt-2"
+                      >
+                        <span>Order Here</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

@@ -21,6 +21,116 @@ const SelfVerification = ({ onVerifySubmitted }) => {
   // Step 2: Store parameters
   const [workingHours, setWorkingHours] = useState('08:00 - 22:00');
   const [shopCategory, setShopCategory] = useState('General Provisions');
+  const [shopName, setShopName] = useState(extraData?.shop?.shop_name || (user?.name ? `${user.name}'s Kirana Store` : ''));
+  const [address, setAddress] = useState(extraData?.shop?.address || '');
+  const [latitude, setLatitude] = useState(extraData?.shop?.latitude || '16.8970');
+  const [longitude, setLongitude] = useState(extraData?.shop?.longitude || '79.8705');
+
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const mapContainerRef = React.useRef(null);
+  const mapRef = React.useRef(null);
+  const markerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (step !== 2) return;
+
+    // Load Leaflet CSS
+    const cssId = 'leaflet-css';
+    if (!document.getElementById(cssId)) {
+      const link = document.createElement('link');
+      link.id = cssId;
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    // Load Leaflet JS
+    const jsId = 'leaflet-js';
+    const existingScript = document.getElementById(jsId);
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.id = jsId;
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.async = true;
+      script.onload = () => setLeafletLoaded(true);
+      document.body.appendChild(script);
+    } else {
+      if (window.L) {
+        setLeafletLoaded(true);
+      } else {
+        existingScript.addEventListener('load', () => setLeafletLoaded(true));
+      }
+    }
+  }, [step]);
+
+  React.useEffect(() => {
+    if (!leafletLoaded || step !== 2 || !mapContainerRef.current) return;
+
+    const L = window.L;
+    if (!L) return; // Prevent crash if Leaflet is not yet ready on window
+
+    const initialLat = parseFloat(latitude) || 16.8970;
+    const initialLng = parseFloat(longitude) || 79.8705;
+
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+
+    const map = L.map(mapContainerRef.current).setView([initialLat, initialLng], 15);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
+
+    marker.on('dragend', (e) => {
+      const { lat, lng } = e.target.getLatLng();
+      setLatitude(lat.toFixed(6));
+      setLongitude(lng.toFixed(6));
+    });
+
+    map.on('click', (e) => {
+      const { lat, lng } = e.latlng;
+      marker.setLatLng([lat, lng]);
+      setLatitude(lat.toFixed(6));
+      setLongitude(lng.toFixed(6));
+    });
+
+    mapRef.current = map;
+    markerRef.current = marker;
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [leafletLoaded, step]);
+
+  const handleAutoDetect = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setLatitude(lat.toFixed(6));
+        setLongitude(lng.toFixed(6));
+        if (mapRef.current && markerRef.current) {
+          mapRef.current.setView([lat, lng], 16);
+          markerRef.current.setLatLng([lat, lng]);
+        }
+      },
+      (err) => {
+        alert("Failed to get current location. Please allow GPS permissions or select manually on the map.");
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
 
   // Step 3: Image states
   const [images, setImages] = useState({
@@ -134,6 +244,10 @@ const SelfVerification = ({ onVerifySubmitted }) => {
     const formData = new FormData();
     formData.append('working_hours', workingHours);
     formData.append('shop_category', shopCategory);
+    formData.append('shop_name', shopName);
+    formData.append('address', address);
+    formData.append('latitude', latitude);
+    formData.append('longitude', longitude);
     formData.append('image_front', images.image_front);
     formData.append('image_counter', images.image_counter);
     formData.append('image_inside1', images.image_inside1);
@@ -277,37 +391,117 @@ const SelfVerification = ({ onVerifySubmitted }) => {
       {/* --- STEP 2: CATEGORY & WORKING HOURS --- */}
       {step === 2 && (
         <div className="space-y-4">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left">Step 2: Store Category & Hours</h3>
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left">Step 2: Store Information & Map Pinning</h3>
 
-          {/* Working hours */}
+          {/* Store Name */}
           <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 text-left block">Working Hours</label>
+            <label className="text-xs font-bold text-slate-700 text-left block">Kirana Store Name</label>
             <input
               type="text"
-              placeholder="e.g. 08:00 - 22:00"
-              value={workingHours}
-              onChange={(e) => setWorkingHours(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none"
+              required
+              placeholder="e.g. Balaji Groceries"
+              value={shopName}
+              onChange={(e) => setShopName(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800"
             />
           </div>
 
-          {/* Category */}
+          {/* Store Address */}
           <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 text-left block">Shop Category</label>
-            <select
-              value={shopCategory}
-              onChange={(e) => setShopCategory(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-750"
-            >
-              <option value="General Provisions">General Provisions</option>
-              <option value="Groceries & Fruits">Groceries & Fruits</option>
-              <option value="Organic & Fresh">Organic & Fresh</option>
-              <option value="Snacks & Sweets">Snacks & Sweets</option>
-            </select>
+            <label className="text-xs font-bold text-slate-700 text-left block">Store Address</label>
+            <textarea
+              required
+              placeholder="Provide exact street, city details"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              rows={2}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800"
+            />
+          </div>
+
+          {/* Timing & Category */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700 text-left block">Working Hours</label>
+              <input
+                type="text"
+                placeholder="e.g. 08:00 - 22:00"
+                value={workingHours}
+                onChange={(e) => setWorkingHours(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700 text-left block">Shop Category</label>
+              <select
+                value={shopCategory}
+                onChange={(e) => setShopCategory(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-750"
+              >
+                <option value="General Provisions">General Provisions</option>
+                <option value="Groceries & Fruits">Groceries & Fruits</option>
+                <option value="Organic & Fresh">Organic & Fresh</option>
+                <option value="Snacks & Sweets">Snacks & Sweets</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Map Pinning Header & Auto Detect Button */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-slate-700 block">Pin Shop Location on Map</label>
+              <button
+                type="button"
+                onClick={handleAutoDetect}
+                className="text-[10px] font-bold text-kirana-600 bg-kirana-50 hover:bg-kirana-100 px-2.5 py-1 rounded-lg border border-kirana-200 flex items-center gap-1 transition-all active:scale-[0.98]"
+              >
+                <span>📍</span> Auto-Detect GPS
+              </button>
+            </div>
+
+            {/* Leaflet Map Pinning Div */}
+            <div 
+              ref={mapContainerRef} 
+              className="w-full h-48 rounded-2xl border border-slate-200 overflow-hidden bg-slate-100 z-10" 
+              style={{ minHeight: '180px' }}
+            />
+
+            {/* Latitude/Longitude Display Read Only */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <span className="text-[10px] text-slate-400 font-bold uppercase">Latitude</span>
+                <input
+                  type="text"
+                  readOnly
+                  value={latitude}
+                  className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-500 cursor-not-allowed"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] text-slate-400 font-bold uppercase">Longitude</span>
+                <input
+                  type="text"
+                  readOnly
+                  value={longitude}
+                  className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-500 cursor-not-allowed"
+                />
+              </div>
+            </div>
           </div>
 
           <button
-            onClick={() => setStep(3)}
+            onClick={() => {
+              if (!shopName.trim()) {
+                alert("Please enter Kirana Store Name.");
+                return;
+              }
+              if (!address.trim()) {
+                alert("Please enter Store Physical Address.");
+                return;
+              }
+              setStep(3);
+            }}
             className="w-full py-3 bg-slate-900 text-white hover:bg-slate-950 text-xs font-extrabold rounded-xl shadow-sm transition-all flex items-center justify-center space-x-1.5"
           >
             <span>Proceed to Uploads</span>

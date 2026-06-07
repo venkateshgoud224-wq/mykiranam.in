@@ -2,6 +2,7 @@ const db = require('../config/db');
 const socketService = require('../services/socketService');
 const { uploadImage } = require('../services/storageService');
 const priceEngine = require('../services/priceEngine');
+const sellerPerformanceService = require('../services/sellerPerformanceService');
 
 // Helper: Update shop's active orders count in the DB
 const updateShopQueueCount = async (shopId) => {
@@ -148,6 +149,9 @@ const createOrder = async (req, res) => {
     }
     
     const shop = shopResult.rows[0];
+    if (shop.warning_level === 'Warning 5') {
+      return res.status(403).json({ error: 'This shop is temporarily suspended and cannot receive new orders.' });
+    }
     if (shop.availability_status === 'Offline') {
       return res.status(400).json({ error: 'This shop is currently offline and not accepting online orders.' });
     }
@@ -232,7 +236,21 @@ const createOrder = async (req, res) => {
       ]
     );
 
-    const order = result.rows[0];
+    const insertedOrder = result.rows[0];
+
+    // Fetch complete order details including joined shops and users fields, matching getOrders
+    const orderDetailsResult = await db.query(
+      `SELECT o.*, s.shop_name, s.address as shop_address, s.latitude as shop_latitude, s.longitude as shop_longitude, s.working_hours as shop_working_hours, s.upi_id, s.qr_code_image, su.phone as seller_phone, u.name as customer_name, cp.status as commitment_status
+       FROM orders o 
+       JOIN shops s ON o.shop_id = s.id 
+       JOIN users u ON o.customer_id = u.id
+       JOIN users su ON s.owner_id = su.id
+       LEFT JOIN commitment_payments cp ON o.id = cp.order_id
+       WHERE o.id = $1`,
+      [insertedOrder.id]
+    );
+
+    const order = orderDetailsResult.rows[0] || insertedOrder;
 
     // Trigger shop queue update
     await updateShopQueueCount(shop_id);
@@ -284,11 +302,14 @@ const getOrders = async (req, res) => {
     let result;
     if (role === 'customer') {
       result = await db.query(
-        `SELECT o.*, s.shop_name, s.upi_id, s.qr_code_image, u.name as customer_name, cp.status as commitment_status
+        `SELECT o.*, s.shop_name, s.address as shop_address, s.latitude as shop_latitude, s.longitude as shop_longitude, s.working_hours as shop_working_hours, s.upi_id, s.qr_code_image, su.phone as seller_phone, u.name as customer_name, cp.status as commitment_status,
+                COALESCE(ct.cancellations, 0) as cancellations
          FROM orders o 
          JOIN shops s ON o.shop_id = s.id 
          JOIN users u ON o.customer_id = u.id
+         JOIN users su ON s.owner_id = su.id
          LEFT JOIN commitment_payments cp ON o.id = cp.order_id
+         LEFT JOIN customer_trust ct ON o.customer_id = ct.customer_id
          WHERE o.customer_id = $1 
          ORDER BY o.created_at DESC`,
         [userId]
@@ -475,28 +496,42 @@ const updateOrderStatus = async (req, res) => {
         const baseFee = myKiranamPrice * 0.02;
         const gst = baseFee * 0.18;
         const estimatedPlatformSavings = Math.round(baseFee + gst) + 10;
-        const estimatedSurgeSavings = 5;
-        let productSavings = 0;
-        
+
+        let marketPriceTotal = 0;
         if (order.order_type === 'digital' && order.modified_item_list) {
+          let items = [];
           try {
-            const items = typeof order.modified_item_list === 'string' ? JSON.parse(order.modified_item_list) : order.modified_item_list;
-            let totalMrp = 0;
-            items.forEach(item => {
-              if (item.mrp) {
-                totalMrp += (parseFloat(item.mrp) * parseFloat(item.quantity));
-              }
-            });
-            if (totalMrp > order.amount) {
-              productSavings = totalMrp - order.amount;
-            }
+            items = typeof order.modified_item_list === 'string' ? JSON.parse(order.modified_item_list) : order.modified_item_list;
           } catch(e) {}
+          
+          for (const item of items) {
+             if (!item.name) continue;
+             const q = item.name.toLowerCase().trim();
+             
+             let mPrice = 0;
+             if (db.getIsMock && db.getIsMock()) {
+                 mPrice = parseFloat(item.price || 0) * 1.15;
+             } else {
+                 const match = await db.query('SELECT market_price FROM products_dictionary WHERE product_name ILIKE $1 LIMIT 1', [`%${q}%`]);
+                 if (match.rows.length > 0) {
+                     mPrice = parseFloat(match.rows[0].market_price) || 0;
+                 } else {
+                     mPrice = parseFloat(item.price || 0) * 1.15;
+                 }
+             }
+             marketPriceTotal += (mPrice * parseFloat(item.quantity || 1));
+          }
+        } else {
+          marketPriceTotal = myKiranamPrice * 1.15; // Assume 15% higher in online apps
         }
         
-        const totalSavings = estimatedDeliverySavings + estimatedPlatformSavings + estimatedSurgeSavings + productSavings;
+        let productSavings = marketPriceTotal - myKiranamPrice;
+        if (productSavings < 0) productSavings = 0;
+
+        const totalSavings = estimatedDeliverySavings + estimatedPlatformSavings + Math.round(productSavings);
         const estimatedTimeSaved = 30; // 10m queue + 15m shop + 5m bill
 
-        if (!db.getIsMock()) {
+        if (order.customer_id) {
           // Update Customer Savings
           await db.query(
             `INSERT INTO customer_savings (
@@ -512,52 +547,57 @@ const updateOrderStatus = async (req, res) => {
                favorite_shop_id = $4`,
             [order.customer_id, totalSavings, estimatedTimeSaved, order.shop_id]
           );
-
-          // Update Community Savings
-          await db.query(
-            `UPDATE community_savings 
-             SET total_orders = total_orders + 1,
-                 total_savings = total_savings + $1,
-                 total_time_saved = total_time_saved + $2,
-                 last_updated = CURRENT_TIMESTAMP
-             WHERE id = (SELECT MIN(id) FROM community_savings)`,
-            [totalSavings, estimatedTimeSaved]
-          );
         }
 
-
+        // Update Community Savings
+        await db.query(
+          `UPDATE community_savings 
+           SET total_orders = total_orders + 1,
+               total_savings = total_savings + $1,
+               total_time_saved = total_time_saved + $2,
+               last_updated = CURRENT_TIMESTAMP
+           WHERE id = (SELECT MIN(id) FROM community_savings)`,
+          [totalSavings, estimatedTimeSaved]
+        );
+        
+        // Recalculate seller performance
+        await sellerPerformanceService.recalculateSellerPerformance(order.shop_id);
       } catch (err) {
         console.error('Error in Phase 8B Savings & Achievements logic:', err);
       }
     } else if (status === 'Cancelled') {
       if (role === 'customer') {
-        // 1. Customer cancellations update (Only penalize customer if they cancelled)
-        const trustRes = await db.query(
-          `INSERT INTO customer_trust (customer_id, cancellations, trust_score) 
-           VALUES ($1, 1, 95) 
-           ON CONFLICT (customer_id) 
-           DO UPDATE SET 
-             cancellations = customer_trust.cancellations + 1,
-             trust_score = GREATEST(0, COALESCE(customer_trust.trust_score, 100) - 5)
-           RETURNING cancellations`,
-          [order.customer_id]
-        );
+        // 1. Customer cancellations update (Only penalize customer if they cancelled after bill uploaded)
+        const isBillUpdated = originalStatus !== 'Waiting For Seller';
+        
+        if (isBillUpdated) {
+          const trustRes = await db.query(
+            `INSERT INTO customer_trust (customer_id, cancellations, trust_score) 
+             VALUES ($1, 1, 95) 
+             ON CONFLICT (customer_id) 
+             DO UPDATE SET 
+               cancellations = customer_trust.cancellations + 1,
+               trust_score = GREATEST(0, COALESCE(customer_trust.trust_score, 100) - 5)
+             RETURNING cancellations`,
+            [order.customer_id]
+          );
 
-        // Phase 7A: Customer Cancellation Penalty Logic (Strict 3 chances, warn 4th, restrict 5th)
-        try {
-          const cancellations = trustRes.rows[0].cancellations;
-          const notificationEngine = require('../services/notificationEngine');
-          
-          if (cancellations === 4) {
-            // 4th time: Warning
-            await notificationEngine.dispatchNotification(order.customer_id, 'Warning: Frequent Cancellations', 'Warning: You have cancelled multiple orders recently. Further cancellations will result in account restrictions.', 'warning', { orderId: order.id });
-          } else if (cancellations >= 5) {
-            // 5th time+: Restriction
-            await db.query(`UPDATE customer_trust SET suspension_end_date = CURRENT_TIMESTAMP + INTERVAL '7 days', active_order_limit = 2 WHERE customer_id = $1`, [order.customer_id]);
-            await notificationEngine.dispatchNotification(order.customer_id, 'Account Suspended', 'Your account has been temporarily suspended for 7 days due to excessive cancellations.', 'warning', { orderId: order.id });
+          // Phase 7A: Customer Cancellation Penalty Logic (Strict 2 chances, warn 3rd, restrict 4th)
+          try {
+            const cancellations = trustRes.rows[0].cancellations;
+            const notificationEngine = require('../services/notificationEngine');
+            
+            if (cancellations === 3) {
+              // 3rd time: Warning
+              await notificationEngine.dispatchNotification(order.customer_id, 'Warning: Frequent Cancellations', 'Warning: You have cancelled multiple orders recently. Further cancellations will result in account restrictions.', 'warning', { orderId: order.id });
+            } else if (cancellations >= 4) {
+              // 4th time+: Restriction
+              await db.query(`UPDATE customer_trust SET suspension_end_date = CURRENT_TIMESTAMP + INTERVAL '7 days', active_order_limit = 2 WHERE customer_id = $1`, [order.customer_id]);
+              await notificationEngine.dispatchNotification(order.customer_id, 'Account Suspended', 'Your account has been temporarily suspended for 7 days due to excessive cancellations.', 'warning', { orderId: order.id });
+            }
+          } catch (e) {
+            console.error('Error in Phase 7A cancellation logic:', e);
           }
-        } catch (e) {
-          console.error('Error in Phase 7A cancellation logic:', e);
         }
       } else if (role === 'seller') {
         // 2. Seller cancellation performance (Only penalize seller if they cancelled)
@@ -571,6 +611,9 @@ const updateOrderStatus = async (req, res) => {
           [order.shop_id]
         );
       }
+      
+      // Recalculate seller performance
+      await sellerPerformanceService.recalculateSellerPerformance(order.shop_id);
     }
 
     // Trigger Notification setup
@@ -619,7 +662,7 @@ const updateOrderStatus = async (req, res) => {
         if (status === 'Ready For Pickup') {
           notifType = 'pickup_ready';
           notifTitle = 'Ready For Pickup';
-          notifyMessage = `🎉 Your order at ${order.shop_name} is Ready For Pickup! Your Pickup OTP is ${updatedOrder.pickup_otp}. Share this OTP with the seller.`;
+          notifyMessage = `Your order is ready. Tap here to navigate to the store.`;
         } else if (status === 'Delivered') {
           notifType = 'order_delivered';
           notifTitle = 'Order Delivered';
@@ -816,8 +859,20 @@ const confirmOrder = async (req, res) => {
     if (Number(order.customer_id) !== Number(customerId)) {
       return res.status(403).json({ error: 'Unauthorized.' });
     }
-    if (order.order_status !== 'Confirmed') {
-      return res.status(400).json({ error: 'Order must be confirmed after commitment payment before proceeding.' });
+    const allowedStatuses = ['Confirmed', 'Bill Uploaded', 'Waiting For Customer Confirmation'];
+    if (!allowedStatuses.includes(order.order_status)) {
+      return res.status(400).json({ error: 'Order must be confirmed after commitment payment or bill upload before proceeding.' });
+    }
+
+    if (payment_method === 'Pay During Pickup') {
+      const trustResult = await db.query(`SELECT COALESCE(cancellations, 0) as cancellations FROM customer_trust WHERE customer_id = $1`, [order.customer_id]);
+      const cancellations = trustResult.rows[0]?.cancellations || 0;
+      if (cancellations >= 3) {
+        const depositCheck = await db.query(`SELECT 1 FROM commitment_payments WHERE order_id = $1 AND status = 'paid'`, [id]);
+        if (depositCheck.rows.length === 0) {
+          return res.status(400).json({ error: 'Customers with 3 or more cancellations must pay a ₹50 security deposit via PhonePe to use Pay During Pickup.' });
+        }
+      }
     }
 
     let proofUrl = null;
@@ -945,6 +1000,87 @@ const verifyOTP = async (req, res) => {
          total_completed_orders = seller_performance.total_completed_orders + 1`,
       [order.shop_id, responseTimeSec]
     );
+
+    // Phase 8A: Extract historical prices
+    try {
+      await priceEngine.extractOrderPrices(updatedOrder.id);
+    } catch (e) {
+      console.error('Error extracting order prices in verifyOTP:', e);
+    }
+
+    // Phase 8B / Phase 6: Savings Engine
+    try {
+      const estimatedDeliverySavings = 35;
+      const myKiranamPrice = parseFloat(order.amount || 0);
+      const baseFee = myKiranamPrice * 0.02;
+      const gst = baseFee * 0.18;
+      const estimatedPlatformSavings = Math.round(baseFee + gst) + 10;
+
+      let marketPriceTotal = 0;
+      if (order.order_type === 'digital' && order.modified_item_list) {
+        let items = [];
+        try {
+          items = typeof order.modified_item_list === 'string' ? JSON.parse(order.modified_item_list) : order.modified_item_list;
+        } catch(e) {}
+        
+        for (const item of items) {
+           if (!item.name) continue;
+           const q = item.name.toLowerCase().trim();
+           
+           let mPrice = 0;
+           if (db.getIsMock && db.getIsMock()) {
+               mPrice = parseFloat(item.price || 0) * 1.15;
+           } else {
+               const match = await db.query('SELECT market_price FROM products_dictionary WHERE product_name ILIKE $1 LIMIT 1', [`%${q}%`]);
+               if (match.rows.length > 0) {
+                   mPrice = parseFloat(match.rows[0].market_price) || 0;
+               } else {
+                   mPrice = parseFloat(item.price || 0) * 1.15;
+               }
+           }
+           marketPriceTotal += (mPrice * parseFloat(item.quantity || 1));
+        }
+      } else {
+        marketPriceTotal = myKiranamPrice * 1.15; // Assume 15% higher in online apps
+      }
+      
+      let productSavings = marketPriceTotal - myKiranamPrice;
+      if (productSavings < 0) productSavings = 0;
+
+      const totalSavings = estimatedDeliverySavings + estimatedPlatformSavings + Math.round(productSavings);
+      const estimatedTimeSaved = 30; // 10m queue + 15m shop + 5m bill
+
+      if (order.customer_id) {
+        // Update Customer Savings
+        await db.query(
+          `INSERT INTO customer_savings (
+             customer_id, total_orders, total_savings, total_time_saved, last_order_date, favorite_shop_id
+           ) 
+           VALUES ($1, 1, $2, $3, CURRENT_TIMESTAMP, $4)
+           ON CONFLICT (customer_id)
+           DO UPDATE SET 
+             total_orders = customer_savings.total_orders + 1,
+             total_savings = customer_savings.total_savings + $2,
+             total_time_saved = customer_savings.total_time_saved + $3,
+             last_order_date = CURRENT_TIMESTAMP,
+             favorite_shop_id = $4`,
+          [order.customer_id, totalSavings, estimatedTimeSaved, order.shop_id]
+        );
+      }
+
+      // Update Community Savings
+      await db.query(
+        `UPDATE community_savings 
+         SET total_orders = total_orders + 1,
+             total_savings = total_savings + $1,
+             total_time_saved = total_time_saved + $2,
+             last_updated = CURRENT_TIMESTAMP
+         WHERE id = (SELECT MIN(id) FROM community_savings)`,
+        [totalSavings, estimatedTimeSaved]
+      );
+    } catch (err) {
+      console.error('Error in Phase 8B Savings logic in verifyOTP:', err);
+    }
 
     const notificationEngine = require('../services/notificationEngine');
     await notificationEngine.dispatchNotification(

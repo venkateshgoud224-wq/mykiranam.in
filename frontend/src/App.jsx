@@ -9,14 +9,14 @@ import CustomerQuotes from './pages/customer/CustomerQuotes';
 import MyOrders from './pages/customer/MyOrders';
 import SellerDashboard from './pages/seller/SellerDashboard';
 import SellerSettings from './pages/seller/SellerSettings';
-import SellerAnalytics from './pages/seller/SellerAnalytics';
 import AdminDashboard from './pages/admin/AdminDashboard'; // Import Admin Panel
 import Profile from './pages/Profile';
 import SavingsDashboard from './pages/customer/SavingsDashboard';
 import WhatsAppVerificationRequired from './pages/WhatsAppVerificationRequired';
+import SupportAssistant from './pages/SupportAssistant';
 import Navbar from './components/common/Navbar';
 import BottomNavigation from './components/common/BottomNavigation';
-import { Store, ShoppingBag, User, Settings, Layers, Bell, ShieldAlert, Trophy, BarChart3 } from 'lucide-react';
+import { Store, ShoppingBag, User, Settings, Layers, Bell, ShieldAlert, Trophy, HelpCircle, Scale } from 'lucide-react';
 
 // Capture shopId from URL immediately upon script load to ensure it's available for child components
 const urlParams = new URLSearchParams(window.location.search);
@@ -32,6 +32,10 @@ const DashboardContent = () => {
 
   // Selected tab state (initialises based on role)
   const [activeTab, setActiveTab] = useState(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    if (queryParams.get('order_id')) {
+      return 'orders';
+    }
     const savedTab = sessionStorage.getItem('kirana_activeTab');
     if (savedTab) {
       // Basic validation to ensure tab matches role
@@ -103,6 +107,7 @@ const DashboardContent = () => {
       { id: 'shops', label: 'Nearby Shops', icon: Store },
       { id: 'orders', label: 'My Orders', icon: ShoppingBag },
       { id: 'savings', label: 'My Savings', icon: Trophy },
+      { id: 'support', label: 'Help & Support', icon: HelpCircle },
       { id: 'profile', label: 'Profile', icon: User }
     ];
 
@@ -110,8 +115,9 @@ const DashboardContent = () => {
       { id: 'seller-new', label: 'New Chittis', icon: Bell },
       { id: 'seller-active', label: 'Active Queue', icon: Layers },
       { id: 'seller-completed', label: 'Completed Log', icon: ShoppingBag },
+      { id: 'seller-disputes', label: 'Disputes & Trust', icon: Scale },
       { id: 'seller-settings', label: 'Store Config', icon: Settings },
-      { id: 'seller-analytics', label: 'Premium Insights', icon: BarChart3 },
+      { id: 'support', label: 'Help & Support', icon: HelpCircle },
       { id: 'profile', label: 'Profile', icon: User }
     ];
 
@@ -179,7 +185,7 @@ const DashboardContent = () => {
           />
         );
       case 'orders':
-        return <MyOrders />;
+        return <MyOrders coords={coords} />;
       case 'savings':
         return <SavingsDashboard />;
 
@@ -188,6 +194,7 @@ const DashboardContent = () => {
       case 'seller-revisions':
       case 'seller-active':
       case 'seller-completed':
+      case 'seller-disputes':
         return (
           <SellerDashboard
             activeTab={activeTab}
@@ -196,8 +203,6 @@ const DashboardContent = () => {
         );
       case 'seller-settings':
         return <SellerSettings />;
-      case 'seller-analytics':
-        return <SellerAnalytics />;
 
       // Admin dashboards
       case 'admin-sellers':
@@ -206,6 +211,9 @@ const DashboardContent = () => {
       // Shared profiles
       case 'profile':
         return <Profile />;
+
+      case 'support':
+        return <SupportAssistant />;
 
       default:
         if (user.role === 'admin') return <AdminDashboard />;
@@ -224,7 +232,7 @@ const DashboardContent = () => {
   return (
     <div className="h-[100dvh] w-screen bg-slate-50 flex flex-col overflow-hidden">
       {/* Top Navbar */}
-      <Navbar onSetCoords={setCoords} currentCoords={coords} />
+      <Navbar onSetCoords={setCoords} currentCoords={coords} setActiveTab={setActiveTab} />
 
       {/* Main Workspace Frame */}
       <div className="flex-1 min-h-0 w-full flex">
@@ -249,6 +257,22 @@ const App = () => {
   const [whatsappSkipped, setWhatsappSkipped] = useState(() => {
     return sessionStorage.getItem('whatsapp_skipped') === 'true';
   });
+
+  // Dynamic robots meta management to disallow indexing of dashboard and private pages
+  useEffect(() => {
+    let robotsMeta = document.querySelector('meta[name="robots"]');
+    if (!robotsMeta) {
+      robotsMeta = document.createElement('meta');
+      robotsMeta.setAttribute('name', 'robots');
+      document.head.appendChild(robotsMeta);
+    }
+    
+    if (!user) {
+      robotsMeta.setAttribute('content', 'index,follow');
+    } else {
+      robotsMeta.setAttribute('content', 'noindex,nofollow');
+    }
+  }, [user]);
 
   if (loading) {
     return (

@@ -38,10 +38,11 @@ const ComplaintsManagement = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleVerify = async (id) => {
+  const handleAction = async (id, isVerify) => {
     setActionLoading(id);
     try {
-      const response = await fetch(`${apiUrl}/admin/complaints/${id}/verify`, {
+      const endpoint = isVerify ? 'verify' : 'reject';
+      const response = await fetch(`${apiUrl}/admin/complaints/${id}/${endpoint}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -52,15 +53,15 @@ const ComplaintsManagement = () => {
       
       const data = await response.json();
       if (response.ok) {
-        alert(`Complaint verified! Seller warning level is now: ${data.new_warning_level}`);
+        alert(isVerify ? `Complaint verified! Seller warning level is now: ${data.new_warning_level}` : 'Complaint rejected successfully!');
         setSelectedComplaintId(null);
         setVerificationNotes('');
         fetchComplaints();
       } else {
-        alert(data.error || 'Failed to verify complaint.');
+        alert(data.error || 'Failed to update complaint.');
       }
     } catch (err) {
-      console.error('Error verifying complaint:', err);
+      console.error('Error processing action:', err);
       alert('An error occurred.');
     } finally {
       setActionLoading(null);
@@ -139,9 +140,24 @@ const ComplaintsManagement = () => {
                   </span>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs text-slate-700 italic">
-                  "{complaint.description}"
+                <div className="space-y-1">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Customer Description</span>
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs text-slate-700 italic">
+                    "{complaint.description}"
+                  </div>
                 </div>
+
+                {complaint.seller_explanation && (
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Seller Explanation</span>
+                    <div className="bg-blue-50/50 border border-blue-100/50 rounded-xl p-3 text-xs text-slate-750 italic">
+                      "{complaint.seller_explanation}"
+                      <span className="block text-[8px] text-slate-400 mt-1 font-bold">
+                        Submitted at: {new Date(complaint.seller_response_at).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {images.length > 0 && (
                   <div className="flex space-x-3 overflow-x-auto py-2">
@@ -157,27 +173,34 @@ const ComplaintsManagement = () => {
                   </div>
                 )}
 
-                {complaint.status === 'Open' && (
+                {['Pending', 'Open', 'Seller Responded'].includes(complaint.status) && (
                   <div className="border-t border-slate-100 pt-4 mt-2">
                     {selectedComplaintId === complaint.id ? (
                       <div className="space-y-3">
                         <textarea
                           value={verificationNotes}
                           onChange={(e) => setVerificationNotes(e.target.value)}
-                          placeholder="Admin notes (e.g. Strike applied)..."
+                          placeholder="Admin action notes..."
                           className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-kirana-500 outline-none h-16 resize-none"
                         />
                         <div className="flex space-x-2">
                           <button
-                            onClick={() => handleVerify(complaint.id)}
+                            onClick={() => handleAction(complaint.id, true)}
                             disabled={actionLoading === complaint.id}
                             className="flex-1 py-2 bg-crimson text-white text-xs font-bold rounded-lg hover:bg-crimson/90 transition-colors"
                           >
-                            {actionLoading === complaint.id ? 'Processing...' : 'Verify & Apply Strike'}
+                            {actionLoading === complaint.id ? 'Processing...' : 'Verify & Strike'}
+                          </button>
+                          <button
+                            onClick={() => handleAction(complaint.id, false)}
+                            disabled={actionLoading === complaint.id}
+                            className="flex-1 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors"
+                          >
+                            {actionLoading === complaint.id ? 'Processing...' : 'Reject Complaint'}
                           </button>
                           <button
                             onClick={() => setSelectedComplaintId(null)}
-                            className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200"
+                            className="px-4 py-2 bg-slate-105 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200"
                           >
                             Cancel
                           </button>
@@ -191,16 +214,23 @@ const ComplaintsManagement = () => {
                         }}
                         className="w-full py-2.5 border-2 border-crimson/20 text-crimson hover:bg-crimson/5 text-xs font-bold rounded-xl transition-all"
                       >
-                        Verify Complaint (Seller Strike)
+                        Audit & Take Action
                       </button>
                     )}
                   </div>
                 )}
 
-                {complaint.status === 'Closed' && complaint.is_verified && (
-                  <div className="flex items-center space-x-1.5 text-[10px] text-emerald-600 font-bold bg-emerald-50 p-2 rounded-lg border border-emerald-100">
-                    <CheckCircle className="w-3.5 h-3.5" />
+                {(complaint.status === 'Closed' || complaint.status === 'Verified') && complaint.is_verified && (
+                  <div className="flex items-center space-x-1.5 text-[10px] text-red-700 font-bold bg-red-50 p-2 rounded-lg border border-red-100">
+                    <CheckCircle className="w-3.5 h-3.5 text-red-500" />
                     <span>Verified & Seller Strike Applied</span>
+                  </div>
+                )}
+
+                {complaint.status === 'Rejected' && !complaint.is_verified && (
+                  <div className="flex items-center space-x-1.5 text-[10px] text-emerald-700 font-bold bg-emerald-50 p-2 rounded-lg border border-emerald-100">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Dispute Audited & Rejected (Clear)</span>
                   </div>
                 )}
               </div>

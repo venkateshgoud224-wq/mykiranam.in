@@ -29,12 +29,22 @@ const mockDb = {
   customer_trust: {},
   seller_performance: {},
   order_chats: [],
+  complaints: [],
+  reviews: [],
   products: [],
   product_aliases: [],
   historical_prices: [],
   shop_price_index: [],
   quote_history: [],
-  price_analytics: []
+  price_analytics: [],
+  customer_savings: {},
+  commitment_payments: [],
+  community_savings: {
+    id: 1,
+    total_orders: 0,
+    total_savings: 0.00,
+    total_time_saved: 0
+  }
 };
 
 // Persistent fallback database on disk to survive server/nodemon restarts
@@ -50,6 +60,157 @@ const saveMockDb = () => {
   }
 };
 
+const seedMockDbIfEmpty = () => {
+  if (mockDb.users.length === 0) {
+    mockDb.users.push(
+      {
+        id: 1,
+        role: "admin",
+        name: "Admin User",
+        email: "admin@kiranam.in",
+        password: HASHED_PASSWORD,
+        phone: "9999999991",
+        verified_whatsapp: true,
+        verified_email: true,
+        created_at: new Date()
+      },
+      {
+        id: 2,
+        role: "seller",
+        name: "Sai Srinivasa Seller",
+        email: "seller@kiranam.in",
+        password: HASHED_PASSWORD,
+        phone: "9999999992",
+        verified_whatsapp: true,
+        verified_email: true,
+        created_at: new Date()
+      },
+      {
+        id: 3,
+        role: "customer",
+        name: "Demo Customer",
+        email: "customer@kiranam.in",
+        password: HASHED_PASSWORD,
+        phone: "9999999993",
+        verified_whatsapp: true,
+        verified_email: true,
+        created_at: new Date()
+      }
+    );
+    isMockDbDirty = true;
+  }
+
+  if (mockDb.shops.length === 0) {
+    mockDb.shops.push(
+      {
+        id: 1,
+        owner_id: 2,
+        shop_name: "Sai Srinivasa Kirana Store",
+        address: "Sector 3, HSR Layout, Bangalore, Karnataka 560102",
+        latitude: 12.9141,
+        longitude: 77.6413,
+        rating: 4.5,
+        active_orders: 0,
+        waiting_time: 0,
+        availability_status: "Available",
+        discounts: "10% off on first order",
+        verified: true,
+        verification_status: "Verified",
+        verified_by_admin: true,
+        verified_by_seller: true,
+        verification_date: new Date(),
+        working_hours: "08:00 - 22:00",
+        shop_category: "General Provisions",
+        max_active_orders: 10,
+        online_start_time: "08:00",
+        online_end_time: "22:00",
+        upi_id: "seller@upi",
+        created_at: new Date()
+      },
+      {
+        id: 2,
+        owner_id: 2,
+        shop_name: "Hyderabad Express Kirana",
+        address: "Masjid Banda, Kondapur, Hyderabad, Telangana 500084",
+        latitude: 17.4650,
+        longitude: 78.3428,
+        rating: 4.2,
+        active_orders: 0,
+        waiting_time: 0,
+        availability_status: "Available",
+        discounts: "No discounts",
+        verified: true,
+        verification_status: "Verified",
+        verified_by_admin: true,
+        verified_by_seller: true,
+        verification_date: new Date(),
+        working_hours: "08:00 - 22:00",
+        shop_category: "General Provisions",
+        max_active_orders: 10,
+        online_start_time: "08:00",
+        online_end_time: "22:00",
+        upi_id: "seller2@upi",
+        created_at: new Date()
+      }
+    );
+    isMockDbDirty = true;
+  }
+
+  // Auto-verify any existing pending shops in mock database for ease of testing
+  mockDb.shops.forEach(shop => {
+    if (shop.verification_status !== 'Verified') {
+      shop.verification_status = 'Verified';
+      shop.verified = true;
+      shop.verified_by_admin = true;
+      shop.verified_by_seller = true;
+      shop.verification_date = shop.verification_date || new Date();
+      isMockDbDirty = true;
+    }
+  });
+
+  // Seed mock products, aliases, and historical prices for price comparison demo
+  if (!mockDb.products || mockDb.products.length === 0) {
+    mockDb.products = [
+      { id: 1, name: "sugar", category: "Groceries", created_at: new Date() },
+      { id: 2, name: "rice", category: "Groceries", created_at: new Date() },
+      { id: 3, name: "oil", category: "Groceries", created_at: new Date() },
+      { id: 4, name: "wheat", category: "Groceries", created_at: new Date() },
+      { id: 5, name: "onion", category: "Vegetables", created_at: new Date() }
+    ];
+    isMockDbDirty = true;
+  }
+
+  if (!mockDb.product_aliases || mockDb.product_aliases.length === 0) {
+    mockDb.product_aliases = [
+      { id: 1, product_id: 1, alias_name: "sugar", created_at: new Date() },
+      { id: 2, product_id: 2, alias_name: "rice", created_at: new Date() },
+      { id: 3, product_id: 3, alias_name: "oil", created_at: new Date() },
+      { id: 4, product_id: 4, alias_name: "wheat", created_at: new Date() },
+      { id: 5, product_id: 5, alias_name: "onion", created_at: new Date() }
+    ];
+    isMockDbDirty = true;
+  }
+
+  if (!mockDb.historical_prices || mockDb.historical_prices.length === 0) {
+    mockDb.historical_prices = [
+      // Shop 1 (kiranam my's Kirana Store) prices
+      { id: 1, product_id: 1, shop_id: 1, order_id: 999, price_per_unit: 40.00, quantity: 1, unit: "kg", recorded_at: new Date() },
+      { id: 2, product_id: 2, shop_id: 1, order_id: 999, price_per_unit: 50.00, quantity: 1, unit: "kg", recorded_at: new Date() },
+      { id: 3, product_id: 3, shop_id: 1, order_id: 999, price_per_unit: 110.00, quantity: 1, unit: "L", recorded_at: new Date() },
+      { id: 4, product_id: 4, shop_id: 1, order_id: 999, price_per_unit: 45.00, quantity: 1, unit: "kg", recorded_at: new Date() },
+      { id: 5, product_id: 5, shop_id: 1, order_id: 999, price_per_unit: 25.00, quantity: 1, unit: "kg", recorded_at: new Date() },
+
+      // Shop 2 (admin's Kirana Store) prices
+      { id: 6, product_id: 1, shop_id: 2, order_id: 999, price_per_unit: 42.00, quantity: 1, unit: "kg", recorded_at: new Date() },
+      { id: 7, product_id: 2, shop_id: 2, order_id: 999, price_per_unit: 48.00, quantity: 1, unit: "kg", recorded_at: new Date() },
+      { id: 8, product_id: 3, shop_id: 2, order_id: 999, price_per_unit: 115.00, quantity: 1, unit: "L", recorded_at: new Date() },
+      { id: 9, product_id: 4, shop_id: 2, order_id: 999, price_per_unit: 43.00, quantity: 1, unit: "kg", recorded_at: new Date() },
+      { id: 10, product_id: 5, shop_id: 2, order_id: 999, price_per_unit: 28.00, quantity: 1, unit: "kg", recorded_at: new Date() }
+    ];
+    isMockDbDirty = true;
+  }
+};
+
 const loadMockDb = () => {
   try {
     if (fs.existsSync(MOCK_DB_FILE)) {
@@ -62,7 +223,12 @@ const loadMockDb = () => {
       saveMockDb();
     }
 
-    // Admin user logic removed to prevent seeded data
+    if (!mockDb.customer_savings) mockDb.customer_savings = {};
+    if (!mockDb.complaints) mockDb.complaints = [];
+    if (!mockDb.community_savings) mockDb.community_savings = { id: 1, total_orders: 0, total_savings: 0.00, total_time_saved: 0 };
+
+    // Seed default data if empty to ensure shops are visible right away
+    seedMockDbIfEmpty();
   } catch (err) {
     console.error('⚠️ Error loading mock database, using defaults:', err.message);
   }
@@ -108,6 +274,70 @@ const mockQuery = async (text, params = []) => {
 
   // SELECT queries
   if (normalizedText.startsWith('select')) {
+    if (normalizedText.includes('from reviews')) {
+      if (normalizedText.includes('avg(')) {
+        const shopId = Number(params[0]);
+        const list = (mockDb.reviews || []).filter(r => Number(r.shop_id) === shopId);
+        if (list.length === 0) {
+          return { rows: [{ new_rating: null, total_reviews: 0 }] };
+        }
+        const sum = list.reduce((s, r) => s + (Number(r.product_quality) + Number(r.service_quality) + Number(r.order_accuracy) + Number(r.overall_experience)) / 4.0, 0);
+        return { rows: [{ new_rating: sum / list.length, total_reviews: list.length }] };
+      } else {
+        const shopId = Number(params[0]);
+        const list = (mockDb.reviews || []).filter(r => Number(r.shop_id) === shopId);
+        const enriched = list.map(r => {
+          const user = mockDb.users.find(u => Number(u.id) === Number(r.customer_id));
+          return {
+            ...r,
+            customer_name: user ? user.name : 'Customer'
+          };
+        });
+        enriched.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        return { rows: enriched };
+      }
+    }
+
+    if (normalizedText.includes('from complaints c')) {
+      if (normalizedText.includes('where c.customer_id =')) {
+        const customerId = Number(params[0]);
+        const list = (mockDb.complaints || []).filter(c => Number(c.customer_id) === customerId);
+        const enriched = list.map(c => {
+          const shop = mockDb.shops.find(s => Number(s.id) === Number(c.shop_id));
+          const order = (mockDb.orders || []).find(o => Number(o.id) === Number(c.order_id));
+          return {
+            ...c,
+            shop_name: shop ? shop.shop_name : null,
+            custom_order_id: order ? order.custom_order_id : null
+          };
+        });
+        enriched.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        return { rows: enriched };
+      }
+      if (normalizedText.includes('join users u') || normalizedText.includes('left join users u')) {
+        const list = mockDb.complaints || [];
+        const enriched = list.map(c => {
+          const user = mockDb.users.find(u => Number(u.id) === Number(c.customer_id));
+          const shop = mockDb.shops.find(s => Number(s.id) === Number(c.shop_id));
+          const order = (mockDb.orders || []).find(o => Number(o.id) === Number(c.order_id));
+          return {
+            ...c,
+            customer_name: user ? user.name : 'Unknown Customer',
+            shop_name: shop ? shop.shop_name : null,
+            custom_order_id: order ? order.custom_order_id : null
+          };
+        });
+        enriched.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        return { rows: enriched };
+      }
+    }
+
+    if (normalizedText.includes('from complaints') && normalizedText.includes('where id =')) {
+      const id = Number(params[0]);
+      const complaint = (mockDb.complaints || []).find(c => Number(c.id) === id);
+      return { rows: complaint ? [complaint] : [] };
+    }
+
     if (normalizedText.includes('seller_customer_blocks')) {
       return { rows: [] };
     }
@@ -250,6 +480,29 @@ const mockQuery = async (text, params = []) => {
     }
 
     if (normalizedText.includes('from orders')) {
+      // Intercept active customer orders query for delete account check
+      if (normalizedText.includes('customer_id = $1') && normalizedText.includes("order_status not in ('delivered', 'cancelled')")) {
+        const customerId = Number(params[0]);
+        const activeOrders = mockDb.orders.filter(o => 
+          Number(o.customer_id) === customerId && 
+          o.order_status !== 'Delivered' && 
+          o.order_status !== 'Cancelled'
+        );
+        return { rows: activeOrders };
+      }
+      
+      // Intercept active seller orders query for delete account check
+      if (normalizedText.includes('shop_id in (select id from shops where owner_id = $1)') && normalizedText.includes("order_status not in ('delivered', 'cancelled')")) {
+        const ownerId = Number(params[0]);
+        const shopIds = mockDb.shops.filter(s => Number(s.owner_id) === ownerId).map(s => Number(s.id));
+        const activeOrders = mockDb.orders.filter(o => 
+          shopIds.includes(Number(o.shop_id)) && 
+          o.order_status !== 'Delivered' && 
+          o.order_status !== 'Cancelled'
+        );
+        return { rows: activeOrders };
+      }
+
       let filteredOrders = [...mockDb.orders];
       if (normalizedText.includes('where o.id =') || normalizedText.includes('where id =')) {
         const orderId = params[0];
@@ -266,12 +519,14 @@ const mockQuery = async (text, params = []) => {
       const enrichedOrders = filteredOrders.map(o => {
         const shop = mockDb.shops.find(s => Number(s.id) === Number(o.shop_id)) || {};
         const customer = mockDb.users.find(u => Number(u.id) === Number(o.customer_id)) || {};
+        const seller = mockDb.users.find(u => Number(u.id) === Number(shop.owner_id)) || {};
         return {
           ...o,
           shop_name: shop.shop_name || 'Sai Srinivasa Kirana Store',
           upi_id: shop.upi_id || '',
           qr_code_image: shop.qr_code_image || null,
           seller_user_id: shop.owner_id || null,
+          seller_phone: seller.phone || '',
           customer_name: customer.name || 'Demo Customer',
           customer_phone: customer.phone || ''
         };
@@ -359,8 +614,20 @@ const mockQuery = async (text, params = []) => {
 
     if (normalizedText.includes('from historical_prices')) {
       let prices = mockDb.historical_prices;
-      if (normalizedText.includes('where shop_id =')) {
+      if (normalizedText.includes('product_id = $1') && normalizedText.includes('shop_id = $2')) {
+        const prodId = Number(params[0]);
+        const shopId = Number(params[1]);
+        prices = prices.filter(p => Number(p.product_id) === prodId && Number(p.shop_id) === shopId);
+      } else if (normalizedText.includes('where shop_id =')) {
         prices = prices.filter(p => Number(p.shop_id) === Number(params[0]));
+      }
+      
+      // Handle ordering and limit if queried
+      if (normalizedText.includes('order by recorded_at desc')) {
+        prices = [...prices].sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at));
+      }
+      if (normalizedText.includes('limit 5')) {
+        prices = prices.slice(0, 5);
       }
       return { rows: prices };
     }
@@ -368,11 +635,84 @@ const mockQuery = async (text, params = []) => {
     if (normalizedText.includes('from price_analytics')) {
       return { rows: mockDb.price_analytics };
     }
+
+    if (normalizedText.includes('from customer_savings')) {
+      const customerId = params[0];
+      let savings = mockDb.customer_savings[customerId];
+      if (!savings) {
+        savings = {
+          customer_id: Number(customerId),
+          total_orders: 0,
+          total_savings: 0.00,
+          total_time_saved: 0,
+          favorite_shop_id: null
+        };
+      }
+      return { rows: [savings] };
+    }
+
+    if (normalizedText.includes('from community_savings')) {
+      if (!mockDb.community_savings) {
+        mockDb.community_savings = {
+          id: 1,
+          total_orders: 0,
+          total_savings: 0.00,
+          total_time_saved: 0
+        };
+      }
+      return { rows: [mockDb.community_savings] };
+    }
+
+    if (normalizedText.includes('from commitment_payments')) {
+      let list = mockDb.commitment_payments || [];
+      if (normalizedText.includes('where order_id =')) {
+        const orderId = Number(params[0]);
+        list = list.filter(cp => Number(cp.order_id) === orderId);
+      }
+      if (normalizedText.includes("status = 'paid'") || normalizedText.includes("status = $2")) {
+        const statusVal = params[1] || 'paid';
+        list = list.filter(cp => cp.status === statusVal);
+      }
+      return { rows: list };
+    }
   }
 
   // INSERT queries
   if (normalizedText.startsWith('insert')) {
     isMockDbDirty = true;
+  }
+  if (normalizedText.startsWith('insert into commitment_payments')) {
+    if (!mockDb.commitment_payments) mockDb.commitment_payments = [];
+    const newCp = {
+      id: mockDb.commitment_payments.length + 1,
+      order_id: Number(params[0]),
+      amount: Number(params[1]),
+      status: params[2] || 'pending',
+      razorpay_payment_id: params[3] || null,
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+    mockDb.commitment_payments.push(newCp);
+    isMockDbDirty = true;
+    return { rows: [newCp] };
+  }
+  if (normalizedText.startsWith('insert into reviews')) {
+    if (!mockDb.reviews) mockDb.reviews = [];
+    const newRev = {
+      id: mockDb.reviews.length + 1,
+      order_id: Number(params[0]),
+      customer_id: Number(params[1]),
+      shop_id: Number(params[2]),
+      product_quality: Number(params[3]),
+      service_quality: Number(params[4]),
+      order_accuracy: Number(params[5]),
+      overall_experience: Number(params[6]),
+      review_text: params[7] || '',
+      created_at: new Date()
+    };
+    mockDb.reviews.push(newRev);
+    isMockDbDirty = true;
+    return { rows: [newRev] };
   }
   if (normalizedText.startsWith('insert into customer_trust')) {
     const customerId = Number(params[0]);
@@ -415,6 +755,32 @@ const mockQuery = async (text, params = []) => {
       record.abandoned_orders = (record.abandoned_orders || 0) + 1;
     }
     
+    return { rows: [record] };
+  }
+
+  if (normalizedText.startsWith('insert into customer_savings')) {
+    const customerId = Number(params[0]);
+    const totalSavings = parseFloat(params[1]);
+    const estimatedTimeSaved = Number(params[2]);
+    const shopId = Number(params[3]);
+
+    if (!mockDb.customer_savings[customerId]) {
+      mockDb.customer_savings[customerId] = {
+        customer_id: customerId,
+        total_orders: 0,
+        total_savings: 0.00,
+        total_time_saved: 0,
+        last_order_date: null,
+        favorite_shop_id: null
+      };
+    }
+    const record = mockDb.customer_savings[customerId];
+    record.total_orders = (record.total_orders || 0) + 1;
+    record.total_savings = parseFloat(((parseFloat(record.total_savings) || 0) + totalSavings).toFixed(2));
+    record.total_time_saved = (record.total_time_saved || 0) + estimatedTimeSaved;
+    record.last_order_date = new Date().toISOString();
+    record.favorite_shop_id = shopId;
+    isMockDbDirty = true;
     return { rows: [record] };
   }
 
@@ -485,11 +851,11 @@ const mockQuery = async (text, params = []) => {
       waiting_time: 0,
       availability_status: 'Available',
       discounts: params[5] || 'No discounts',
-      verified: false,
-      verification_status: 'Pending',
-      verified_by_admin: false,
-      verified_by_seller: false,
-      verification_date: null,
+      verified: true, // Default to true in Mock mode for instant visibility
+      verification_status: 'Verified', // Default to Verified in Mock mode
+      verified_by_admin: true,
+      verified_by_seller: true,
+      verification_date: new Date(),
       working_hours: '08:00 - 22:00',
       shop_category: 'General Provisions',
       image_front: null, image_counter: null, image_inside1: null, image_inside2: null, image_additional: null, image_banner: null,
@@ -598,6 +964,27 @@ const mockQuery = async (text, params = []) => {
     return { rows: [newChat] };
   }
 
+  if (normalizedText.startsWith('insert into complaints') || normalizedText.includes('insert into complaints')) {
+    const newComplaint = {
+      id: mockDb.complaints.length + 1,
+      order_id: params[0] !== null && params[0] !== undefined ? Number(params[0]) : null,
+      customer_id: Number(params[1]),
+      shop_id: params[2] !== null && params[2] !== undefined ? Number(params[2]) : null,
+      issue_type: params[3],
+      description: params[4],
+      evidence_images: params[5] || '[]',
+      status: 'Pending',
+      is_verified: false,
+      seller_explanation: null,
+      seller_response_at: null,
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+    mockDb.complaints.push(newComplaint);
+    isMockDbDirty = true;
+    return { rows: [newComplaint] };
+  }
+
   if (normalizedText.startsWith('insert into products')) {
     const newProduct = {
       id: mockDb.products.length + 1,
@@ -674,6 +1061,48 @@ const mockQuery = async (text, params = []) => {
   // UPDATE queries
   if (normalizedText.startsWith('update')) {
     isMockDbDirty = true;
+    if (normalizedText.includes('update complaints')) {
+      const id = Number(params[params.length - 1]);
+      const complaint = (mockDb.complaints || []).find(c => Number(c.id) === id);
+      if (complaint) {
+        if (normalizedText.includes('seller_explanation')) {
+          complaint.seller_explanation = params[0];
+          complaint.status = 'Seller Responded';
+          complaint.seller_response_at = new Date();
+        } else if (normalizedText.includes('is_verified = true') || normalizedText.includes('is_verified = $') || normalizedText.includes('is_verified = false')) {
+          const isVerifiedVal = normalizedText.includes('is_verified = true') || params[0] === true || params[0] === 'true' || params[0] === 't';
+          complaint.is_verified = isVerifiedVal;
+          complaint.status = isVerifiedVal ? 'Verified' : 'Rejected';
+        } else if (normalizedText.includes('status = $')) {
+          complaint.status = params[0];
+        }
+        complaint.updated_at = new Date();
+        isMockDbDirty = true;
+        return { rows: [complaint] };
+      }
+      return { rows: [] };
+    }
+    if (normalizedText.includes('update community_savings')) {
+      const totalSavings = parseFloat(params[0]);
+      const estimatedTimeSaved = Number(params[1]);
+
+      if (!mockDb.community_savings) {
+        mockDb.community_savings = {
+          id: 1,
+          total_orders: 0,
+          total_savings: 0.00,
+          total_time_saved: 0
+        };
+      }
+      const record = mockDb.community_savings;
+      record.total_orders = (record.total_orders || 0) + 1;
+      record.total_savings = parseFloat(((parseFloat(record.total_savings) || 0) + totalSavings).toFixed(2));
+      record.total_time_saved = (record.total_time_saved || 0) + estimatedTimeSaved;
+      record.last_updated = new Date().toISOString();
+      isMockDbDirty = true;
+      return { rows: [record] };
+    }
+
     if (normalizedText.includes('update customer_trust')) {
       const customerId = Number(params[params.length - 1]);
       const record = mockDb.customer_trust[customerId];
@@ -852,6 +1281,10 @@ const mockQuery = async (text, params = []) => {
         else if (normalizedText.includes('image_banner = $1') || normalizedText.includes('set image_banner =')) {
           shop.image_banner = params[0];
         }
+        else if (normalizedText.includes('rating = $1') && normalizedText.includes('total_reviews = $2')) {
+          shop.rating = Number(params[0]);
+          shop.total_reviews = Number(params[1]);
+        }
 
       }
       return { rows: shop ? [shop] : [] };
@@ -1008,6 +1441,54 @@ const mockQuery = async (text, params = []) => {
   // DELETE queries
   if (normalizedText.startsWith('delete')) {
     isMockDbDirty = true;
+    if (normalizedText.includes('from users')) {
+      if (normalizedText.includes('where id =')) {
+        const userId = Number(params[0]);
+        // Find shops owned by user
+        const shopIds = mockDb.shops.filter(s => Number(s.owner_id) === userId).map(s => Number(s.id));
+        
+        // Remove from users
+        mockDb.users = mockDb.users.filter(u => Number(u.id) !== userId);
+        
+        // Cascade remove from shops
+        mockDb.shops = mockDb.shops.filter(s => Number(s.owner_id) !== userId);
+        
+        // Cascade remove from customer_trust
+        if (mockDb.customer_trust && mockDb.customer_trust[userId]) {
+          delete mockDb.customer_trust[userId];
+        }
+        
+        // Cascade remove from seller_performance
+        if (mockDb.seller_performance) {
+          shopIds.forEach(sid => {
+            delete mockDb.seller_performance[sid];
+          });
+        }
+        
+        // Cascade remove from notifications
+        mockDb.notifications = mockDb.notifications.filter(n => Number(n.user_id) !== userId);
+        
+        // Cascade remove from order_chats
+        if (mockDb.order_chats) {
+          mockDb.order_chats = mockDb.order_chats.filter(c => Number(c.sender_id) !== userId);
+        }
+        
+        // Set NULL in orders
+        if (mockDb.orders) {
+          mockDb.orders.forEach(o => {
+            if (Number(o.customer_id) === userId) {
+              o.customer_id = null;
+            }
+            if (shopIds.includes(Number(o.shop_id))) {
+              o.shop_id = null;
+            }
+          });
+        }
+        
+        return { rows: [] };
+      }
+    }
+
     if (normalizedText.includes('from notifications')) {
       if (normalizedText.includes('where user_id =')) {
         const userId = params[0];
@@ -1130,6 +1611,12 @@ const initDb = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    
+    // Phase 6B migrations additions for Seller Trust & Warning level constraints
+    await pool.query('ALTER TABLE shops DROP CONSTRAINT IF EXISTS shops_warning_level_check;');
+    await pool.query('ALTER TABLE complaints DROP CONSTRAINT IF EXISTS complaints_status_check;');
+    await pool.query('ALTER TABLE complaints ADD COLUMN IF NOT EXISTS seller_explanation TEXT;');
+    await pool.query('ALTER TABLE complaints ADD COLUMN IF NOT EXISTS seller_response_at TIMESTAMP WITH TIME ZONE;');
     
     // Remove Bangalore seeding
     console.log('ℹ️ Startup complete.');

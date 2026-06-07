@@ -57,6 +57,7 @@ const complaintRoutes = require('./routes/complaintRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const savingsRoutes = require('./routes/savingsRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const supportRoutes = require('./routes/supportRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/shops', shopRoutes);
@@ -70,6 +71,7 @@ app.use('/api/complaints', complaintRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/savings', savingsRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/support', supportRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

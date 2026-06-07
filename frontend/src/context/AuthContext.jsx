@@ -177,6 +177,24 @@ export const AuthProvider = ({ children }) => {
     setExtraData({});
   };
 
+  // Delete account handler
+  const deleteAccount = async () => {
+    try {
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to delete account.');
+      logout();
+      return data;
+    } catch (err) {
+      throw err;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -189,6 +207,7 @@ export const AuthProvider = ({ children }) => {
       updateRole,
       refreshProfile,
       logout,
+      deleteAccount,
       apiUrl: API_URL
     }}>
       {children}

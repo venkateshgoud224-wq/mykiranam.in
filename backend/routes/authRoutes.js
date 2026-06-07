@@ -15,6 +15,7 @@ router.patch('/role', authMiddleware, authController.updateRole);
 router.get('/profile', authMiddleware, authController.getProfile);
 router.patch('/profile/details', authMiddleware, authController.updateProfileDetails);
 router.patch('/profile/settings', authMiddleware, authController.updateSettings);
+router.delete('/profile', authMiddleware, authController.deleteAccount);
 router.post('/profile/whatsapp/send-otp', authMiddleware, authController.sendWhatsAppOTP);
 router.post('/profile/whatsapp/verify-otp', authMiddleware, authController.verifyWhatsAppOTP);
 

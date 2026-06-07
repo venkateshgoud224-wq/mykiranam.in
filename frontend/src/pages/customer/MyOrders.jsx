@@ -108,7 +108,28 @@ const SavingsSummary = ({ order }) => {
   );
 };
 
-const MyOrders = () => {
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+      
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c;
+  
+  if (d < 1) {
+    return `${Math.round(d * 1000)} meters`;
+  }
+  return `${d.toFixed(1)} km`;
+};
+
+const MyOrders = ({ coords }) => {
   const { token, apiUrl } = useAuth();
   const { socket } = useSocket();
   const [orders, setOrders] = useState([]);
@@ -141,6 +162,7 @@ const MyOrders = () => {
       if (response.ok) {
         const data = await response.json();
         setOrders(data);
+        return data;
       }
     } catch (err) {
       console.error('Error fetching orders:', err);
@@ -150,7 +172,18 @@ const MyOrders = () => {
   };
 
   useEffect(() => {
-    fetchOrders();
+    const init = async () => {
+      const data = await fetchOrders();
+      const queryParams = new URLSearchParams(window.location.search);
+      const orderId = queryParams.get('order_id');
+      if (orderId && data) {
+        const found = data.find(o => Number(o.id) === Number(orderId));
+        if (found) {
+          setVerifyingOrder(found);
+        }
+      }
+    };
+    init();
   }, []);
 
   // Listen for realtime updates to orders on the socket
@@ -261,9 +294,9 @@ const MyOrders = () => {
   return (
     <div className="space-y-6 pb-20 w-full">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-extrabold text-slate-900 flex items-center space-x-2">
+        <h2 className="text-base md:text-xl font-extrabold text-slate-900 flex flex-wrap items-center gap-2">
           <span>My Orders</span>
-          <span className="text-xs font-normal text-slate-500">({orders.length} total)</span>
+          <span className="text-xs font-normal text-slate-500 whitespace-nowrap">({orders.length} total)</span>
         </h2>
         <button
           onClick={fetchOrders}
@@ -357,6 +390,60 @@ const MyOrders = () => {
                     {order.order_status === 'Waiting For Seller' && order.item_change_history ? 'Revision in Progress' : order.order_status}
                   </span>
                 </div>
+
+                {/* Ready For Pickup Store Information */}
+                {order.order_status === 'Ready For Pickup' && (() => {
+                  const userLat = coords?.latitude;
+                  const userLng = coords?.longitude;
+                  const shopLat = order.shop_latitude ? parseFloat(order.shop_latitude) : null;
+                  const shopLng = order.shop_longitude ? parseFloat(order.shop_longitude) : null;
+                  const distanceText = (userLat && userLng && shopLat && shopLng) 
+                    ? calculateDistance(userLat, userLng, shopLat, shopLng) + ' away' 
+                    : null;
+
+                  return (
+                    <div className="p-4 bg-emerald-50 border border-emerald-250 rounded-2xl space-y-3 shadow-sm text-left animate-fadeIn">
+                      <div className="flex items-center space-x-2 text-emerald-800 font-extrabold text-xs">
+                        <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                        <span>Order Ready For Pickup</span>
+                      </div>
+
+                      <div className="text-xs space-y-1.5 text-slate-700">
+                        <p className="font-extrabold text-slate-800 text-xs">{order.shop_name}</p>
+                        <p className="text-slate-500 text-[10px] leading-tight">📍 {order.shop_address || 'Huzurnagar, Nalgonda, Telangana'}</p>
+                        <div className="flex gap-4 mt-1">
+                          {distanceText && (
+                            <p className="font-extrabold text-emerald-700 flex items-center gap-1 text-[10px]">
+                              <span>🚗</span> {distanceText}
+                            </p>
+                          )}
+                          {order.shop_working_hours && (
+                            <p className="text-slate-500 font-bold text-[10px] flex items-center gap-1">
+                              <span>⏰</span> {order.shop_working_hours}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${order.shop_latitude || 16.8970},${order.shop_longitude || 79.8705}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-slate-900 hover:bg-slate-950 text-white rounded-xl transition-all font-black text-xs shadow-sm active:scale-[0.98]"
+                        >
+                          <span>📍 Navigate To Store</span>
+                        </a>
+                        <a
+                          href={`tel:${order.seller_phone || ''}`}
+                          className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-all font-black text-xs active:scale-[0.98]"
+                        >
+                          <span>📞 Call Store</span>
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Quick Summary (Always Visible) */}
                 <div className="flex justify-between items-center mt-1 cursor-pointer" onClick={() => toggleOrderDetails(order.id)}>
@@ -505,13 +592,13 @@ const MyOrders = () => {
                 {/* Communication Actions */}
                 {!['Cancelled', 'Delivered'].includes(order.order_status) && (
                   <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-50">
-                    <button 
-                      onClick={() => alert('Seller phone number would be dialed here.')} // In a real app, you'd have the seller phone number from the API
+                    <a 
+                      href={`tel:${order.seller_phone || ''}`}
                       className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-xs"
                     >
                       <Phone className="w-4 h-4" />
                       <span>Call Seller</span>
-                    </button>
+                    </a>
                     <button 
                       onClick={() => { setChatOrderId(order.id); setChatShopName(order.shop_name); }}
                       className="flex items-center justify-center space-x-2 py-2 px-3 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl transition-colors font-semibold text-xs"

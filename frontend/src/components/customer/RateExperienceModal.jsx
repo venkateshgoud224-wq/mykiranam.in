@@ -113,19 +113,19 @@ const RateExperienceModal = ({ order, onClose, onSuccess }) => {
               />
               <div className="border-t border-slate-100 my-2" />
               <StarRating 
-                label="Service Quality" 
+                label="Pricing Accuracy" 
                 value={ratings.service_quality} 
                 onChange={(v) => setRatings({...ratings, service_quality: v})} 
               />
               <div className="border-t border-slate-100 my-2" />
               <StarRating 
-                label="Order Accuracy" 
+                label="Pickup Experience" 
                 value={ratings.order_accuracy} 
                 onChange={(v) => setRatings({...ratings, order_accuracy: v})} 
               />
               <div className="border-t border-slate-100 my-2" />
               <StarRating 
-                label="Overall Experience" 
+                label="Seller Behavior" 
                 value={ratings.overall_experience} 
                 onChange={(v) => setRatings({...ratings, overall_experience: v})} 
               />

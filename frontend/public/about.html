@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About MyKiranam | Local Grocery Marketplace</title>
+    <meta name="description" content="Learn how MyKiranam helps customers save time and money while helping local kirana stores grow through online ordering and pickup." />
+    <meta name="keywords" content="about mykiranam, kirana stores, grocery pickup, local grocery shopping, nearby grocery stores, grocery quotation, kirana marketplace" />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href="https://mykiranam.in/about.html" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mykiranam.in/about.html" />
+    <meta property="og:title" content="About MyKiranam | Local Grocery Marketplace" />
+    <meta property="og:description" content="Learn how MyKiranam helps customers save time and money while helping local kirana stores grow through online ordering and pickup." />
+    <meta property="og:image" content="https://mykiranam.in/favicon.svg" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://mykiranam.in/about.html" />
+    <meta name="twitter:title" content="About MyKiranam | Local Grocery Marketplace" />
+    <meta name="twitter:description" content="Learn how MyKiranam helps customers save time and money while helping local kirana stores grow through online ordering and pickup." />
+    <meta name="twitter:image" content="https://mykiranam.in/favicon.svg" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Premium Custom Styles -->
+    <style>
+        :root {
+            --color-primary: #cca725;
+            --color-primary-light: #f3eebc;
+            --color-primary-dark: #886217;
+            --color-slate-50: #f8fafc;
+            --color-slate-100: #f1f5f9;
+            --color-slate-800: #1e293b;
+            --color-slate-900: #0f172a;
+            --color-emerald-500: #10b981;
+            --color-emerald-50: #ecfdf5;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-slate-50);
+            color: #475569;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4 {
+            font-family: 'Outfit', sans-serif;
+            color: var(--color-slate-900);
+            font-weight: 800;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        /* Navbar Styling */
+        header {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--color-slate-100);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 4rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .logo-box {
+            background-color: var(--color-primary);
+            color: white;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            box-shadow: 0 4px 12px rgba(204, 167, 37, 0.2);
+        }
+
+        .logo-text {
+            font-size: 1.25rem;
+            font-weight: 900;
+            color: var(--color-slate-900);
+        }
+
+        .logo-text span {
+            color: var(--color-primary);
+        }
+
+        .logo-subtext {
+            font-size: 0.5rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin-top: -0.25rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #64748b;
+            font-size: 0.875rem;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--color-primary-dark);
+        }
+
+        .btn-primary {
+            background-color: var(--color-primary);
+            color: var(--color-slate-900) !important;
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.75rem;
+            font-weight: 700 !important;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(204, 167, 37, 0.15);
+        }
+
+        .btn-primary:hover {
+            background-color: #bfa020;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(204, 167, 37, 0.25);
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, #fefefc 0%, #faf8e5 100%);
+            padding: 5rem 0 4rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(204, 167, 37, 0.1);
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            background-color: rgba(204, 167, 37, 0.1);
+            color: var(--color-primary-dark);
+            padding: 0.375rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero h1 {
+            font-size: 2.75rem;
+            line-height: 1.2;
+            margin-bottom: 1.5rem;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero p {
+            font-size: 1.125rem;
+            max-width: 600px;
+            margin: 0 auto 2.5rem;
+            color: #64748b;
+        }
+
+        /* Value Propositions */
+        .section-title {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-title h2 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .section-title p {
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .features {
+            padding: 5rem 0;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid var(--color-slate-100);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.04);
+            border-color: rgba(204, 167, 37, 0.2);
+        }
+
+        .card-icon {
+            width: 3rem;
+            height: 3rem;
+            background-color: var(--color-slate-100);
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s;
+        }
+
+        .card:hover .card-icon {
+            background-color: var(--color-primary-light);
+            color: var(--color-primary-dark);
+        }
+
+        .card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .card p {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        /* How it works */
+        .how-it-works {
+            background-color: var(--color-slate-100);
+            padding: 5rem 0;
+            border-radius: 3rem;
+            margin: 2rem 1.5rem;
+        }
+
+        .steps-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+            position: relative;
+        }
+
+        .step {
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .step-number {
+            width: 2.5rem;
+            height: 2.5rem;
+            background-color: var(--color-primary);
+            color: var(--color-slate-900);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.125rem;
+            margin: 0 auto 1.5rem;
+            border: 4px solid white;
+            box-shadow: 0 4px 10px rgba(204, 167, 37, 0.3);
+        }
+
+        .step h3 {
+            font-size: 1.125rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .step p {
+            font-size: 0.825rem;
+            color: #64748b;
+        }
+
+        /* Comparison Section */
+        .comparison {
+            padding: 5rem 0;
+        }
+
+        .comparison-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: white;
+            border: 1px solid var(--color-slate-100);
+            border-radius: 2rem;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+        }
+
+        .comp-col {
+            padding: 3rem;
+        }
+
+        .comp-col:first-child {
+            border-right: 1px solid var(--color-slate-100);
+            background-color: #fffafb;
+        }
+
+        .comp-col:last-child {
+            background: linear-gradient(180deg, #ffffff 0%, #fdfdf9 100%);
+        }
+
+        .comp-header {
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .comp-list {
+            list-style: none;
+            display: flex;
+            flex-col: column;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .comp-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .comp-list svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            flex-shrink: 0;
+            margin-top: 0.125rem;
+        }
+
+        .text-red {
+            color: #ef4444;
+        }
+
+        .text-green {
+            color: var(--color-emerald-500);
+        }
+
+        /* Footer */
+        footer {
+            background-color: var(--color-slate-900);
+            color: #94a3b8;
+            padding: 4rem 0 2rem;
+            font-size: 0.875rem;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 3rem;
+            margin-bottom: 3rem;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 3rem;
+        }
+
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            margin-bottom: 1.25rem;
+        }
+
+        .footer-logo .logo-box {
+            box-shadow: none;
+        }
+
+        .footer-logo .logo-text {
+            color: white;
+        }
+
+        .footer-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .footer-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: white;
+        }
+
+        .footer-copyright {
+            text-align: center;
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+            .comparison-box {
+                grid-template-columns: 1fr;
+            }
+            .comp-col:first-child {
+                border-right: none;
+                border-bottom: 1px solid var(--color-slate-100);
+            }
+            .footer-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+            .how-it-works {
+                margin: 2rem 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header / Nav -->
+    <header>
+        <div class="container nav-container">
+            <a href="/" class="logo">
+                <div class="logo-box">🏪</div>
+                <div>
+                    <div class="logo-text">Kiranam<span>.in</span></div>
+                    <div class="logo-subtext">Hyperlocal Queue Engine</div>
+                </div>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/about.html">About</a></li>
+                <li><a href="/seller.html">Sell Online</a></li>
+                <li><a href="/contact.html">Contact</a></li>
+                <li><a href="/" class="btn-primary">Order Online</a></li>
+            </ul>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <span class="hero-badge">About MyKiranam</span>
+            <h1>Buy What You Need. Save Time & Money.</h1>
+            <p>We connect neighborhood grocery shoppers directly with trusted local kirana stores, offering a transparent, checkout-optimized local marketplace.</p>
+            <a href="/" class="btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem;">Go To Marketplace</a>
+        </div>
+    </section>
+
+    <!-- Value Proposition Cards -->
+    <section class="features">
+        <div class="container">
+            <div class="section-title">
+                <h2>Why Choose MyKiranam?</h2>
+                <p>A smart, digital alternative to typical delivery apps and offline supermarkets</p>
+            </div>
+            
+            <div class="grid-3">
+                <!-- Card 1 -->
+                <div class="card">
+                    <div class="card-icon">💵</div>
+                    <h3>Smart Savings</h3>
+                    <p>Get direct, itemized quotations from local sellers. Pay zero delivery charges, zero platform fees, and zero checkout packaging markups.</p>
+                </div>
+                <!-- Card 2 -->
+                <div class="card">
+                    <div class="card-icon">🔎</div>
+                    <h3>Quality Verification</h3>
+                    <p>Inspect brands, verify freshness (vegetables, dairy), and check manufacturing dates at the counter before making payment. Reject bad items instantly.</p>
+                </div>
+                <!-- Card 3 -->
+                <div class="card">
+                    <div class="card-icon">⚡</div>
+                    <h3>Saves Time</h3>
+                    <p>No waiting in supermarket queues. Submit your order list (chitti) online, receive quotes, let the store pack it, and pick it up at your convenience.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="container">
+        <div class="how-it-works">
+            <div class="section-title">
+                <h2>How Ordering Works</h2>
+                <p>A seamless 4-step hyperlocal process</p>
+            </div>
+            <div class="steps-container">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Upload Chitti</h3>
+                    <p>Enter your list or upload a photo of your paper chitti to nearby shops online.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Receive Quotes</h3>
+                    <p>Local shops bid with exact prices and availability estimates within minutes.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Verify at Counter</h3>
+                    <p>Visit the shop when ready. Verify items, brands, and condition personally.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h3>Pay and Pickup</h3>
+                    <p>Pay the shop owner directly (cash or UPI) after you are fully satisfied.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Comparison Section -->
+    <section class="comparison">
+        <div class="container">
+            <div class="section-title">
+                <h2>The MyKiranam Difference</h2>
+                <p>How we compare to conventional ordering channels</p>
+            </div>
+            <div class="comparison-box">
+                <div class="comp-col">
+                    <div class="comp-header">
+                        <span class="text-red">❌</span>
+                        <h3>Delivery Apps & Supermarkets</h3>
+                    </div>
+                    <ul class="comp-list">
+                        <li>
+                            <svg class="text-red" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
+                            <span>High convenience fees, platform costs, and surge delivery pricing.</span>
+                        </li>
+                        <li>
+                            <svg class="text-red" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
+                            <span>Unwanted brand substitutions or bruised produce packed in opaque bags.</span>
+                        </li>
+                        <li>
+                            <svg class="text-red" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
+                            <span>Waiting 3-5 days for online support ticket refund approvals.</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="comp-col">
+                    <div class="comp-header">
+                        <span class="text-green">✔</span>
+                        <h3>MyKiranam Marketplace</h3>
+                    </div>
+                    <ul class="comp-list">
+                        <li>
+                            <svg class="text-green" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                            <span>Zero delivery charges, zero platform markup, and zero packing fees.</span>
+                        </li>
+                        <li>
+                            <svg class="text-green" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                            <span>Inspect brands, product quality, and expiry dates before paying.</span>
+                        </li>
+                        <li>
+                            <svg class="text-green" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                            <span>Instant counterside adjustments and zero-refund-needed transactions.</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container footer-grid">
+            <div>
+                <a href="/" class="footer-logo">
+                    <div class="logo-box">🏪</div>
+                    <div class="logo-text">Kiranam<span>.in</span></div>
+                </a>
+                <p>Hyperlocal Queue-Managed Kirana Marketplace. We help local communities thrive digitally.</p>
+            </div>
+            <div>
+                <h4 style="color: white; margin-bottom: 1rem;">Platform</h4>
+                <ul class="footer-links">
+                    <li><a href="/about.html">About Us</a></li>
+                    <li><a href="/seller.html">Sell With Us</a></li>
+                    <li><a href="/contact.html">Contact Support</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 style="color: white; margin-bottom: 1rem;">Legal</h4>
+                <ul class="footer-links">
+                    <li><a href="/privacy.html">Privacy Policy</a></li>
+                    <li><a href="/terms.html">Terms of Service</a></li>
+                    <li><a href="/refund.html">Refund Policy</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-copyright">
+            &copy; 2026 Kiranam.in Hyperlocal Marketplace. Operated by Nelapatla Venkatesh. Kondapur, Hyderabad, India.
+        </div>
+    </footer>
+
+</body>
+</html>

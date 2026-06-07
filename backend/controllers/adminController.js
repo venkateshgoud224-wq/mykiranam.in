@@ -3,6 +3,7 @@ const socketService = require('../services/socketService');
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
+const sellerPerformanceService = require('../services/sellerPerformanceService');
 // 1. Get list of all shops/sellers for admin audits
 const getSellersList = async (req, res) => {
   try {
@@ -265,8 +266,8 @@ const getComplaints = async (req, res) => {
       `SELECT c.*, u.name as customer_name, s.shop_name, o.custom_order_id
        FROM complaints c
        JOIN users u ON c.customer_id = u.id
-       JOIN shops s ON c.shop_id = s.id
-       JOIN orders o ON c.order_id = o.id
+       LEFT JOIN shops s ON c.shop_id = s.id
+       LEFT JOIN orders o ON c.order_id = o.id
        ORDER BY c.created_at DESC`
     );
     return res.status(200).json(result.rows);
@@ -294,59 +295,85 @@ const verifyComplaint = async (req, res) => {
 
     // Mark complaint as verified
     await db.query(
-      `UPDATE complaints SET is_verified = true, status = 'Closed', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      `UPDATE complaints SET is_verified = true, status = 'Verified', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
       [id]
     );
 
-    // Get current shop stats
-    const shopRes = await db.query('SELECT verified_complaints_count, warning_level, suspension_end_date FROM shops WHERE id = $1', [complaint.shop_id]);
-    const shop = shopRes.rows[0];
-
-    let newCount = (shop.verified_complaints_count || 0) + 1;
-    let newLevel = shop.warning_level;
-    let newSuspensionDate = shop.suspension_end_date;
-    let reason = action_notes || `Complaint #${id} verified.`;
-
-    // Rule engine for strikes
-    if (newCount === 1) newLevel = 'Warning';
-    else if (newCount === 2) newLevel = 'Monitoring';
-    else if (newCount === 3) newLevel = 'Final Warning';
-    else if (newCount === 4) {
-      newLevel = 'Suspended';
-      // 15 days suspension
-      const date = new Date();
-      date.setDate(date.getDate() + 15);
-      newSuspensionDate = date;
-    }
-    else if (newCount >= 5) {
-      newLevel = 'Banned';
-      newSuspensionDate = null; // Banned forever
+    if (!complaint.shop_id) {
+      return res.status(200).json({
+        message: 'Complaint verified successfully (General Ticket).',
+        new_verified_count: 0,
+        new_warning_level: 'None',
+        trust_score: 100,
+        complaint_rate: 0
+      });
     }
 
-    // Update shop
-    await db.query(
-      `UPDATE shops 
-       SET verified_complaints_count = $1, warning_level = $2, suspension_end_date = $3 
-       WHERE id = $4`,
-      [newCount, newLevel, newSuspensionDate, complaint.shop_id]
-    );
+    // Recalculate seller performance
+    const perf = await sellerPerformanceService.recalculateSellerPerformance(complaint.shop_id);
 
-    // Record suspension history
+    // Record suspension/action history
+    let reason = action_notes || `Complaint #${id} verified (Issue: ${complaint.issue_type}).`;
     await db.query(
       `INSERT INTO suspension_history (shop_id, warning_level, reason, suspended_until)
        VALUES ($1, $2, $3, $4)`,
-      [complaint.shop_id, newLevel, reason, newSuspensionDate]
+      [complaint.shop_id, perf.warningLevel, reason, perf.suspensionEndDate]
     );
 
     return res.status(200).json({
       message: 'Complaint verified successfully. Seller status updated.',
-      new_verified_count: newCount,
-      new_warning_level: newLevel
+      new_verified_count: perf.verifiedCount,
+      new_warning_level: perf.warningLevel,
+      trust_score: perf.trustScore,
+      complaint_rate: perf.complaintRate
     });
 
   } catch (err) {
     console.error('Error verifying complaint:', err);
     return res.status(500).json({ error: 'Server error verifying complaint.' });
+  }
+};
+
+const rejectComplaint = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const complaintRes = await db.query('SELECT * FROM complaints WHERE id = $1', [id]);
+    if (complaintRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Complaint not found.' });
+    }
+    const complaint = complaintRes.rows[0];
+
+    // Mark complaint as rejected
+    await db.query(
+      `UPDATE complaints SET is_verified = false, status = 'Rejected', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [id]
+    );
+
+    if (!complaint.shop_id) {
+      return res.status(200).json({
+        message: 'Complaint rejected successfully.',
+        new_verified_count: 0,
+        new_warning_level: 'None',
+        trust_score: 100,
+        complaint_rate: 0
+      });
+    }
+
+    // Recalculate seller performance
+    const perf = await sellerPerformanceService.recalculateSellerPerformance(complaint.shop_id);
+
+    return res.status(200).json({
+      message: 'Complaint rejected successfully. Seller status updated.',
+      new_verified_count: perf.verifiedCount,
+      new_warning_level: perf.warningLevel,
+      trust_score: perf.trustScore,
+      complaint_rate: perf.complaintRate
+    });
+
+  } catch (err) {
+    console.error('Error rejecting complaint:', err);
+    return res.status(500).json({ error: 'Server error rejecting complaint.' });
   }
 };
 
@@ -422,5 +449,6 @@ module.exports = {
   getTrustDashboard,
   getComplaints,
   verifyComplaint,
+  rejectComplaint,
   uploadPricesCsv
 };

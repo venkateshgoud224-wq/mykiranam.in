@@ -5,7 +5,7 @@ import { useGeolocation } from '../../hooks/useGeolocation';
 import { LogOut, Bell, MapPin, Store, User, CheckCircle2, AlertCircle } from 'lucide-react';
 import NotificationsDropdown from './NotificationsDropdown';
 
-const Navbar = ({ onSetCoords, currentCoords }) => {
+const Navbar = ({ onSetCoords, currentCoords, setActiveTab }) => {
   const { user, logout, apiUrl, token, refreshProfile } = useAuth();
   const { unreadCount } = useSocket();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -130,7 +130,7 @@ const Navbar = ({ onSetCoords, currentCoords }) => {
                     )}
                   </button>
                   {showNotifications && (
-                    <NotificationsDropdown onClose={() => setShowNotifications(false)} />
+                    <NotificationsDropdown onClose={() => setShowNotifications(false)} setActiveTab={setActiveTab} />
                   )}
                 </div>
               )}
@@ -185,7 +185,7 @@ const Navbar = ({ onSetCoords, currentCoords }) => {
                   )}
                 </button>
                 {showNotifications && (
-                  <NotificationsDropdown onClose={() => setShowNotifications(false)} />
+                  <NotificationsDropdown onClose={() => setShowNotifications(false)} setActiveTab={setActiveTab} />
                 )}
               </div>
             )}

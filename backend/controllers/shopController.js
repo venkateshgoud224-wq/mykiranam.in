@@ -46,7 +46,7 @@ const getShops = async (req, res) => {
   const customerLng = lng ? parseFloat(lng) : 77.5946;
 
   try {
-    // Phase 2 Rule: Query only VERIFIED shops
+    // Phase 2 Rule: Query only VERIFIED shops that are not suspended (Warning 5)
     const result = await db.query(
       `SELECT s.*, 
               COALESCE(sp.trust_score, 100) as seller_trust_score,
@@ -55,7 +55,7 @@ const getShops = async (req, res) => {
               COALESCE(sp.verified_complaints, 0) as verified_complaints
        FROM shops s
        LEFT JOIN seller_performance sp ON s.id = sp.shop_id
-       WHERE s.verification_status = 'Verified'`
+       WHERE s.verification_status = 'Verified' AND (s.warning_level IS NULL OR s.warning_level != 'Warning 5')`
     );
     let shops = result.rows.map(shop => {
       const distance = calculateDistance(
@@ -81,6 +81,19 @@ const getShops = async (req, res) => {
       shops = shops.filter(s => s.distance <= 5.0);
     }
 
+    // Warning level rank penalty helper (Warning 3 & 4 appear lower)
+    const warningPenalty = (shop) => {
+      return (shop.warning_level === 'Warning 3' || shop.warning_level === 'Warning 4') ? 1 : 0;
+    };
+
+    // Helper to wrap comparisons with the warning level penalty
+    const penalizeAndSort = (a, b, compareFn) => {
+      const penaltyA = warningPenalty(a);
+      const penaltyB = warningPenalty(b);
+      if (penaltyA !== penaltyB) return penaltyA - penaltyB;
+      return compareFn(a, b);
+    };
+
     // Apply sorting
     const statusWeight = (status) => {
       if (status === 'Available') return 0;
@@ -89,30 +102,32 @@ const getShops = async (req, res) => {
     };
 
     if (sort === 'nearest') {
-      shops.sort((a, b) => a.distance - b.distance);
+      shops.sort((a, b) => penalizeAndSort(a, b, (x, y) => x.distance - y.distance));
     } else if (sort === 'rating') {
-      shops.sort((a, b) => b.rating - a.rating);
+      shops.sort((a, b) => penalizeAndSort(a, b, (x, y) => y.rating - x.rating));
+    } else if (sort === 'response_time') {
+      shops.sort((a, b) => penalizeAndSort(a, b, (x, y) => x.average_response_time - y.average_response_time));
     } else if (sort === 'waiting_time') {
-      shops.sort((a, b) => a.waiting_time - b.waiting_time);
+      shops.sort((a, b) => penalizeAndSort(a, b, (x, y) => x.waiting_time - y.waiting_time));
     } else if (sort === 'discounts') {
-      shops.sort((a, b) => {
-        const hasA = a.discounts && a.discounts !== 'No discounts' ? 1 : 0;
-        const hasB = b.discounts && b.discounts !== 'No discounts' ? 1 : 0;
+      shops.sort((a, b) => penalizeAndSort(a, b, (x, y) => {
+        const hasA = x.discounts && x.discounts !== 'No discounts' ? 1 : 0;
+        const hasB = y.discounts && y.discounts !== 'No discounts' ? 1 : 0;
         return hasB - hasA;
-      });
+      }));
     } else if (sort === 'available') {
-      shops.sort((a, b) => statusWeight(a.availability_status) - statusWeight(b.availability_status));
+      shops.sort((a, b) => penalizeAndSort(a, b, (x, y) => statusWeight(x.availability_status) - statusWeight(y.availability_status)));
     } else {
       // Default Queue Balanced Sorting
-      shops.sort((a, b) => {
-        const statA = statusWeight(a.availability_status);
-        const statB = statusWeight(b.availability_status);
+      shops.sort((a, b) => penalizeAndSort(a, b, (x, y) => {
+        const statA = statusWeight(x.availability_status);
+        const statB = statusWeight(y.availability_status);
         if (statA !== statB) return statA - statB;
-        if (a.active_orders !== b.active_orders) return a.active_orders - b.active_orders;
-        if (a.waiting_time !== b.waiting_time) return a.waiting_time - b.waiting_time;
-        if (Math.abs(a.distance - b.distance) > 0.1) return a.distance - b.distance;
-        return b.rating - a.rating;
-      });
+        if (x.active_orders !== y.active_orders) return x.active_orders - y.active_orders;
+        if (x.waiting_time !== y.waiting_time) return x.waiting_time - y.waiting_time;
+        if (Math.abs(x.distance - y.distance) > 0.1) return x.distance - y.distance;
+        return y.rating - x.rating;
+      }));
     }
 
     return res.status(200).json(shops);
@@ -327,7 +342,7 @@ const verifyOtp = async (req, res) => {
 const verifyShop = async (req, res) => {
   const sellerId = req.user.id;
   const files = req.files; // Multer uploads object
-  const { working_hours, shop_category } = req.body;
+  const { working_hours, shop_category, shop_name, address, latitude, longitude } = req.body;
 
   if (!files || !files.image_front || !files.image_counter || !files.image_inside1 || !files.image_inside2 || !files.image_additional) {
     return res.status(400).json({ error: 'All 5 mandatory shop images are required.' });
@@ -346,6 +361,19 @@ const verifyShop = async (req, res) => {
     }
     const shop = shopCheck.rows[0];
 
+    const newLat = latitude ? parseFloat(latitude) : parseFloat(shop.latitude);
+    const newLng = longitude ? parseFloat(longitude) : parseFloat(shop.longitude);
+
+    // Coordinate duplication check
+    if (latitude || longitude) {
+      const duplicateShopName = await checkLocationDuplicate(newLat, newLng, shop.id);
+      if (duplicateShopName) {
+        return res.status(400).json({
+          error: `Fraud coordinates flagged. Coordinates match too closely with registered shop: "${duplicateShopName}".`
+        });
+      }
+    }
+
     // Upload all 5 files to Storage
     const imgFront = await uploadImage(files.image_front[0]);
     const imgCounter = await uploadImage(files.image_counter[0]);
@@ -358,13 +386,18 @@ const verifyShop = async (req, res) => {
       `UPDATE shops 
        SET verification_status = 'Under Review', verified_by_seller = true,
            working_hours = $1, shop_category = $2,
-           image_front = $3, image_counter = $4, image_inside1 = $5, image_inside2 = $6, image_additional = $7
-       WHERE id = $8 
+           image_front = $3, image_counter = $4, image_inside1 = $5, image_inside2 = $6, image_additional = $7,
+           shop_name = $8, address = $9, latitude = $10, longitude = $11
+       WHERE id = $12 
        RETURNING *`,
       [
         working_hours || shop.working_hours, 
         shop_category || shop.shop_category,
         imgFront, imgCounter, imgInside1, imgInside2, imgAdd,
+        shop_name || shop.shop_name,
+        address || shop.address,
+        newLat,
+        newLng,
         shop.id
       ]
     );

@@ -17,7 +17,11 @@ router.use(authMiddleware);
 // Create a complaint
 router.post('/', evidenceUploads, complaintController.createComplaint);
 
-// Get my complaints
+// Get my complaints (for customers)
 router.get('/my', complaintController.getMyComplaints);
+
+// Disputes routes (for sellers)
+router.get('/shop-disputes', complaintController.getShopDisputes);
+router.patch('/:id/explanation', complaintController.submitExplanation);
 
 module.exports = router;

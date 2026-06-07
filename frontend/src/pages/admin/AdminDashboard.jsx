@@ -19,6 +19,11 @@ const AdminDashboard = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
 
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
+
 
   const fetchSellers = async () => {
     try {
@@ -83,6 +88,69 @@ const AdminDashboard = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    // Load Leaflet CSS
+    const cssId = 'leaflet-css';
+    if (!document.getElementById(cssId)) {
+      const link = document.createElement('link');
+      link.id = cssId;
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    // Load Leaflet JS
+    const jsId = 'leaflet-js';
+    const existingScript = document.getElementById(jsId);
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.id = jsId;
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.async = true;
+      script.onload = () => setLeafletLoaded(true);
+      document.body.appendChild(script);
+    } else {
+      if (window.L) {
+        setLeafletLoaded(true);
+      } else {
+        existingScript.addEventListener('load', () => setLeafletLoaded(true));
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!leafletLoaded || !selectedSeller || !mapContainerRef.current) return;
+
+    const L = window.L;
+    if (!L) return; // Prevent crash if Leaflet is not yet ready on window
+
+    const initialLat = parseFloat(selectedSeller.latitude) || 12.9716;
+    const initialLng = parseFloat(selectedSeller.longitude) || 77.5946;
+
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+
+    const map = L.map(mapContainerRef.current).setView([initialLat, initialLng], 15);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const marker = L.marker([initialLat, initialLng], { draggable: false }).addTo(map);
+
+    mapRef.current = map;
+    markerRef.current = marker;
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [leafletLoaded, selectedSeller]);
 
   const handleVerifyStatus = async (sellerId, newStatus) => {
     setActionLoading(true);
@@ -739,6 +807,29 @@ const AdminDashboard = () => {
                     <MapPin className="w-3.5 h-3.5 text-slate-400" />
                     <span>{selectedSeller.latitude}, {selectedSeller.longitude}</span>
                   </span>
+                </div>
+              </div>
+
+              {/* Leaflet Map Preview (Read-Only) */}
+              <div className="space-y-1">
+                <span className="block text-[10px] text-slate-400 font-bold uppercase mb-1">
+                  Pinned Store Location Map
+                </span>
+                <div 
+                  ref={mapContainerRef} 
+                  className="w-full h-40 rounded-2xl border border-slate-200 overflow-hidden bg-slate-100 z-10" 
+                  style={{ minHeight: '150px' }}
+                />
+                <div className="flex justify-between items-center text-[10px] text-slate-500 mt-1">
+                  <span>Coordinates: {selectedSeller.latitude}, {selectedSeller.longitude}</span>
+                  <a 
+                    href={`https://www.google.com/maps/search/?api=1&query=${selectedSeller.latitude},${selectedSeller.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-700 font-bold flex items-center gap-0.5 transition-colors"
+                  >
+                    Verify on Google Maps ↗
+                  </a>
                 </div>
               </div>
 

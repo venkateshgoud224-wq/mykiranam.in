@@ -444,7 +444,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                           <span>Total Bill Amount:</span>
                           <span>{order.amount ? `₹${order.amount}` : 'Calculating...'}</span>
                         </div>
-                        {order.payment_method === 'Razorpay UPI' && order.payment_status === 'Paid' && (
+                        {(order.payment_method === 'Razorpay UPI' || order.payment_method === 'PhonePe UPI') && order.payment_status === 'Paid' && (
                           <div className="bg-amber-50 rounded-xl p-2.5 mt-2 border border-amber-200">
                             <div className="flex justify-between items-center text-xs text-emerald-700 font-bold">
                               <span>Advance Paid Online (10%):</span>
@@ -534,7 +534,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
       {/* OTP Dialog Modal */}
       {otpDialogOrderId && (() => {
         const order = activeOrders.find(o => o.id === otpDialogOrderId);
-        const isAdvancePaid = order?.payment_method === 'Razorpay UPI' && order?.payment_status === 'Paid';
+        const isAdvancePaid = (order?.payment_method === 'Razorpay UPI' || order?.payment_method === 'PhonePe UPI') && order?.payment_status === 'Paid';
         const pendingAmount = isAdvancePaid 
           ? (parseFloat(order.amount) - Math.min(parseFloat(order.amount) * 0.1, 50)).toFixed(2)
           : order?.amount;
@@ -547,10 +547,12 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                 Ask the customer for their 6-digit Pickup OTP to mark this order as delivered.
               </p>
               
-              {isAdvancePaid && (
+              {(isAdvancePaid || order?.payment_method === 'Pay During Pickup') && (
                 <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
-                  <span className="block text-xs text-amber-700 font-bold mb-1">Please collect remaining balance:</span>
-                  <span className="block text-3xl font-black text-amber-600">₹{pendingAmount}</span>
+                  <span className="block text-xs text-amber-700 font-bold mb-1">
+                    {order?.payment_method === 'Pay During Pickup' ? 'Please collect full amount at shop:' : 'Please collect remaining balance:'}
+                  </span>
+                  <span className="block text-3xl font-black text-amber-600">₹{parseFloat(pendingAmount || 0).toFixed(2)}</span>
                 </div>
               )}
             <input 
