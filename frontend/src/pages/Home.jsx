@@ -80,8 +80,7 @@ const Home = () => {
               }
             });
             window.google.accounts.id._isInitializedByMyKiranam = true;
-            // Instantly display the Google One-Tap prompt
-            window.google.accounts.id.prompt();
+            // Removed window.google.accounts.id.prompt() so accounts only display when clicked
           } catch (gsiErr) {
             console.warn('Google Identity Services initialization warning:', gsiErr);
           }
@@ -91,10 +90,10 @@ const Home = () => {
         const btn = document.getElementById("googleGsiButton");
         if (btn) {
           try {
-            // Render the official, fully visible Google button to avoid clickjacking protection issues in live
+            // Render the official Google button as an icon to prevent personalized display and just show the 'G'
             window.google.accounts.id.renderButton(
               btn,
-              { type: "standard", theme: "outline", size: "large", text: "continue_with", shape: "pill" }
+              { type: "icon", theme: "outline", size: "large", shape: "circle" }
             );
           } catch (e) {
             console.warn("Failed to render Google button:", e);

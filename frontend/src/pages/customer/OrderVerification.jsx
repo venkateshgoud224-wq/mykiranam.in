@@ -219,16 +219,26 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const handleDownloadQR = () => {
     const svg = document.getElementById("QRCodeSVG");
     if (!svg) return;
-    const svgData = new XMLSerializer().serializeToString(svg);
+    
+    let svgData = new XMLSerializer().serializeToString(svg);
+    if (!svgData.includes('xmlns=')) {
+      svgData = svgData.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+    }
+
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
+    
     img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
+      const qrSize = 512;
+      const padding = 40;
+      canvas.width = qrSize + (padding * 2);
+      canvas.height = qrSize + (padding * 2);
+      
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, padding, padding, qrSize, qrSize);
+      
       const pngFile = canvas.toDataURL("image/png");
       const downloadLink = document.createElement("a");
       downloadLink.download = `QR_${order.id}.png`;
