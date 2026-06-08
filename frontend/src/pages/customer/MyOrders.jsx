@@ -431,16 +431,23 @@ const MyOrders = ({ coords }) => {
                         >
                           <span>📍 Navigate To Store</span>
                         </a>
-                        <a
-                          href={`tel:${String(order.seller_phone || '').replace(/\\s+/g, '')}`}
+                        <button
                           onClick={(e) => {
-                            const phone = String(order.seller_phone || '').replace(/\\s+/g, '');
-                            if (phone) navigator.clipboard.writeText(phone).catch(() => {});
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const rawPhone = String(order.seller_phone || '');
+                            const cleanPhone = rawPhone.replace(/[^0-9+]/g, '');
+                            if (cleanPhone) {
+                              navigator.clipboard.writeText(cleanPhone).catch(() => {});
+                              window.location.href = `tel:${cleanPhone}`;
+                            } else {
+                              alert("No valid phone number found.");
+                            }
                           }}
-                          className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-all font-black text-xs active:scale-[0.98]"
+                          className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-all font-black text-xs active:scale-[0.98] w-full"
                         >
                           <span>📞 Call Store {order.seller_phone ? `(${order.seller_phone})` : ''}</span>
-                        </a>
+                        </button>
                       </div>
                     </div>
                   );
@@ -593,17 +600,24 @@ const MyOrders = ({ coords }) => {
                 {/* Communication Actions */}
                 {!['Cancelled', 'Delivered'].includes(order.order_status) && (
                   <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-50">
-                    <a 
-                      href={`tel:${String(order.seller_phone || '').replace(/\\s+/g, '')}`}
+                    <button 
                       onClick={(e) => {
-                        const phone = String(order.seller_phone || '').replace(/\\s+/g, '');
-                        if (phone) navigator.clipboard.writeText(phone).catch(() => {});
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const rawPhone = String(order.seller_phone || '');
+                        const cleanPhone = rawPhone.replace(/[^0-9+]/g, '');
+                        if (cleanPhone) {
+                          navigator.clipboard.writeText(cleanPhone).catch(() => {});
+                          window.location.href = `tel:${cleanPhone}`;
+                        } else {
+                          alert("No valid phone number found.");
+                        }
                       }}
-                      className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-xs"
+                      className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-xs w-full"
                     >
                       <Phone className="w-4 h-4" />
                       <span>Call Seller {order.seller_phone ? `(${order.seller_phone})` : ''}</span>
-                    </a>
+                    </button>
                     <button 
                       onClick={() => { setChatOrderId(order.id); setChatShopName(order.shop_name); }}
                       className="flex items-center justify-center space-x-2 py-2 px-3 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl transition-colors font-semibold text-xs"
