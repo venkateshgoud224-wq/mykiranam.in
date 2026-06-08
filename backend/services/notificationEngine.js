@@ -164,7 +164,7 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
           text
         );
       } else if (type === 'new_message') {
-        const text = `You have a new chat message regarding Order ${orderIdStr}!\n\n👤 From: ${metadata.senderName || 'User'}\n💬 Message: "${metadata.chatMessage || ''}"\n\nPlease check your app to reply.`;
+        const text = `Hey you received a message from ${metadata.senderName || 'User'} about the order please look into it.\n\n📦 Order ID: ${orderIdStr}\n💬 Message Preview: "${metadata.chatMessage || ''}..."\n\nPlease check your app to reply.`;
         waPromise = whatsappService.sendWhatsAppMessage(
           user.whatsapp_number,
           '💬 New Message',

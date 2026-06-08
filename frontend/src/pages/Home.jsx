@@ -80,6 +80,8 @@ const Home = () => {
               }
             });
             window.google.accounts.id._isInitializedByMyKiranam = true;
+            // Instantly display the Google One-Tap prompt
+            window.google.accounts.id.prompt();
           } catch (gsiErr) {
             console.warn('Google Identity Services initialization warning:', gsiErr);
           }
@@ -89,9 +91,10 @@ const Home = () => {
         const btn = document.getElementById("googleGsiButton");
         if (btn) {
           try {
+            // Render the official, fully visible Google button to avoid clickjacking protection issues in live
             window.google.accounts.id.renderButton(
               btn,
-              { type: "icon", shape: "circle", size: "large", theme: "outline" }
+              { type: "standard", theme: "outline", size: "large", text: "continue_with", shape: "pill" }
             );
           } catch (e) {
             console.warn("Failed to render Google button:", e);
@@ -524,24 +527,8 @@ const Home = () => {
                   <div className="relative flex justify-center text-[9px] font-black uppercase"><span className="bg-white px-3 text-slate-400">Or continue with</span></div>
                 </div>
 
-                <div className="flex justify-center">
-                  <div className="relative w-14 h-14 flex items-center justify-center">
-                    {/* Visual Button representation */}
-                    <div className="absolute inset-0 rounded-full border-2 border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 hover:shadow-lg active:scale-95 transition-all duration-200 flex items-center justify-center shadow-md pointer-events-none">
-                      <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.54 5.54 0 0 1-2.4 3.64v3.01h3.89c2.28-2.1 3.59-5.19 3.59-8.89z"/>
-                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.89-3.01c-1.07.72-2.45 1.15-4.04 1.15-3.11 0-5.74-2.1-6.68-4.92H1.27v3.1C3.26 21.3 7.31 24 12 24z"/>
-                        <path fill="#FBBC05" d="M5.32 14.31A7.17 7.17 0 0 1 4.95 12c0-.81.14-1.59.37-2.31V6.59H1.27A11.94 11.94 0 0 0 0 12c0 1.93.46 3.75 1.27 5.41l4.05-3.1z"/>
-                        <path fill="#EA4335" d="M12 4.77c1.76 0 3.33.6 4.57 1.8l3.42-3.42C17.95 1.19 15.23 0 12 0 7.31 0 3.26 2.7 1.27 6.59l4.05 3.1C6.26 6.87 8.89 4.77 12 4.77z"/>
-                      </svg>
-                    </div>
-                    {/* The real Google button rendered invisibly on top */}
-                    <div 
-                      id="googleGsiButton" 
-                      className="absolute inset-0 opacity-0 cursor-pointer overflow-hidden [&_iframe]:!w-full [&_iframe]:!h-full [&_iframe]:!max-w-none"
-                      title="Continue with Google"
-                    ></div>
-                  </div>
+                <div className="flex justify-center mt-2">
+                  <div id="googleGsiButton" className="w-fit flex justify-center items-center"></div>
                 </div>
               </div>
             )}

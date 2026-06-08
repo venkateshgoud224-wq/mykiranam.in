@@ -390,7 +390,7 @@ const Profile = () => {
                 </li>
                 <li className="flex items-start">
                   <span className="mr-1.5 select-none text-amber-500">•</span>
-                  <span>Zero delivery fees & surprise bills</span>
+                  <span>Zero hidden fees & surprise bills</span>
                 </li>
                 <li className="flex items-start">
                   <span className="mr-1.5 select-none text-amber-500">•</span>
@@ -965,15 +965,15 @@ const Profile = () => {
                         <div>
                           <div className="flex items-center space-x-2 mb-2">
                             <span className="p-1.5 bg-amber-100 text-amber-700 rounded-lg"><Coins className="w-4 h-4" /></span>
-                            <h4 className="text-xs font-bold text-slate-800">1. No Delivery Charges</h4>
+                            <h4 className="text-xs font-bold text-slate-800">1. No Convenience Fees</h4>
                           </div>
                           <p className="text-[11px] text-slate-500 leading-relaxed">
                             Pick up your ready order from the nearby shop. Pay only for the groceries you purchase.
                           </p>
                         </div>
                         <div className="mt-3 pt-3 border-t border-slate-150/50 flex flex-col space-y-1 text-[10px]">
-                          <span className="text-red-500 flex items-center"><X className="w-3 h-3 mr-1" /> Delivery/Handling/Surge Fees on Other Apps</span>
-                          <span className="text-emerald-600 font-bold flex items-center"><Check className="w-3 h-3 mr-1" /> MyKiranam: Zero Delivery Charges</span>
+                          <span className="text-red-500 flex items-center"><X className="w-3 h-3 mr-1" /> Convenience/Handling/Surge Fees on Other Apps</span>
+                          <span className="text-emerald-600 font-bold flex items-center"><Check className="w-3 h-3 mr-1" /> MyKiranam: Zero Hidden Charges</span>
                         </div>
                       </div>
 
@@ -1019,11 +1019,11 @@ const Profile = () => {
                             <h4 className="text-xs font-bold text-slate-800">4. No Membership Charges</h4>
                           </div>
                           <p className="text-[11px] text-slate-500 leading-relaxed">
-                            No premium plans or monthly delivery subscription traps. Every feature is available for free.
+                            No premium plans or monthly subscription traps. Every feature is available for free.
                           </p>
                         </div>
                         <div className="mt-3 pt-3 border-t border-slate-150/50 flex flex-col space-y-1 text-[10px]">
-                          <span className="text-red-500 flex items-center"><X className="w-3 h-3 mr-1" /> Subscription required for "free delivery"</span>
+                          <span className="text-red-500 flex items-center"><X className="w-3 h-3 mr-1" /> Subscription required for features</span>
                           <span className="text-emerald-600 font-bold flex items-center"><Check className="w-3 h-3 mr-1" /> 100% Free access for all users</span>
                         </div>
                       </div>
@@ -1439,7 +1439,7 @@ const Profile = () => {
                           <span className="text-[10px] font-black text-red-600 uppercase tracking-wider block bg-red-50 px-2 py-0.5 rounded-lg w-max">Instead Of:</span>
                           <ul className="space-y-2 text-[11px] text-slate-655 font-medium">
                             <li className="flex items-start"><X className="w-4 h-4 text-red-500 mr-2 flex-shrink-0 mt-0.5" /> Long, tiring supermarket visits</li>
-                            <li className="flex items-start"><X className="w-4 h-4 text-red-500 mr-2 flex-shrink-0 mt-0.5" /> High delivery charges & surge pricing</li>
+                            <li className="flex items-start"><X className="w-4 h-4 text-red-500 mr-2 flex-shrink-0 mt-0.5" /> High convenience charges & surge pricing</li>
                             <li className="flex items-start"><X className="w-4 h-4 text-red-500 mr-2 flex-shrink-0 mt-0.5" /> Platform fees & packing charges</li>
                             <li className="flex items-start"><X className="w-4 h-4 text-red-500 mr-2 flex-shrink-0 mt-0.5" /> Slow, frustrating online refund delays</li>
                             <li className="flex items-start"><X className="w-4 h-4 text-red-500 mr-2 flex-shrink-0 mt-0.5" /> Unplanned impulse spending at checkout</li>
@@ -1456,7 +1456,7 @@ const Profile = () => {
                             <li className="flex items-start"><Check className="w-4 h-4 text-emerald-500 mr-2 flex-shrink-0 mt-0.5" /> Transparent quotations before purchase</li>
                             <li className="flex items-start"><Check className="w-4 h-4 text-emerald-500 mr-2 flex-shrink-0 mt-0.5" /> Ready-for-pickup orders prepared for you</li>
                             <li className="flex items-start"><Check className="w-4 h-4 text-emerald-500 mr-2 flex-shrink-0 mt-0.5" /> Direct product verification before payment</li>
-                            <li className="flex items-start"><Check className="w-4 h-4 text-emerald-500 mr-2 flex-shrink-0 mt-0.5" /> Zero delivery or convenience fees</li>
+                            <li className="flex items-start"><Check className="w-4 h-4 text-emerald-500 mr-2 flex-shrink-0 mt-0.5" /> Zero convenience or hidden fees</li>
                             <li className="flex items-start"><Check className="w-4 h-4 text-emerald-500 mr-2 flex-shrink-0 mt-0.5" /> Smart spending & better budget control</li>
                             <li className="flex items-start"><Check className="w-4 h-4 text-emerald-500 mr-2 flex-shrink-0 mt-0.5" /> Rapid pickup saving your valuable time</li>
                             <li className="flex items-start"><Check className="w-4 h-4 text-emerald-500 mr-2 flex-shrink-0 mt-0.5" /> Supporting local neighborhood shops</li>
@@ -1543,7 +1543,7 @@ const Profile = () => {
                             <h4 className="text-xs font-bold text-slate-800">5. Online App Benchmarks</h4>
                           </div>
                           <p className="text-[11px] text-slate-500 leading-relaxed">
-                            Compare estimated local store quotes against quick-commerce delivery apps (including delivery & handling charges) to visualize your savings.
+                            Compare estimated local store quotes against quick-commerce apps (including handling charges) to visualize your savings.
                           </p>
                         </div>
                         <div className="mt-3 pt-3 border-t border-slate-150/50 flex flex-col space-y-1 text-[10px]">
@@ -1759,11 +1759,11 @@ const Profile = () => {
                             <h4 className="text-xs font-bold text-slate-800">9. Compete With Large Platforms</h4>
                           </div>
                           <p className="text-[11px] text-slate-555 leading-relaxed">
-                            Compete digitally with delivery apps by offering online visibility, digital ordering, customer ratings, and quotations, without losing personal relationships.
+                            Compete digitally with quick-commerce apps by offering online visibility, digital ordering, customer ratings, and quotations, without losing personal relationships.
                           </p>
                         </div>
                         <div className="mt-3 pt-3 border-t border-slate-150/50 flex flex-col space-y-1 text-[10px]">
-                          <span className="text-red-500 flex items-center"><X className="w-3 h-3 mr-1" /> Losing business to big online delivery platforms</span>
+                          <span className="text-red-500 flex items-center"><X className="w-3 h-3 mr-1" /> Losing business to big online quick-commerce platforms</span>
                           <span className="text-emerald-600 font-bold flex items-center"><Check className="w-3 h-3 mr-1" /> Equal digital footing with local edge</span>
                         </div>
                       </div>
@@ -1812,16 +1812,16 @@ const Profile = () => {
                       <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col justify-between hover:shadow-sm transition-all duration-300">
                         <div>
                           <div className="flex items-center space-x-2 mb-2">
-                            <span className="p-1.5 bg-amber-100 text-amber-700 rounded-lg"><Package className="w-4 h-4" /></span>
-                            <h4 className="text-xs font-bold text-slate-800">12. No Need For Delivery Staff</h4>
+                            <span className="p-1.5 bg-amber-100 text-amber-700 rounded-lg"><Truck className="w-4 h-4" /></span>
+                            <h4 className="text-xs font-bold text-slate-800">12. Pure Pickup Model</h4>
                           </div>
                           <p className="text-[11px] text-slate-550 leading-relaxed">
-                            Unlike typical delivery platforms, customer picks up order directly. No delivery management, no delivery expenses, and no delivery disputes. Focus strictly on order preparation.
+                            Unlike typical platforms, customer picks up order directly. No extra management, no extra expenses, and no disputes. Focus strictly on order preparation.
                           </p>
                         </div>
                         <div className="mt-3 pt-3 border-t border-slate-150/50 flex flex-col space-y-1 text-[10px]">
-                          <span className="text-red-500 flex items-center"><X className="w-3 h-3 mr-1" /> High commissions (15-30%) and delivery staff hassles</span>
-                          <span className="text-emerald-600 font-bold flex items-center"><Check className="w-3 h-3 mr-1" /> Zero-commission, zero-delivery pickup ecosystem</span>
+                          <span className="text-red-500 flex items-center"><X className="w-3 h-3 mr-1" /> High commissions (15-30%) and logistics hassles</span>
+                          <span className="text-emerald-600 font-bold flex items-center"><Check className="w-3 h-3 mr-1" /> Zero-commission pickup ecosystem</span>
                         </div>
                       </div>
 
@@ -1945,7 +1945,7 @@ const Profile = () => {
                         </li>
                         <li className="flex items-start">
                           <Check className="w-3.5 h-3.5 text-emerald-500 mr-1.5 flex-shrink-0 mt-0.5" />
-                          <span><strong>Sustainable Logistics:</strong> No courier fleets or delivery agents required; consumers pick up on their own terms.</span>
+                          <span><strong>Sustainable Logistics:</strong> No courier fleets required; consumers pick up on their own terms.</span>
                         </li>
                       </ul>
                     </div>

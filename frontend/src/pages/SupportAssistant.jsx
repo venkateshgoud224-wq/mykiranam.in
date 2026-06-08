@@ -32,7 +32,7 @@ const KNOWLEDGE_BASE = [
     id: 'why_verify',
     title: 'Why Verify Before Payment?',
     category: 'Quality',
-    content: 'Unlike standard delivery apps, MyKiranam allows you to fully inspect products before paying. This enables you to verify quality, quantity, brand, and expiry dates personally. There are no refund waiting times or replacement delays because you can reject incorrect or damaged items at the counter before completing the transaction.',
+    content: 'Unlike standard apps, MyKiranam allows you to fully inspect products before paying. This enables you to verify quality, quantity, brand, and expiry dates personally. There are no refund waiting times or replacement delays because you can reject incorrect or damaged items at the counter before completing the transaction.',
     keywords: ['why verify', 'verify before payment', 'inspection', 'inspect products', 'no refund waiting', 'expiry date', 'check quality']
   },
   {
@@ -92,11 +92,11 @@ const KNOWLEDGE_BASE = [
     keywords: ['refund policy', 'refunds', 'get money back', 'payment error', 'refund status', 'transaction issue', 'pre-paid refund', 'collect refund from seller']
   },
   {
-    id: 'vs_delivery_apps',
-    title: 'MyKiranam vs Delivery Apps',
-    category: 'Comparison',
-    content: 'Compared to delivery apps, MyKiranam offers:\n- No delivery charges or surge fees.\n- No long waiting times; pick up on your own schedule.\n- Verify quality, brand, and expiry dates before paying.\n- Direct support for local stores.\n- No refund delays since disputes are resolved before transaction.',
-    keywords: ['delivery apps', 'vs delivery', 'how is mykiranam different', 'delivery comparison', 'delivery charges', 'surge pricing']
+    id: 'vs_quick_commerce',
+    title: 'MyKiranam vs Quick Commerce',
+    category: 'General',
+    content: 'Compared to quick commerce apps, MyKiranam offers:\n- No convenience charges or surge fees.\n- No long waiting times; pick up on your own schedule.\n- Verify quality, brand, and expiry dates before paying.\n- Direct support for local stores.\n- No refund delays since disputes are resolved before transaction.',
+    keywords: ['quick commerce', 'vs quick commerce', 'how is mykiranam different', 'convenience fees', 'surge pricing']
   },
   {
     id: 'vs_supermarkets',
@@ -109,7 +109,7 @@ const KNOWLEDGE_BASE = [
     id: 'main_benefits',
     title: 'Main Benefits of MyKiranam',
     category: 'General',
-    content: 'Key benefits of MyKiranam:\n1. Buy only what you need (no forced bulk packaging).\n2. Save valuable time (ready-for-pickup orders).\n3. Save money (no convenience, platform, or delivery charges).\n4. Verify before payment (inspect goods at checkout).\n5. Pick up anytime during shop hours.\n6. Support and empower local kirana stores.',
+    content: 'Key benefits of MyKiranam:\n1. Buy only what you need (no forced bulk packaging).\n2. Save valuable time (ready-for-pickup orders).\n3. Save money (no convenience or platform charges).\n4. Verify before payment (inspect goods at checkout).\n5. Pick up anytime during shop hours.\n6. Support and empower local kirana stores.',
     keywords: ['benefits', 'advantages', 'why use mykiranam', 'save time', 'save money', 'support local']
   },
   {
@@ -1280,7 +1280,7 @@ const SupportAssistant = () => {
                         <option value="Incorrect Savings calculation">Incorrect Savings calculation</option>
                         <option value="Double Payment / Billing error">Double Payment / Billing error</option>
                         <option value="App / Technical glitch">App / Technical glitch</option>
-                        <option value="Delivery / Pickup issues">Delivery / Pickup issues</option>
+                        <option value="Pickup issues">Pickup issues</option>
                         <option value="Wrong or Damaged items">Wrong or Damaged items</option>
                         <option value="Other / General feedback">Other / General feedback</option>
                       </select>

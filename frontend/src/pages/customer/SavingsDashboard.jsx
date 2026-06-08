@@ -143,15 +143,12 @@ const SavingsDashboard = () => {
 
                   {/* Expandable detailed breakdown */}
                   {isExpanded && (
-                    <div className="mt-4 pt-3 border-t border-slate-100/70 grid grid-cols-2 sm:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="mt-4 pt-3 border-t border-slate-100/70 grid grid-cols-3 sm:grid-cols-3 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
                       <div className="bg-emerald-50/30 p-2.5 rounded-xl border border-emerald-100/50 text-center">
                         <span className="block text-[9px] font-bold text-emerald-700 uppercase tracking-wide">Grocery Savings</span>
                         <span className="text-xs font-extrabold text-emerald-800">₹{order.grocery_savings}</span>
                       </div>
-                      <div className="bg-emerald-50/30 p-2.5 rounded-xl border border-emerald-100/50 text-center">
-                        <span className="block text-[9px] font-bold text-emerald-700 uppercase tracking-wide">Delivery Avoided</span>
-                        <span className="text-xs font-extrabold text-emerald-800">₹{order.delivery_savings}</span>
-                      </div>
+
                       <div className="bg-emerald-50/30 p-2.5 rounded-xl border border-emerald-100/50 text-center">
                         <span className="block text-[9px] font-bold text-emerald-700 uppercase tracking-wide">Platform Avoided</span>
                         <span className="text-xs font-extrabold text-emerald-800">₹{order.platform_savings}</span>

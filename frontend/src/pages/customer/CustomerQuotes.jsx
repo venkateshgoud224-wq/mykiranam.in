@@ -165,8 +165,8 @@ const CustomerQuotes = ({ onSelectShop, onBackToShops }) => {
           return avgQ < avgC ? q : cheapest;
         }, quotes[0]);
         
-        const onlineMin = Math.round(cheapestQuote.min_estimate * 1.15 + 35 + 15);
-        const onlineMax = Math.round(cheapestQuote.max_estimate * 1.15 + 35 + 15);
+        const onlineMin = Math.round(cheapestQuote.min_estimate * 1.15 + 15);
+        const onlineMax = Math.round(cheapestQuote.max_estimate * 1.15 + 15);
 
         return (
           <div className="space-y-4 animate-fade-in">
@@ -187,7 +187,7 @@ const CustomerQuotes = ({ onSelectShop, onBackToShops }) => {
                     <span className="text-[9px] bg-red-100 border border-red-250 text-red-750 px-1.5 py-0.5 rounded font-black uppercase whitespace-nowrap">Higher Cost</span>
                   </h4>
                   <p className="text-[11px] text-red-700 mt-1 leading-relaxed">
-                    Estimated total cost on Blinkit, Zepto, or Instamart (includes ~15% item price markup + ₹35 delivery + ₹15 handling & platform fees).
+                    Estimated total cost on Blinkit, Zepto, or Instamart (includes ~15% item price markup + ₹15 handling & platform fees).
                   </p>
                 </div>
               </div>

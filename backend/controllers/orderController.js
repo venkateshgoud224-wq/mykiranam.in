@@ -1190,13 +1190,16 @@ const sendChat = async (req, res) => {
     const recipientId = role === 'seller' ? order.customer_id : order.seller_user_id;
     const senderName = role === 'seller' ? order.shop_name : 'Customer';
     
+    const halfLen = Math.max(1, Math.floor(message.length / 2));
+    const halfMessage = message.substring(0, halfLen);
+
     const notificationEngine = require('../services/notificationEngine');
     notificationEngine.dispatchNotification(
       recipientId,
       'New Message',
-      `New message from ${senderName}: ${message.substring(0, 50)}...`,
+      `Hey you received a message from ${senderName} about the order please look into it. Preview: ${halfMessage}...`,
       'new_message',
-      { orderId: order.id, chatMessage: message, senderName }
+      { orderId: order.id, chatMessage: halfMessage, senderName }
     ).catch(err => console.error('Background notification error:', err));
 
     socketService.io.emit('new_chat', newChat); // Basic global emit, ideally should emit to room

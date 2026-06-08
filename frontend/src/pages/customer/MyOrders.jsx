@@ -34,7 +34,7 @@ const SavingsSummary = ({ order }) => {
     return () => { isMounted = false; };
   }, [order.id, apiUrl, token]);
 
-  const deliverySavings = 35;
+  // Delivery savings removed as per user request
   
   if (loading) {
     return (
@@ -54,7 +54,7 @@ const SavingsSummary = ({ order }) => {
   const gst = baseFee * 0.18;
   const platformSavings = Math.round(baseFee + gst) + 10;
 
-  const totalSavings = deliverySavings + platformSavings + productSavings;
+  const totalSavings = platformSavings + productSavings;
 
   return (
     <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 shadow-inner">
@@ -86,10 +86,7 @@ const SavingsSummary = ({ order }) => {
            </div>
         )}
 
-        <div className="flex justify-between items-center text-emerald-700">
-          <span>Est. Delivery Charges Avoided:</span>
-          <span className="font-bold">₹{deliverySavings}</span>
-        </div>
+
         <div className="flex justify-between items-center text-emerald-700">
           <span>Est. Platform Charges Avoided:</span>
           <span className="font-bold">₹{platformSavings}</span>
@@ -435,7 +432,7 @@ const MyOrders = ({ coords }) => {
                           <span>📍 Navigate To Store</span>
                         </a>
                         <a
-                          href={`tel:${order.seller_phone || ''}`}
+                          href={`tel:+91${order.seller_phone?.replace(/\\D/g, '').slice(-10) || ''}`}
                           className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-all font-black text-xs active:scale-[0.98]"
                         >
                           <span>📞 Call Store</span>
@@ -593,7 +590,7 @@ const MyOrders = ({ coords }) => {
                 {!['Cancelled', 'Delivered'].includes(order.order_status) && (
                   <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-50">
                     <a 
-                      href={`tel:${order.seller_phone || ''}`}
+                      href={`tel:+91${order.seller_phone?.replace(/\\D/g, '').slice(-10) || ''}`}
                       className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-xs"
                     >
                       <Phone className="w-4 h-4" />

@@ -153,33 +153,33 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
 
           {/* Community Savings Counter (Phase 8B) */}
           {communitySavings && communitySavings.total_orders > 0 && (
-            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden mt-2 mb-2">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-3.5 sm:p-5 text-white shadow-lg relative overflow-hidden mt-2 mb-2">
               <div className="relative z-10">
-                <h3 className="text-xs font-black uppercase tracking-wider mb-2 flex items-center gap-1.5 opacity-90">
-                  <Trophy className="w-4 h-4" /> MyKiranam Community Impact
+                <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-wider mb-1.5 sm:mb-2 flex items-center gap-1.5 opacity-90">
+                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> MyKiranam Community Impact
                 </h3>
-                <p className="text-sm font-medium leading-snug">
-                  Our community has saved <strong className="text-xl font-black">₹{communitySavings.total_savings}</strong> and <strong className="text-xl font-black">{Math.floor(communitySavings.total_time_saved / 60)} Hours</strong> of shopping time across {communitySavings.total_orders} orders!
+                <p className="text-xs sm:text-sm font-medium leading-snug">
+                  Our community has saved <strong className="text-lg sm:text-xl font-black">₹{communitySavings.total_savings}</strong> and <strong className="text-lg sm:text-xl font-black">{Math.floor(communitySavings.total_time_saved / 60)} Hours</strong> of shopping time across {communitySavings.total_orders} orders!
                 </p>
               </div>
               <div className="absolute -right-4 -bottom-4 opacity-20 pointer-events-none transform rotate-12">
-                <Trophy className="w-32 h-32" />
+                <Trophy className="w-24 h-24 sm:w-32 sm:h-32" />
               </div>
             </div>
           )}
 
           {/* Quote Engine Entry */}
-          <div className="bg-kirana-50 border border-kirana-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="bg-kirana-50 border border-kirana-200 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 shadow-sm">
             <div>
-              <h3 className="font-bold text-slate-800 flex items-center space-x-1.5">
-                <TrendingUp className="w-4 h-4 text-kirana-600" />
+              <h3 className="text-sm sm:text-base font-bold text-slate-800 flex items-center space-x-1.5">
+                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-kirana-600" />
                 <span>Smart Price Comparison</span>
               </h3>
-              <p className="text-xs text-slate-600 mt-1">Want to know who is cheapest? Enter your list and get estimated quotes instantly.</p>
+              <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5 sm:mt-1">Want to know who is cheapest? Enter your list and get estimated quotes instantly.</p>
             </div>
             <button
               onClick={() => onTabChange('quotes')}
-              className="whitespace-nowrap px-4 py-2 bg-slate-900 hover:bg-slate-950 text-white font-bold rounded-xl text-xs shadow-sm transition-all"
+              className="whitespace-nowrap px-3.5 py-2 sm:px-4 sm:py-2 bg-slate-900 hover:bg-slate-950 text-white font-bold rounded-xl text-[11px] sm:text-xs shadow-sm transition-all"
             >
               Compare Prices
             </button>

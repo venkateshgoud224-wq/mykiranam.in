@@ -137,6 +137,7 @@ jobs:
           SMTP_USER=${{ secrets.EMAIL_USER }}
           SMTP_PASS=${{ secrets.EMAIL_PASS }}
           NODE_ENV=production
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           ENVEOF"
 
       - name: Install dependencies & restart services on EC2

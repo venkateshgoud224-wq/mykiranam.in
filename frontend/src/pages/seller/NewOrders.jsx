@@ -270,7 +270,7 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange, isRevision }) => {
                 <h3 className="text-base font-extrabold text-slate-900 truncate">
                   New Order Details: #{selectedOrder.custom_order_id || selectedOrder.id}
                 </h3>
-                <p className="text-xs text-slate-500 truncate">Customer: {selectedOrder.customer_name} ({selectedOrder.customer_phone || 'No phone'})</p>
+                <p className="text-xs text-slate-500 truncate">Customer: {selectedOrder.customer_name} ({selectedOrder.customer_phone ? selectedOrder.customer_phone.replace(/.(?=.{4})/g, '*') : 'No phone'})</p>
                 {selectedOrder.customer_level && (
                   <div className="flex flex-col space-y-1 mt-1">
                     <div className="flex items-center space-x-1">
