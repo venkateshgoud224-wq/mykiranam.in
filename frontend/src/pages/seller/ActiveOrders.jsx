@@ -423,10 +423,14 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                     <div className="grid grid-cols-2 gap-2 mt-4">
                       <a 
                         href={`tel:${String(order.customer_phone || '').replace(/\\s+/g, '')}`}
+                        onClick={(e) => {
+                          const phone = String(order.customer_phone || '').replace(/\\s+/g, '');
+                          if (phone) navigator.clipboard.writeText(phone).catch(() => {});
+                        }}
                         className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-xs"
                       >
                         <Phone className="w-4 h-4" />
-                        <span>Call</span>
+                        <span>Call {order.customer_phone ? `(${order.customer_phone})` : ''}</span>
                       </a>
                       <button 
                         onClick={() => { setChatOrderId(order.id); setChatCustomerName(order.customer_name); }}
