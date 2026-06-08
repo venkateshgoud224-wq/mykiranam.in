@@ -240,7 +240,7 @@ const createOrder = async (req, res) => {
 
     // Fetch complete order details including joined shops and users fields, matching getOrders
     const orderDetailsResult = await db.query(
-      `SELECT o.*, s.shop_name, s.address as shop_address, s.latitude as shop_latitude, s.longitude as shop_longitude, s.working_hours as shop_working_hours, s.upi_id, s.qr_code_image, su.phone as seller_phone, u.name as customer_name, cp.status as commitment_status
+      `SELECT o.*, s.shop_name, s.address as shop_address, s.latitude as shop_latitude, s.longitude as shop_longitude, s.working_hours as shop_working_hours, s.upi_id, s.qr_code_image, COALESCE(su.phone, su.whatsapp_number) as seller_phone, u.name as customer_name, COALESCE(u.phone, u.whatsapp_number) as customer_phone, cp.status as commitment_status
        FROM orders o 
        JOIN shops s ON o.shop_id = s.id 
        JOIN users u ON o.customer_id = u.id
@@ -302,7 +302,7 @@ const getOrders = async (req, res) => {
     let result;
     if (role === 'customer') {
       result = await db.query(
-        `SELECT o.*, s.shop_name, s.address as shop_address, s.latitude as shop_latitude, s.longitude as shop_longitude, s.working_hours as shop_working_hours, s.upi_id, s.qr_code_image, su.phone as seller_phone, u.name as customer_name, cp.status as commitment_status,
+        `SELECT o.*, s.shop_name, s.address as shop_address, s.latitude as shop_latitude, s.longitude as shop_longitude, s.working_hours as shop_working_hours, s.upi_id, s.qr_code_image, COALESCE(su.phone, su.whatsapp_number) as seller_phone, u.name as customer_name, cp.status as commitment_status,
                 COALESCE(ct.cancellations, 0) as cancellations
          FROM orders o 
          JOIN shops s ON o.shop_id = s.id 
@@ -323,7 +323,7 @@ const getOrders = async (req, res) => {
       const shopId = shopResult.rows[0].id;
 
       result = await db.query(
-        `SELECT o.*, u.name as customer_name, u.phone as customer_phone,
+        `SELECT o.*, u.name as customer_name, COALESCE(u.phone, u.whatsapp_number) as customer_phone,
                 COALESCE(ct.trust_score, 100) as customer_trust_score,
                 COALESCE(ct.customer_level, 'Standard Customer') as customer_level,
                 COALESCE(ct.successful_pickups, 0) as successful_pickups,

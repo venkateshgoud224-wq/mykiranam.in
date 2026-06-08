@@ -1,6 +1,6 @@
 const https = require('https');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+require('dotenv').config({ path: path.join(__dirname, '../.env'), override: true });
 
 const chatSearch = async (req, res) => {
   try {
