@@ -744,10 +744,10 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                 {/* Mobile Deep Link */}
                 <div className="pt-1">
                   <a
-                    href={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&am=${order.amount}&tn=${encodeURIComponent('Order ' + (order.custom_order_id || order.id))}&cu=INR`}
+                    href={`phonepe://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&am=${order.amount}&tn=${encodeURIComponent('Order ' + (order.custom_order_id || order.id))}&cu=INR`}
                     className="w-full py-3.5 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 text-xs font-black rounded-xl shadow-lg shadow-kirana-500/10 active:scale-[0.99] transition-all flex items-center justify-center space-x-1.5"
                   >
-                    <span>⚡ Pay via UPI App</span>
+                    <span>⚡ Pay via PhonePe</span>
                   </a>
                 </div>
 

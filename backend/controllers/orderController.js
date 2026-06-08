@@ -20,7 +20,7 @@ const updateShopQueueCount = async (shopId) => {
     
     const countResult = await db.query(
       `SELECT COUNT(*) FROM orders 
-       WHERE shop_id = $1 AND order_status ANY($2::varchar[])`,
+       WHERE shop_id = $1 AND order_status = ANY($2::varchar[])`,
       [shopId, activeStates]
     );
     
