@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { ChevronLeft, ArrowRight, Eye, FileText, CheckCircle2, XCircle, AlertCircle, Upload, QrCode, ThumbsUp, ThumbsDown, RefreshCcw } from 'lucide-react';
+import { ChevronLeft, ArrowRight, Eye, FileText, CheckCircle2, XCircle, AlertCircle, Upload, QrCode, ThumbsUp, ThumbsDown, RefreshCcw, Download } from 'lucide-react';
 import ImageModal from '../../components/common/ImageModal';
 import QRCode from 'react-qr-code';
 
@@ -214,6 +214,41 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
     if (!path) return '';
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
     return `${apiUrl.replace('/api', '')}${path}`;
+  };
+
+  const handleDownloadQR = () => {
+    if (order.qr_code_image) {
+      const url = getFullImageUrl(order.qr_code_image);
+      fetch(url)
+        .then(response => response.blob())
+        .then(blob => {
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = `QR_${order.shop_name.replace(/\s+/g, '_')}.png`;
+          link.click();
+        })
+        .catch(console.error);
+    } else {
+      const svg = document.getElementById("QRCodeSVG");
+      if (!svg) return;
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        const pngFile = canvas.toDataURL("image/png");
+        const downloadLink = document.createElement("a");
+        downloadLink.download = `QR_${order.id}.png`;
+        downloadLink.href = pngFile;
+        downloadLink.click();
+      };
+      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+    }
   };
 
   const isDigital = order.order_type === 'digital';
@@ -729,22 +764,33 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                   ) : (
                     <div className="p-2.5 bg-white rounded-xl border border-slate-100 shadow-inner flex items-center justify-center">
                       <QRCode
-                        value={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&am=${order.amount}&tn=${encodeURIComponent('Order ' + (order.custom_order_id || order.id))}&cu=INR`}
+                        id="QRCodeSVG"
+                        value={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&tr=${order.id}&am=${order.amount}&tn=${encodeURIComponent('Order ' + (order.custom_order_id || order.id))}&cu=INR`}
                         size={150}
                         level="M"
                         fgColor="#0f172a"
                       />
                     </div>
                   )}
-                  <span className="text-[8px] text-slate-455 mt-2 font-bold text-center">
-                    {order.qr_code_image ? 'Tap QR to zoom/enlarge storefront code' : 'Scan using GPay, PhonePe, or Paytm'}
-                  </span>
+                  <div className="flex flex-col items-center space-y-2 mt-3 w-full">
+                    <button
+                      type="button"
+                      onClick={handleDownloadQR}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-xl flex items-center space-x-1.5 transition-colors border border-slate-200 w-full justify-center"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Save QR to Gallery</span>
+                    </button>
+                    <span className="text-[8px] text-slate-455 font-bold text-center px-2">
+                      {order.qr_code_image ? 'Tap QR to enlarge, or save to gallery to scan using any UPI app' : 'Save to gallery and scan from PhonePe, GPay, or Paytm'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Mobile Deep Link */}
                 <div className="pt-1">
                   <a
-                    href={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&am=${order.amount}&tn=${encodeURIComponent('Order ' + (order.custom_order_id || order.id))}&cu=INR`}
+                    href={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&tr=${order.id}&am=${order.amount}&tn=${encodeURIComponent('Order ' + (order.custom_order_id || order.id))}&cu=INR`}
                     className="w-full py-3.5 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 text-xs font-black rounded-xl shadow-lg shadow-kirana-500/10 active:scale-[0.99] transition-all flex items-center justify-center space-x-1.5"
                   >
                     <span>⚡ Pay via UPI App</span>
