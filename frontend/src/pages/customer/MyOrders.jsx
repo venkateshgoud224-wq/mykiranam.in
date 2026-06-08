@@ -446,7 +446,11 @@ const MyOrders = ({ coords }) => {
                           }}
                           className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-all font-black text-xs active:scale-[0.98] w-full"
                         >
-                          <span>📞 Call Store</span>
+                          <span>📞 Call Store {(() => {
+                            const p = String(order.seller_phone || '').replace(/[^0-9+]/g, '');
+                            const masked = p.length >= 4 ? p.substring(0, 2) + 'XXXXXX' + p.slice(-2) : p;
+                            return masked ? `(${masked})` : '';
+                          })()}</span>
                         </button>
                       </div>
                     </div>
@@ -616,7 +620,11 @@ const MyOrders = ({ coords }) => {
                       className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-xs w-full"
                     >
                       <Phone className="w-4 h-4" />
-                      <span>Call Seller</span>
+                      <span>Call Seller {(() => {
+                        const p = String(order.seller_phone || '').replace(/[^0-9+]/g, '');
+                        const masked = p.length >= 4 ? p.substring(0, 2) + 'XXXXXX' + p.slice(-2) : p;
+                        return masked ? `(${masked})` : '';
+                      })()}</span>
                     </button>
                     <button 
                       onClick={() => { setChatOrderId(order.id); setChatShopName(order.shop_name); }}

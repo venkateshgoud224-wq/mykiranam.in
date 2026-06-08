@@ -437,7 +437,11 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                         className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-xs w-full"
                       >
                         <Phone className="w-4 h-4" />
-                        <span>Call</span>
+                        <span>Call {(() => {
+                          const p = String(order.customer_phone || '').replace(/[^0-9+]/g, '');
+                          const masked = p.length >= 4 ? p.substring(0, 2) + 'XXXXXX' + p.slice(-2) : p;
+                          return masked ? `(${masked})` : '';
+                        })()}</span>
                       </button>
                       <button 
                         onClick={() => { setChatOrderId(order.id); setChatCustomerName(order.customer_name); }}

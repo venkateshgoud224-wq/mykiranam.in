@@ -9,7 +9,7 @@ const chatSearch = async (req, res) => {
       return res.status(400).json({ error: 'Message query is required' });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || "AIzaSyAWMggVQH7fuLEyp3jPJVKODqBLY8_nIjM";
+    const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       console.warn("⚠️ GEMINI_API_KEY is not set in environment. Returning mock search response.");
