@@ -432,7 +432,7 @@ const MyOrders = ({ coords }) => {
                           <span>📍 Navigate To Store</span>
                         </a>
                         <a
-                          href={`tel:${String(order.seller_phone || '').replace(/[^0-9+]/g, '')}`}
+                          href={`tel:${String(order.seller_phone || '').replace(/[^0-9+]/g, '').startsWith('+') ? String(order.seller_phone || '').replace(/[^0-9+]/g, '') : '+91' + String(order.seller_phone || '').replace(/[^0-9+]/g, '').slice(-10)}`}
                           className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-all font-black text-xs active:scale-[0.98]"
                         >
                           <span>📞 Call Store</span>
@@ -590,7 +590,7 @@ const MyOrders = ({ coords }) => {
                 {!['Cancelled', 'Delivered'].includes(order.order_status) && (
                   <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-50">
                     <a 
-                      href={`tel:${String(order.seller_phone || '').replace(/[^0-9+]/g, '')}`}
+                      href={`tel:${String(order.seller_phone || '').replace(/[^0-9+]/g, '').startsWith('+') ? String(order.seller_phone || '').replace(/[^0-9+]/g, '') : '+91' + String(order.seller_phone || '').replace(/[^0-9+]/g, '').slice(-10)}`}
                       className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-xs"
                     >
                       <Phone className="w-4 h-4" />

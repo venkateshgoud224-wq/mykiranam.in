@@ -217,38 +217,25 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   };
 
   const handleDownloadQR = () => {
-    if (order.qr_code_image) {
-      const url = getFullImageUrl(order.qr_code_image);
-      fetch(url)
-        .then(response => response.blob())
-        .then(blob => {
-          const link = document.createElement("a");
-          link.href = URL.createObjectURL(blob);
-          link.download = `QR_${order.shop_name.replace(/\s+/g, '_')}.png`;
-          link.click();
-        })
-        .catch(console.error);
-    } else {
-      const svg = document.getElementById("QRCodeSVG");
-      if (!svg) return;
-      const svgData = new XMLSerializer().serializeToString(svg);
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      const img = new Image();
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.fillStyle = "white";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-        const pngFile = canvas.toDataURL("image/png");
-        const downloadLink = document.createElement("a");
-        downloadLink.download = `QR_${order.id}.png`;
-        downloadLink.href = pngFile;
-        downloadLink.click();
-      };
-      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-    }
+    const svg = document.getElementById("QRCodeSVG");
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      const pngFile = canvas.toDataURL("image/png");
+      const downloadLink = document.createElement("a");
+      downloadLink.download = `QR_${order.id}.png`;
+      downloadLink.href = pngFile;
+      downloadLink.click();
+    };
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
   };
 
   const isDigital = order.order_type === 'digital';
@@ -754,24 +741,15 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                 {/* QR Code Scan */}
                 <div className="bg-white border border-slate-150 rounded-2xl p-4 flex flex-col items-center justify-center shadow-sm">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-2">Scan QR to Pay</span>
-                  {order.qr_code_image ? (
-                    <img
-                      src={getFullImageUrl(order.qr_code_image)}
-                      alt="Shop UPI QR"
-                      className="w-40 h-40 object-contain p-1 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-transform"
-                      onClick={() => setPreviewImage(getFullImageUrl(order.qr_code_image))}
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-100 shadow-inner flex items-center justify-center">
+                    <QRCode
+                      id="QRCodeSVG"
+                      value={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&tr=${order.id}&am=${order.amount}&tn=${encodeURIComponent('Order ' + (order.custom_order_id || order.id))}&cu=INR`}
+                      size={150}
+                      level="M"
+                      fgColor="#0f172a"
                     />
-                  ) : (
-                    <div className="p-2.5 bg-white rounded-xl border border-slate-100 shadow-inner flex items-center justify-center">
-                      <QRCode
-                        id="QRCodeSVG"
-                        value={`upi://pay?pa=${order.upi_id}&pn=${encodeURIComponent(order.shop_name)}&tr=${order.id}&am=${order.amount}&tn=${encodeURIComponent('Order ' + (order.custom_order_id || order.id))}&cu=INR`}
-                        size={150}
-                        level="M"
-                        fgColor="#0f172a"
-                      />
-                    </div>
-                  )}
+                  </div>
                   <div className="flex flex-col items-center space-y-2 mt-3 w-full">
                     <button
                       type="button"
@@ -782,7 +760,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                       <span>Save QR to Gallery</span>
                     </button>
                     <span className="text-[8px] text-slate-455 font-bold text-center px-2">
-                      {order.qr_code_image ? 'Tap QR to enlarge, or save to gallery to scan using any UPI app' : 'Save to gallery and scan from PhonePe, GPay, or Paytm'}
+                      Save to gallery and scan from PhonePe, GPay, or Paytm
                     </span>
                   </div>
                 </div>
