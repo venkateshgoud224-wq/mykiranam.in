@@ -437,7 +437,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                         className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-xs w-full"
                       >
                         <Phone className="w-4 h-4" />
-                        <span>Call {order.customer_phone ? `(${order.customer_phone})` : ''}</span>
+                        <span>Call</span>
                       </button>
                       <button 
                         onClick={() => { setChatOrderId(order.id); setChatCustomerName(order.customer_name); }}

@@ -446,7 +446,7 @@ const MyOrders = ({ coords }) => {
                           }}
                           className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-all font-black text-xs active:scale-[0.98] w-full"
                         >
-                          <span>📞 Call Store {order.seller_phone ? `(${order.seller_phone})` : ''}</span>
+                          <span>📞 Call Store</span>
                         </button>
                       </div>
                     </div>
@@ -616,7 +616,7 @@ const MyOrders = ({ coords }) => {
                       className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-xs w-full"
                     >
                       <Phone className="w-4 h-4" />
-                      <span>Call Seller {order.seller_phone ? `(${order.seller_phone})` : ''}</span>
+                      <span>Call Seller</span>
                     </button>
                     <button 
                       onClick={() => { setChatOrderId(order.id); setChatShopName(order.shop_name); }}
