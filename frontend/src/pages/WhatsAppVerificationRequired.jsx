@@ -103,7 +103,7 @@ const WhatsAppVerificationRequired = ({ onSkip }) => {
             <Store className="w-5 h-5" />
           </div>
           <span className="font-extrabold text-xl tracking-tight text-slate-900">
-            Kiranam<span className="text-amber-600 font-black">.in</span>
+            mykiranam<span className="text-amber-600 font-black">.in</span>
           </span>
         </div>
         <button
@@ -277,7 +277,7 @@ const WhatsAppVerificationRequired = ({ onSkip }) => {
           <a href="/refund.html" className="hover:text-amber-600 transition-colors">Refund Policy</a>
           <a href="/contact.html" className="hover:text-amber-600 transition-colors">Contact Us</a>
         </div>
-        <div>© 2026 Kiranam.in Hyperlocal Marketplace. Operated by Nelapatla Venkatesh.</div>
+        <div>© 2026 mykiranam.in Hyperlocal Marketplace. Operated by Nelapatla Venkatesh.</div>
       </footer>
     </div>
   );

@@ -105,7 +105,7 @@ const Navbar = ({ onSetCoords, currentCoords, setActiveTab }) => {
               </div>
               <div>
                 <span className="font-extrabold text-lg sm:text-xl tracking-tight text-slate-900">
-                  Kiranam<span className="text-kirana-500">.in</span>
+                  mykiranam<span className="text-kirana-500">.in</span>
                 </span>
                 <div className="text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider text-slate-400 -mt-1">
                   Hyperlocal Queue Engine

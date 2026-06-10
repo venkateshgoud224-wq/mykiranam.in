@@ -55,7 +55,7 @@ const RoleSelection = () => {
             <div className="w-8 h-8 rounded-lg bg-kirana-500 text-slate-950 flex items-center justify-center font-black">
               🏪
             </div>
-            <span className="font-extrabold text-lg">Kiranam.in</span>
+            <span className="font-extrabold text-lg">mykiranam.in</span>
           </div>
           <h2 className="text-3xl font-extrabold text-white tracking-tight">
             How will you use Kiranam?

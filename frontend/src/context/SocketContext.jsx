@@ -133,7 +133,7 @@ export const SocketProvider = ({ children }) => {
 
       // Show OS notification
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(notif.title || 'Kiranam.in Update', {
+        new Notification(notif.title || 'mykiranam.in Update', {
           body: notif.message,
           icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏪</text></svg>'
         });

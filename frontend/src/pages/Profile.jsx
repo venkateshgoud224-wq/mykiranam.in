@@ -265,7 +265,7 @@ const Profile = () => {
           <div>
             <h3 className="font-black text-sm text-red-800">Action Required: WhatsApp Verification is Mandatory</h3>
             <p className="text-xs font-semibold mt-1">
-              You must verify your WhatsApp number below before you can place or accept any orders on Kiranam.in.
+              You must verify your WhatsApp number below before you can place or accept any orders on mykiranam.in.
             </p>
           </div>
         </div>
@@ -1891,7 +1891,8 @@ const Profile = () => {
           )}
 
           {/* --- PLATFORM INFO & POLICIES --- */}
-          {(user?.role === 'customer' || user?.role === 'seller') && (
+          {/* Temporarily hidden for PhonePe gateway purpose */}
+          {false && (user?.role === 'customer' || user?.role === 'seller') && (
             <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-md space-y-4">
               <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400 flex items-center space-x-1.5">
                 <Info className="w-4 h-4 text-amber-500" />

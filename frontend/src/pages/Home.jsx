@@ -57,8 +57,10 @@ const Home = () => {
 
   // Initialize Real Google GSI button and render standard button in overlay mode
   useEffect(() => {
+    let timerId;
+
     const initializeAndRender = () => {
-      if (window.google) {
+      if (window.google && window.google.accounts && window.google.accounts.id) {
         if (!window.google.accounts.id._isInitializedByMyKiranam) {
           try {
             window.google.accounts.id.initialize({
@@ -80,7 +82,6 @@ const Home = () => {
               }
             });
             window.google.accounts.id._isInitializedByMyKiranam = true;
-            // Removed window.google.accounts.id.prompt() so accounts only display when clicked
           } catch (gsiErr) {
             console.warn('Google Identity Services initialization warning:', gsiErr);
           }
@@ -88,7 +89,7 @@ const Home = () => {
 
         // Render standard button over our custom button placeholder
         const btn = document.getElementById("googleGsiButton");
-        if (btn) {
+        if (btn && btn.innerHTML === "") {
           try {
             // Render the official Google button as an icon to prevent personalized display and just show the 'G'
             window.google.accounts.id.renderButton(
@@ -99,14 +100,24 @@ const Home = () => {
             console.warn("Failed to render Google button:", e);
           }
         }
+        return true;
       }
+      return false;
     };
 
-    initializeAndRender();
+    if (activeForm !== 'reset') {
+      if (!initializeAndRender()) {
+        timerId = setInterval(() => {
+          if (initializeAndRender()) {
+            clearInterval(timerId);
+          }
+        }, 100);
+      }
+    }
 
-    // Check again in case window.google loads slightly later or activeForm changes
-    const timer = setTimeout(initializeAndRender, 150);
-    return () => clearTimeout(timer);
+    return () => {
+      if (timerId) clearInterval(timerId);
+    };
   }, [activeForm, googleLogin]);
 
   const handleSubmit = async (e) => {
@@ -410,7 +421,7 @@ const Home = () => {
             <Store className="w-5 h-5" />
           </div>
           <span className="font-extrabold text-xl tracking-tight text-slate-900">
-            Kiranam<span className="text-amber-600 font-black">.in</span>
+            my kiranam<span className="text-amber-600 font-black">.in</span>
           </span>
         </div>
         <span className="text-[10px] bg-emerald-50 border border-emerald-100 px-3.5 py-1 rounded-full font-black uppercase tracking-wider text-emerald-800 flex items-center space-x-1">
@@ -526,8 +537,18 @@ const Home = () => {
                   <div className="relative flex justify-center text-[9px] font-black uppercase"><span className="bg-white px-3 text-slate-400">Or continue with</span></div>
                 </div>
 
-                <div className="flex justify-center mt-2">
-                  <div id="googleGsiButton" className="w-fit flex justify-center items-center"></div>
+                <div className="flex justify-center mt-2 relative w-[40px] h-[40px] mx-auto">
+                  {/* Placeholder G Icon (ALWAYS visible) */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-white border border-slate-200 rounded-full shadow-sm hover:bg-slate-50 transition-colors pointer-events-none">
+                    <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                  </div>
+                  {/* Real Google Button Container (Invisible but clickable overlay) */}
+                  <div id="googleGsiButton" className="absolute inset-0 z-10 w-full h-full flex justify-center items-center opacity-0 overflow-hidden rounded-full cursor-pointer"></div>
                 </div>
               </div>
             )}
@@ -547,7 +568,7 @@ const Home = () => {
           <a href="/refund.html" className="hover:text-amber-600 transition-colors">Refund Policy</a>
           <a href="/contact.html" className="hover:text-amber-600 transition-colors">Contact Us</a>
         </div>
-        <div>© 2026 Kiranam.in Hyperlocal Marketplace. Operated by Nelapatla Venkatesh.</div>
+        <div>© 2026 mykiranam.in Hyperlocal Marketplace. Operated by Nelapatla Venkatesh.</div>
       </footer>
     </div>
   );
