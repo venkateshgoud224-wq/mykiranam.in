@@ -249,8 +249,11 @@ CREATE TABLE IF NOT EXISTS complaints (
     issue_type VARCHAR(50) NOT NULL,
     description TEXT NOT NULL,
     evidence_images JSONB,
-    status VARCHAR(50) DEFAULT 'Open' CHECK (status IN ('Open', 'Under Review', 'Seller Responded', 'Resolved', 'Closed')),
+    status VARCHAR(50) DEFAULT 'Open' CHECK (status IN ('Open', 'Under Review', 'Seller Responded', 'Escalated', 'Resolved', 'Closed')),
     is_verified BOOLEAN DEFAULT false,
+    ai_priority VARCHAR(20) DEFAULT 'None' CHECK (ai_priority IN ('None', 'Low', 'Medium', 'High')),
+    ai_recommendation TEXT,
+    ai_risk_score INT DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

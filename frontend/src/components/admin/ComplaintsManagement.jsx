@@ -127,8 +127,13 @@ const ComplaintsManagement = () => {
               <div key={complaint.id} className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium flex flex-col gap-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-extrabold text-sm text-slate-900">
+                    <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
                       {complaint.issue_type}
+                      {complaint.status === 'Escalated' && (
+                        <span className="px-1.5 py-0.5 bg-kirana-50 text-kirana-700 text-[9px] uppercase rounded border border-kirana-200">
+                          🤖 AI Escalated
+                        </span>
+                      )}
                     </h3>
                     <p className="text-xs text-slate-600 mt-1">Order: #{complaint.custom_order_id || complaint.order_id} • Shop: <span className="font-bold">{complaint.shop_name}</span></p>
                     <p className="text-[10px] text-slate-400">Customer: {complaint.customer_name} • Date: {new Date(complaint.created_at).toLocaleString()}</p>
@@ -146,6 +151,36 @@ const ComplaintsManagement = () => {
                     "{complaint.description}"
                   </div>
                 </div>
+
+                {/* AI Agent Insights Panel */}
+                {(complaint.ai_priority && complaint.ai_priority !== 'None') && (
+                  <div className="bg-kirana-50/50 border border-kirana-100 rounded-xl p-3 space-y-2 mt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black text-kirana-700 uppercase tracking-wide flex items-center gap-1">
+                        🤖 AI Agent Investigation
+                      </span>
+                      <span className={`px-2 py-0.5 text-[9px] font-bold rounded-lg uppercase ${
+                        complaint.ai_priority === 'High' ? 'bg-crimson text-white' : 
+                        complaint.ai_priority === 'Medium' ? 'bg-amber-500 text-white' : 
+                        'bg-blue-500 text-white'
+                      }`}>
+                        {complaint.ai_priority} Priority
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-end">
+                      <div className="text-xs text-slate-800 font-medium">
+                        <span className="text-slate-500 mr-1">Recommendation:</span>
+                        {complaint.ai_recommendation}
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-[8px] text-slate-400 font-bold uppercase mb-0.5">Risk Score</span>
+                        <span className={`text-lg font-black ${complaint.ai_risk_score > 70 ? 'text-crimson' : 'text-amber-500'}`}>
+                          {complaint.ai_risk_score}/100
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {complaint.seller_explanation && (
                   <div className="space-y-1">
@@ -173,7 +208,7 @@ const ComplaintsManagement = () => {
                   </div>
                 )}
 
-                {['Pending', 'Open', 'Seller Responded'].includes(complaint.status) && (
+                {['Pending', 'Open', 'Seller Responded', 'Escalated'].includes(complaint.status) && (
                   <div className="border-t border-slate-100 pt-4 mt-2">
                     {selectedComplaintId === complaint.id ? (
                       <div className="space-y-3">

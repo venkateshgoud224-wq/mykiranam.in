@@ -140,6 +140,39 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
      }
    };
 
+  // Initiate PhonePe full payment
+  const handlePayOnlineFull = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${apiUrl}/payment/phonepe/create-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amount: Math.round(parseFloat(order.amount) * 100), // convert rupees to paise
+          order_id: order.id,
+          is_security_deposit: false,
+          redirect_url: window.location.origin + '/?order_id=' + order.id + '&method=phonepe&pay_method=PhonePe'
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to initiate PhonePe payment');
+
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      } else {
+        throw new Error('Payment gateway URL not received');
+      }
+    } catch (err) {
+      setError(err.message || 'Error creating PhonePe order.');
+      setLoading(false);
+    }
+  };
+
   // Customer rejects modifications (Cancels Order)
   const handleRejectModifications = async () => {
     if (!window.confirm('Are you sure you want to reject modifications and cancel this order?')) return;
@@ -687,17 +720,53 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
             
             {/* Payment Mode Selector */}
             {order.upi_id ? (
-              <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 gap-1">
+              <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 gap-1 overflow-x-auto">
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('Manual UPI Payment')}
-                  className={`flex-1 py-2 px-1 text-center text-xs font-bold rounded-xl transition-all ${
+                  className={`flex-1 min-w-[100px] py-2 px-1 text-center text-[11px] font-bold rounded-xl transition-all ${
                     paymentMethod === 'Manual UPI Payment'
                       ? 'bg-white text-slate-900 shadow-sm'
                       : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  Send through QR Code
+                  QR Code
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('PhonePe')}
+                  className={`flex-1 min-w-[100px] py-2 px-1 text-center text-[11px] font-bold rounded-xl transition-all ${
+                    paymentMethod === 'PhonePe'
+                      ? 'bg-white text-purple-700 shadow-sm'
+                      : 'text-slate-500 hover:text-purple-600'
+                  }`}
+                >
+                  PhonePe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('Pay During Pickup')}
+                  className={`flex-1 min-w-[100px] py-2 px-1 text-center text-[11px] font-bold rounded-xl transition-all ${
+                    paymentMethod === 'Pay During Pickup'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  Pay at Pickup
+                </button>
+              </div>
+            ) : (
+              <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 gap-1 overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('PhonePe')}
+                  className={`flex-1 py-2 px-1 text-center text-xs font-bold rounded-xl transition-all ${
+                    paymentMethod === 'PhonePe'
+                      ? 'bg-white text-purple-700 shadow-sm'
+                      : 'text-slate-500 hover:text-purple-600'
+                  }`}
+                >
+                  Pay Online (PhonePe)
                 </button>
                 <button
                   type="button"
@@ -710,10 +779,6 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                 >
                   Pay at Pickup
                 </button>
-              </div>
-            ) : (
-              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-3 text-center text-xs font-semibold text-slate-500">
-                Direct UPI is unavailable (no seller UPI configured). Paying at pickup is the only available option.
               </div>
             )}
 
@@ -925,6 +990,42 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                       <span>Confirm Order</span>
                     </button>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* PhonePe Full Payment Option */}
+            {paymentMethod === 'PhonePe' && (
+              <div className="space-y-4 bg-purple-50/50 p-5 border border-purple-200 rounded-3xl animate-fadeIn">
+                <div className="text-center space-y-1.5">
+                  <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 uppercase tracking-wider">
+                    💳 Secure Online Payment
+                  </span>
+                  <p className="text-xs text-slate-600 leading-normal font-semibold">
+                    Pay securely using PhonePe, GPay, Paytm or Cards.
+                  </p>
+                </div>
+
+                <div className="bg-white border border-purple-200 rounded-2xl p-3.5 space-y-2 shadow-sm">
+                  <div className="flex justify-between items-center text-xs text-slate-600">
+                    <span>Total Bill Amount:</span>
+                    <span className="font-extrabold text-slate-800">₹{parseFloat(order.amount || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs border-t border-slate-100 pt-2 text-purple-800 font-extrabold">
+                    <span>Amount to Pay Online:</span>
+                    <span className="text-purple-900 font-black">₹{parseFloat(order.amount || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handlePayOnlineFull}
+                    disabled={loading}
+                    className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-black rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+                  >
+                    <span>Pay ₹{parseFloat(order.amount || 0).toFixed(2)} via PhonePe</span>
+                  </button>
                 </div>
               </div>
             )}

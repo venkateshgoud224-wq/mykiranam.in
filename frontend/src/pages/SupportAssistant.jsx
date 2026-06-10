@@ -129,19 +129,22 @@ const KNOWLEDGE_BASE = [
 ];
 
 const QUICK_QUESTIONS = [
-  'How do I place an order?',
+  'Where is my order?',
   'How does pickup work?',
-  'What if I cancel my order?',
-  'How is MyKiranam different?',
-  'What if I receive poor quality products?'
+  'Seller gave wrong product.',
+  'I cannot find the store.',
+  'Refund policy.',
+  'Cancellation policy.',
+  'Trust score explanation.',
+  'Contact support.'
 ];
 
 const FOLLOW_UP_QUESTIONS = [
-  'How do I place an order?',
+  'Where is my order?',
   'How does pickup work?',
-  'Cancellation policy',
-  'Refund policy',
-  'Contact support'
+  'Refund policy.',
+  'Cancellation policy.',
+  'Contact support.'
 ];
 
 const SupportAssistant = () => {
@@ -189,7 +192,7 @@ const SupportAssistant = () => {
     const welcomeMsg = {
       id: 'welcome',
       sender: 'bot',
-      text: "👋 Welcome to MyKiranam Support. Ask me anything about ordering, payments, pickup, cancellations, refunds, seller policies, ratings, and platform rules.",
+      text: "👋 Welcome to MyKiranam Support.\n\nI can help with:\n* Orders\n* Pickup Issues\n* Cancellations\n* Refunds\n* Product Complaints\n* Seller Issues\n* Customer Issues\n* Trust Scores\n* Platform Policies\n\nHow can I help you today?",
       timestamp: new Date().toISOString()
     };
     const newSession = {
@@ -275,7 +278,7 @@ const SupportAssistant = () => {
     const welcomeMsg = {
       id: 'welcome',
       sender: 'bot',
-      text: "👋 Welcome to MyKiranam Support. Ask me anything about ordering, payments, pickup, cancellations, refunds, seller policies, ratings, and platform rules.",
+      text: "👋 Welcome to MyKiranam Support.\n\nI can help with:\n* Orders\n* Pickup Issues\n* Cancellations\n* Refunds\n* Product Complaints\n* Seller Issues\n* Customer Issues\n* Trust Scores\n* Platform Policies\n\nHow can I help you today?",
       timestamp: new Date().toISOString()
     };
     const newSession = {
@@ -372,7 +375,7 @@ const SupportAssistant = () => {
     // Greetings & Intro intent
     if (cleanText === 'hi' || cleanText === 'hello' || cleanText === 'hey' || cleanText === 'yo' || cleanText.startsWith('hi ') || cleanText.startsWith('hello ') || cleanText.startsWith('hey ') || cleanText.includes('who are you') || cleanText.includes('who is this')) {
       return {
-        text: "Hello! I am your MyKiranam Support Assistant 🤖. I am here to help you navigate our platform guidelines, ordering flows, and trust rules.\n\nAsk me anything like:\n- How do I place an order?\n- How does the warning system work?\n- What if I cancel an order after pickup?\n- Why verify before payment?\n\nHow can I help you today?"
+        text: "👋 Welcome to MyKiranam Support.\n\nI can help with:\n* Orders\n* Pickup Issues\n* Cancellations\n* Refunds\n* Product Complaints\n* Seller Issues\n* Customer Issues\n* Trust Scores\n* Platform Policies\n\nHow can I help you today?"
       };
     }
     
@@ -1011,11 +1014,11 @@ const SupportAssistant = () => {
                         )}
 
                         {/* Fallback support ticket button */}
-                        {msg.text.includes("Please contact MyKiranam Support.") && (
+                        {(msg.text.includes("Please contact MyKiranam Support.") || msg.text.toLowerCase().includes("evidence") || msg.text.toLowerCase().includes("photo") || msg.text.toLowerCase().includes("raise ticket")) && (
                           <div className="mt-3">
                             <button 
                               onClick={() => setActiveTab('ticket')}
-                              className="px-3 py-1.5 bg-gradient-to-r from-kirana-500 to-amber-500 text-slate-950 rounded-xl font-extrabold text-[10px] flex items-center space-x-1 hover:shadow-sm active:scale-95 transition-all"
+                              className="px-3 py-1.5 bg-gradient-to-r from-kirana-500 to-amber-500 text-slate-950 rounded-xl font-extrabold text-[10px] flex items-center space-x-1 hover:shadow-sm active:scale-95 transition-all animate-pulse"
                             >
                               <span>🎫 Open Support Ticket</span>
                             </button>

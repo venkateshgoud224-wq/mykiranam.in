@@ -617,7 +617,7 @@ const InstantOrder = ({ selectedShop, onBackToShops, onTabChange }) => {
                 disabled={loading}
                 className="w-full py-3.5 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 text-xs font-extrabold rounded-xl shadow-lg shadow-kirana-500/10 active:scale-[0.99] transition-all disabled:opacity-50"
               >
-                {loading ? 'Processing...' : (orderMethod === 'digital' && items.reduce((sum, item) => sum + (parseFloat(item.mrp) * parseFloat(item.quantity) || 0), 0) > 0 ? 'Pay Order Now (Skip Wait)' : `Submit Order (Queue wait ~${selectedShop.waiting_time}m)`)}
+                {loading ? 'Processing...' : (orderMethod === 'digital' && items.reduce((sum, item) => sum + (parseFloat(item.mrp) * parseFloat(item.quantity) || 0), 0) > 0 ? `Pay Now ₹${items.reduce((sum, item) => sum + (parseFloat(item.mrp) * parseFloat(item.quantity) || 0), 0).toFixed(2)}` : 'Pay Now')}
               </button>
             </form>
           </div>
