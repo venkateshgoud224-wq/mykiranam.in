@@ -68,7 +68,7 @@ const register = async (req, res) => {
       const shopLat = req.body.latitude || 0;
       const shopLng = req.body.longitude || 0;
       await db.query(
-        'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, verified, verification_status, verified_by_admin, verified_by_seller, verification_date) VALUES ($1, $2, $3, $4, $5, true, \'Verified\', true, true, CURRENT_TIMESTAMP)',
+        'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, verified, verification_status, verified_by_admin, verified_by_seller, verification_date) VALUES ($1, $2, $3, $4, $5, false, \'Pending\', false, false, NULL)',
         [user.id, defaultShopName, shopAddress, shopLat, shopLng]
       );
     }
@@ -265,7 +265,7 @@ const updateRole = async (req, res) => {
         const shopLat = latitude || 0;
         const shopLng = longitude || 0;
         await db.query(
-          'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, verified, verification_status, verified_by_admin, verified_by_seller, verification_date) VALUES ($1, $2, $3, $4, $5, true, \'Verified\', true, true, CURRENT_TIMESTAMP)',
+          'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, verified, verification_status, verified_by_admin, verified_by_seller, verification_date) VALUES ($1, $2, $3, $4, $5, false, \'Pending\', false, false, NULL)',
           [userId, defaultShopName, shopAddress, shopLat, shopLng]
         );
       }
