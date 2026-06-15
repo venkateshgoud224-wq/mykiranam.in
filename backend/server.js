@@ -117,6 +117,56 @@ const startServer = async () => {
       const now = new Date();
       if (db.getIsMock()) {
         const mockDb = db.getMockDb();
+
+        // Auto-cancel stale orders in active states older than 24 hours
+        const activeStates = [
+          'Waiting For Seller', 'Accepted', 'Bill Uploaded', 
+          'Waiting For Customer Confirmation', 'Confirmed', 'Packing Started', 'Packing Completed'
+        ];
+        const staleLimitTime = new Date(now.getTime() - 24 * 60 * 60000);
+        const staleOrders = mockDb.orders.filter(o => 
+          activeStates.includes(o.order_status) && 
+          new Date(o.updated_at || o.created_at) < staleLimitTime
+        );
+
+        for (let order of staleOrders) {
+          order.order_status = 'Cancelled';
+          order.notes = (order.notes ? order.notes + '\n' : '') + 'Auto-cancelled due to inactivity (over 24 hours).';
+          order.updated_at = now;
+          order.cancelled_at = now;
+          db.markMockDbDirty();
+          
+          try {
+            const orderController = require('./controllers/orderController');
+            await orderController.updateShopQueueCount(order.shop_id);
+
+            const notificationEngine = require('./services/notificationEngine');
+            // Notify customer
+            await notificationEngine.dispatchNotification(
+              order.customer_id,
+              'Order Auto-Cancelled',
+              `Your order at ${order.shop_name || 'the shop'} has been auto-cancelled due to inactivity.`,
+              'order_cancelled',
+              { orderId: order.id }
+            );
+            // Notify seller
+            const shop = mockDb.shops.find(s => s.id === order.shop_id);
+            if (shop) {
+              await notificationEngine.dispatchNotification(
+                shop.owner_id,
+                'Order Auto-Cancelled',
+                `Order #${order.custom_order_id || order.id} was auto-cancelled due to inactivity (over 24 hours).`,
+                'order_cancelled',
+                { orderId: order.id }
+              );
+            }
+            // Emit update via socket
+            socketService.emitOrderStatus(order, order.customer_id, order.shop_id);
+          } catch (err) {
+            console.error('Error handling mock db auto-cancel:', err);
+          }
+        }
+
         const pendingOrders = mockDb.orders.filter(o => o.order_status === 'Ready For Pickup' && o.pickup_deadline);
         for (let order of pendingOrders) {
           const deadline = new Date(order.pickup_deadline);
@@ -174,6 +224,61 @@ const startServer = async () => {
         }
       } else {
         // Real DB Worker
+
+        // Auto-cancel stale orders in active states older than 24 hours in Real DB
+        const activeStates = [
+          'Waiting For Seller', 'Accepted', 'Bill Uploaded', 
+          'Waiting For Customer Confirmation', 'Confirmed', 'Packing Started', 'Packing Completed'
+        ];
+        const staleOrdersResult = await db.query(
+          `UPDATE orders 
+           SET order_status = 'Cancelled', 
+               notes = COALESCE(notes, '') || '\nAuto-cancelled due to inactivity (over 24 hours).', 
+               updated_at = CURRENT_TIMESTAMP,
+               cancelled_at = CURRENT_TIMESTAMP
+           WHERE order_status = ANY($1::varchar[]) 
+             AND COALESCE(updated_at, created_at) < CURRENT_TIMESTAMP - INTERVAL '24 hours'
+           RETURNING *`,
+          [activeStates]
+        );
+
+        if (staleOrdersResult.rows.length > 0) {
+          try {
+            const orderController = require('./controllers/orderController');
+            const notificationEngine = require('./services/notificationEngine');
+            
+            for (let order of staleOrdersResult.rows) {
+              await orderController.updateShopQueueCount(order.shop_id);
+              
+              // Notify customer
+              await notificationEngine.dispatchNotification(
+                order.customer_id,
+                'Order Auto-Cancelled',
+                `Your order has been auto-cancelled due to inactivity.`,
+                'order_cancelled',
+                { orderId: order.id }
+              );
+              
+              // Notify seller
+              const shopRes = await db.query('SELECT owner_id FROM shops WHERE id = $1', [order.shop_id]);
+              if (shopRes.rows.length > 0) {
+                await notificationEngine.dispatchNotification(
+                  shopRes.rows[0].owner_id,
+                  'Order Auto-Cancelled',
+                  `Order #${order.custom_order_id || order.id} was auto-cancelled due to inactivity (over 24 hours).`,
+                  'order_cancelled',
+                  { orderId: order.id }
+                );
+              }
+              
+              // Emit update via socket
+              socketService.emitOrderStatus(order, order.customer_id, order.shop_id);
+            }
+          } catch (err) {
+            console.error('Error handling real db auto-cancel:', err);
+          }
+        }
+
         const overdueResult = await db.query(
           `UPDATE orders SET order_status = 'Pickup Overdue', updated_at = CURRENT_TIMESTAMP 
            WHERE order_status = 'Ready For Pickup' AND pickup_deadline < CURRENT_TIMESTAMP RETURNING *`

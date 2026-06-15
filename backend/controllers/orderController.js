@@ -125,11 +125,24 @@ const createOrder = async (req, res) => {
     ];
     
     const activeOrdersResult = await db.query(
-      `SELECT COUNT(*) FROM orders WHERE customer_id = $1 AND order_status = ANY($2::varchar[])`,
-      [customerId, activeStates]
+      `SELECT COUNT(*) FROM orders 
+       WHERE customer_id = $1 AND order_status IN (
+         'Waiting For Seller', 'Accepted', 'Bill Uploaded', 
+         'Waiting For Customer Confirmation', 'Confirmed', 'Packing Started', 
+         'Packing Completed', 'Ready For Pickup'
+       )`,
+      [customerId]
     );
     
-    const activeCount = parseInt(activeOrdersResult.rows[0].count);
+    const activeCount = parseInt(activeOrdersResult.rows[0].count) || 0;
+    
+    console.log('DEBUG ACTIVE ORDERS CHECK:', {
+      customerId,
+      activeLimit,
+      rows: activeOrdersResult.rows,
+      rawCount: activeOrdersResult.rows[0]?.count,
+      activeCount
+    });
     
     if (activeCount >= activeLimit) {
       return res.status(400).json({ error: `You already have ${activeLimit} active orders. Complete or cancel an existing order before creating a new one.` });
@@ -1453,5 +1466,6 @@ module.exports = {
   sendChat,
   getMarketComparison,
   updateOrderFulfillment,
-  askPayment
+  askPayment,
+  updateShopQueueCount
 };

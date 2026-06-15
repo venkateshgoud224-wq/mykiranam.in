@@ -240,6 +240,14 @@ const loadMockDb = () => {
 
     // Seed default data if empty to ensure shops are visible right away
     seedMockDbIfEmpty();
+
+    // Ensure all existing mock shops default to catalog_enabled = false
+    if (mockDb.shops && mockDb.shops.length > 0) {
+      mockDb.shops.forEach(shop => {
+        shop.catalog_enabled = false;
+      });
+      isMockDbDirty = true;
+    }
   } catch (err) {
     console.error('⚠️ Error loading mock database, using defaults:', err.message);
   }
@@ -1659,6 +1667,8 @@ const initDb = async () => {
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS custom_order_id VARCHAR(50);');
     await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS image_banner TEXT;');
     await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS catalog_enabled BOOLEAN DEFAULT false;');
+    await pool.query('ALTER TABLE shops ALTER COLUMN catalog_enabled SET DEFAULT false;');
+    await pool.query('UPDATE shops SET catalog_enabled = false WHERE catalog_enabled IS DISTINCT FROM false;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS packing_started_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS ready_for_pickup_at TIMESTAMP WITH TIME ZONE;');
