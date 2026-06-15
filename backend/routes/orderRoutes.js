@@ -22,8 +22,14 @@ router.get('/:id/market-comparison', orderController.getMarketComparison);
 // Seller uploads modified bill image + total amount
 router.post('/:id/bill', upload.single('modified_bill'), orderController.uploadBill);
 
+// Seller requests payment
+router.post('/:id/ask-payment', orderController.askPayment);
+
 // Customer confirms order + selects payment method + uploads screenshot receipt
 router.post('/:id/confirm', upload.single('payment_proof_image'), orderController.confirmOrder);
+
+// Customer updates fulfillment options during payment verification
+router.patch('/:id/fulfillment', orderController.updateOrderFulfillment);
 
 // Verify OTP to complete delivery
 router.post('/:id/verify-otp', orderController.verifyOTP);

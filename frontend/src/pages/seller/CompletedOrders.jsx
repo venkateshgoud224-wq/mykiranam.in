@@ -184,8 +184,16 @@ const CompletedOrders = ({ completedOrders }) => {
                 <p className="text-slate-700"><strong>Final Price:</strong> ₹{selectedOrder.amount || '0.00'}</p>
                 <p className="text-slate-700"><strong>Gateway Fee:</strong> ₹{selectedOrder.gateway_fee ? (selectedOrder.gateway_fee/100).toFixed(2) : '0.00'}</p>
                 <p className="text-slate-700"><strong>Payment:</strong> {selectedOrder.payment_method} ({selectedOrder.payment_status})</p>
+                <p className="text-slate-700"><strong>Fulfillment:</strong> {selectedOrder.fulfillment_method === 'Delivery' ? '🛵 Home Delivery' : '🏪 Shop Pickup'}</p>
+                {selectedOrder.fulfillment_method === 'Delivery' && (
+                  <div className="mt-2 pt-2 border-t border-slate-200/60 space-y-1 text-slate-600">
+                    <p><strong>Delivery Address:</strong> {selectedOrder.delivery_address}</p>
+                    {selectedOrder.delivery_landmark && <p><strong>Landmark:</strong> {selectedOrder.delivery_landmark}</p>}
+                    {selectedOrder.delivery_phone && <p><strong>Delivery Contact:</strong> {selectedOrder.delivery_phone}</p>}
+                  </div>
+                )}
                 {selectedOrder.notes && (
-                  <p className="text-slate-750"><strong>Closing notes:</strong> "{selectedOrder.notes}"</p>
+                  <p className="text-slate-755"><strong>Closing notes:</strong> "{selectedOrder.notes}"</p>
                 )}
                 <p className="text-[10px] text-slate-400">Created: {new Date(selectedOrder.created_at).toLocaleString()}</p>
               </div>

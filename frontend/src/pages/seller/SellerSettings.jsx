@@ -128,6 +128,11 @@ const SellerSettings = () => {
   const [discounts, setDiscounts] = useState('');
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('22:00');
+  const [deliveryOption, setDeliveryOption] = useState('Pickup Only');
+  const [deliveryCharges, setDeliveryCharges] = useState(0);
+  const [deliveryTime, setDeliveryTime] = useState('');
+  const [homeDeliveryReady, setHomeDeliveryReady] = useState(false);
+  const [catalogEnabled, setCatalogEnabled] = useState(true);
 
   // Shop Banner states
   const [bannerFile, setBannerFile] = useState(null);
@@ -157,6 +162,11 @@ const SellerSettings = () => {
       setEndTime(shop.online_end_time || '22:00');
       setLatitude(shop.latitude || '16.8970');
       setLongitude(shop.longitude || '79.8705');
+      setDeliveryOption(shop.delivery_option || 'Pickup Only');
+      setDeliveryCharges(shop.delivery_charges !== undefined && shop.delivery_charges !== null ? shop.delivery_charges : 0);
+      setDeliveryTime(shop.delivery_time || '');
+      setHomeDeliveryReady(shop.home_delivery_ready || false);
+      setCatalogEnabled(shop.catalog_enabled !== false);
       if (shop.image_banner) {
         setBannerPreview(shop.image_banner.startsWith('http') ? shop.image_banner : `${apiUrl.replace('/api', '')}${shop.image_banner}`);
       } else {
@@ -245,7 +255,12 @@ const SellerSettings = () => {
           waiting_time: waitingTime,
           discounts,
           online_start_time: startTime,
-          online_end_time: endTime
+          online_end_time: endTime,
+          delivery_option: homeDeliveryReady ? (deliveryOption === 'Pickup Only' ? 'Pickup + Delivery' : deliveryOption) : 'Pickup Only',
+          delivery_charges: deliveryCharges,
+          delivery_time: deliveryTime,
+          home_delivery_ready: homeDeliveryReady,
+          catalog_enabled: catalogEnabled
         })
       });
 
@@ -492,6 +507,78 @@ const SellerSettings = () => {
             onChange={(e) => setDiscounts(e.target.value)}
             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800"
           />
+        </div>
+
+        {/* Go with Catalog Toggle */}
+        <div className="space-y-1">
+          <label className="text-xs font-bold text-slate-700">Go with Catalog (Digital Catalog Ordering)</label>
+          <select
+            value={catalogEnabled ? 'yes' : 'no'}
+            onChange={(e) => setCatalogEnabled(e.target.value === 'yes')}
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800 font-semibold"
+          >
+            <option value="yes">Yes (Allow customer catalog search/ordering & direct payment)</option>
+            <option value="no">No (Allow manual item list entry only & wait for seller pricing)</option>
+          </select>
+        </div>
+
+        {/* Fulfillment & Delivery Options */}
+        <div className="border-t border-slate-100 pt-4 space-y-4">
+          <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Fulfillment & Delivery Settings</h4>
+          
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-700">Ready for Home Delivery?</label>
+            <select
+              value={homeDeliveryReady ? 'yes' : 'no'}
+              onChange={(e) => setHomeDeliveryReady(e.target.value === 'yes')}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800 font-semibold"
+            >
+              <option value="no">No (Store Pickup Only)</option>
+              <option value="yes">Yes (Accept Home Delivery Orders)</option>
+            </select>
+          </div>
+
+          {homeDeliveryReady && (
+            <div className="space-y-4 pt-2 border-t border-slate-50 animate-fadeIn">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Delivery Availability Settings</label>
+                <select
+                  value={deliveryOption === 'Pickup Only' ? 'Pickup + Delivery' : deliveryOption}
+                  onChange={(e) => setDeliveryOption(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800 font-semibold"
+                >
+                  <option value="Pickup + Delivery">✓ Pickup + Delivery</option>
+                  <option value="Delivery Only">✓ Delivery Only</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 animate-fadeIn">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Est. Delivery Charges (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={deliveryCharges}
+                    onChange={(e) => setDeliveryCharges(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800 font-semibold"
+                    placeholder="e.g. 20"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Est. Delivery Time</label>
+                  <input
+                    type="text"
+                    value={deliveryTime}
+                    onChange={(e) => setDeliveryTime(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-800 font-semibold"
+                    placeholder="e.g. 30-45 mins"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <button

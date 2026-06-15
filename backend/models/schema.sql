@@ -73,6 +73,12 @@ CREATE TABLE IF NOT EXISTS shops (
     suspension_end_date TIMESTAMP WITH TIME ZONE,
     total_reviews INT DEFAULT 0,
     
+    -- Feature 2: Delivery Navigation & Customer Location
+    delivery_option VARCHAR(30) DEFAULT 'Pickup Only' CHECK (delivery_option IN ('Pickup Only', 'Delivery Only', 'Pickup + Delivery')),
+    delivery_charges DECIMAL(10,2) DEFAULT 0.00,
+    delivery_time VARCHAR(100) DEFAULT '',
+    catalog_enabled BOOLEAN DEFAULT true,
+
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -85,7 +91,7 @@ CREATE TABLE IF NOT EXISTS orders (
     modified_bill TEXT,
     amount DECIMAL(10,2),
     gateway_fee DECIMAL(10,2) DEFAULT 0,
-    payment_method VARCHAR(30) CHECK (payment_method IN ('Pay During Pickup', 'Manual UPI Payment')),
+    payment_method VARCHAR(30),
     payment_status VARCHAR(20) DEFAULT 'Pending' CHECK (payment_status IN ('Pending', 'Uploaded Proof', 'Paid', 'Failed')),
     payment_proof_image TEXT,
     notes TEXT,
@@ -119,7 +125,15 @@ CREATE TABLE IF NOT EXISTS orders (
     pickup_otp VARCHAR(10),
     otp_generated_at TIMESTAMP WITH TIME ZONE,
     otp_verified_at TIMESTAMP WITH TIME ZONE,
-    pickup_deadline TIMESTAMP WITH TIME ZONE
+    pickup_deadline TIMESTAMP WITH TIME ZONE,
+
+    -- Feature 2: Delivery Navigation & Customer Location
+    fulfillment_method VARCHAR(20) DEFAULT 'Pickup' CHECK (fulfillment_method IN ('Pickup', 'Delivery')),
+    delivery_address TEXT,
+    delivery_landmark TEXT,
+    delivery_phone VARCHAR(20),
+    delivery_latitude DECIMAL(9,6),
+    delivery_longitude DECIMAL(9,6)
 );
 
 -- Notifications Table
@@ -332,3 +346,19 @@ CREATE TABLE IF NOT EXISTS price_analytics (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(product_id, shop_id)
 );
+
+-- Seller Products Table for Seller Catalog Management
+CREATE TABLE IF NOT EXISTS seller_products (
+    id SERIAL PRIMARY KEY,
+    shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE,
+    seller_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    product_name VARCHAR(255) NOT NULL,
+    category VARCHAR(100) DEFAULT 'General',
+    price DECIMAL(10,2) NOT NULL,
+    quantity DECIMAL(10,2) NOT NULL,
+    unit VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(shop_id, product_name)
+);
+

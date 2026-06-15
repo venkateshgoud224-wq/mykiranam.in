@@ -107,18 +107,31 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
           text
         );
       } else if (type === 'pickup_ready') {
-        const otpText = metadata.pickupOtp ? `\n🔑 Pickup OTP: *${metadata.pickupOtp}*` : '';
-        const text = `Your grocery bag is packed and waiting for you at ${shopName}!\n\n📦 Order ID: ${orderIdStr}\n🏪 Status: Ready for Pickup${otpText}\n\nPlease present your Order ID and OTP at the counter to collect your items.`;
+        const isDelivery = metadata.fulfillmentMethod === 'Delivery';
+        const otpText = metadata.pickupOtp ? `\n🔑 OTP: *${metadata.pickupOtp}*` : '';
+        const statusText = isDelivery ? 'Ready for Home Delivery' : 'Ready for Pickup';
+        const instructionText = isDelivery 
+          ? 'Please present your Order ID and OTP to the delivery agent to collect your items.'
+          : 'Please present your Order ID and OTP at the counter to collect your items.';
+        const titleText = isDelivery ? '🎒 Ready for Home Delivery' : '🎒 Ready for Pickup';
+
+        const text = `Your grocery bag is packed and ${isDelivery ? 'is ready for delivery' : 'waiting for you'} at ${shopName}!\n\n📦 Order ID: ${orderIdStr}\n🏪 Status: ${statusText}${otpText}\n\n${instructionText}`;
         waPromise = whatsappService.sendWhatsAppMessage(
           user.whatsapp_number,
-          '🎒 Ready for Pickup',
+          titleText,
           text
         );
       } else if (type === 'order_delivered') {
-        const text = `Thank you for shopping through Kiranam.in!\n\n📦 Order ID: ${orderIdStr}\n🏪 Shop: ${shopName}\n💰 Paid Amount: ₹${amount}\n\nYour order has been successfully collected and marked as delivered.`;
+        const isDelivery = metadata.fulfillmentMethod === 'Delivery';
+        const titleText = isDelivery ? '🛍️ Delivered to Home' : '🛍️ Order Delivered';
+        const deliveryStatusText = isDelivery 
+          ? 'Your order has been successfully delivered to your home and marked as delivered.'
+          : 'Your order has been successfully collected and marked as delivered.';
+
+        const text = `Thank you for shopping through Kiranam.in!\n\n📦 Order ID: ${orderIdStr}\n🏪 Shop: ${shopName}\n💰 Paid Amount: ₹${amount}\n\n${deliveryStatusText}`;
         waPromise = whatsappService.sendWhatsAppMessage(
           user.whatsapp_number,
-          '🛍️ Order Delivered',
+          titleText,
           text
         );
       } else if (type === 'order_cancelled') {

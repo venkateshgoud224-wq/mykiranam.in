@@ -86,6 +86,8 @@ const createPhonePeOrder = async (req, res) => {
       // PhonePe PROD strictly enforces HTTPS URLs.
       finalRedirectUrl = finalRedirectUrl.replace('http://', 'https://');
     }
+    // Append transaction ID so frontend can verify it on redirect
+    finalRedirectUrl += (finalRedirectUrl.includes('?') ? '&' : '?') + `transactionId=${merchantTransactionId}`;
 
     // 1. Fetch OAuth Token
     const token = await getPhonePeToken(env, clientId, clientSecret);

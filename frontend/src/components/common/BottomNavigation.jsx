@@ -1,5 +1,5 @@
 import React from 'react';
-import { Store, ShoppingBag, User, Settings, Layers, ShieldAlert, Scale, Trophy, HelpCircle } from 'lucide-react';
+import { Store, ShoppingBag, User, Settings, Layers, ShieldAlert, Scale, Trophy, HelpCircle, Package } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const BottomNavigation = ({ activeTab, onTabChange }) => {
@@ -142,20 +142,20 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
       </button>
 
       <button
-        onClick={() => onTabChange('seller-disputes')}
+        onClick={() => onTabChange('seller-products')}
         className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
       >
         <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
-          activeTab === 'seller-disputes'
+          activeTab === 'seller-products'
             ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
             : 'text-slate-400 hover:text-slate-600'
         }`}>
-          <Scale className="w-4.5 h-4.5" />
+          <Package className="w-4.5 h-4.5" />
         </div>
         <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
-          activeTab === 'seller-disputes' ? 'text-slate-900 font-black' : 'text-slate-400'
+          activeTab === 'seller-products' ? 'text-slate-900 font-black' : 'text-slate-400'
         }`}>
-          Disputes
+          My Products
         </span>
       </button>
 

@@ -172,12 +172,13 @@ const MyOrders = ({ coords }) => {
     const init = async () => {
       const data = await fetchOrders();
       const queryParams = new URLSearchParams(window.location.search);
-      const orderId = queryParams.get('order_id');
+      const orderId = queryParams.get('order_id') || sessionStorage.getItem('kirana_verificationOrderId');
       if (orderId && data) {
         const found = data.find(o => Number(o.id) === Number(orderId));
         if (found) {
           setVerifyingOrder(found);
         }
+        sessionStorage.removeItem('kirana_verificationOrderId');
       }
     };
     init();
@@ -402,7 +403,7 @@ const MyOrders = ({ coords }) => {
                     <div className="p-4 bg-emerald-50 border border-emerald-250 rounded-2xl space-y-3 shadow-sm text-left animate-fadeIn">
                       <div className="flex items-center space-x-2 text-emerald-800 font-extrabold text-xs">
                         <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-                        <span>Order Ready For Pickup</span>
+                        <span>{order.fulfillment_method === 'Delivery' ? 'Order Ready For Delivery' : 'Order Ready For Pickup'}</span>
                       </div>
 
                       <div className="text-xs space-y-1.5 text-slate-700">
@@ -422,15 +423,17 @@ const MyOrders = ({ coords }) => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 pt-1">
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${order.shop_latitude || 16.8970},${order.shop_longitude || 79.8705}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-slate-900 hover:bg-slate-950 text-white rounded-xl transition-all font-black text-xs shadow-sm active:scale-[0.98]"
-                        >
-                          <span>📍 Navigate To Store</span>
-                        </a>
+                      <div className={order.fulfillment_method === 'Delivery' ? "grid grid-cols-1 gap-2 pt-1" : "grid grid-cols-2 gap-2 pt-1"}>
+                        {order.fulfillment_method !== 'Delivery' && (
+                          <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${order.shop_latitude || 16.8970},${order.shop_longitude || 79.8705}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-slate-900 hover:bg-slate-955 text-white rounded-xl transition-all font-black text-xs shadow-sm active:scale-[0.98]"
+                          >
+                            <span>📍 Navigate To Store</span>
+                          </a>
+                        )}
                         <button
                           onClick={(e) => {
                             e.preventDefault();
@@ -516,21 +519,23 @@ const MyOrders = ({ coords }) => {
                   )}
                 </div>
 
-                {/* Pickup OTP Display */}
+                {/* Pickup/Delivery OTP Display */}
                 {['Ready For Pickup', 'Pickup Overdue'].includes(order.order_status) && order.pickup_otp && (
                   <div className="bg-kirana-50 border border-kirana-200 rounded-2xl p-4 text-center mt-4">
                     <span className="block text-xs font-bold text-kirana-800 uppercase tracking-wider mb-1">
-                      Your Pickup OTP
+                      {order.fulfillment_method === 'Delivery' ? 'Your Delivery OTP' : 'Your Pickup OTP'}
                     </span>
                     <span className="block text-3xl font-black text-kirana-900 tracking-[0.2em]">
                       {order.pickup_otp}
                     </span>
                     <p className="text-[10px] text-kirana-700 mt-2">
-                      Please share this OTP with the seller to collect your order.
+                      {order.fulfillment_method === 'Delivery' 
+                        ? 'Please share this OTP with the delivery agent to collect your order.' 
+                        : 'Please share this OTP with the seller to collect your order.'}
                     </p>
                     {order.pickup_deadline && (
                       <p className="text-xs text-crimson font-bold mt-2">
-                        Pickup Before: {new Date(order.pickup_deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {order.fulfillment_method === 'Delivery' ? 'Delivery Before: ' : 'Pickup Before: '}{new Date(order.pickup_deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     )}
                   </div>
@@ -678,9 +683,9 @@ const MyOrders = ({ coords }) => {
 
                         steps.push(
                           { label: 'Order Accepted & Billed', active: ['Accepted', 'Bill Uploaded', 'Waiting For Customer Confirmation', 'Confirmed', 'Packing Started', 'Packing Completed', 'Ready For Pickup', 'Delivered'].includes(order.order_status), time: order.accepted_at || order.confirmed_at || order.packing_started_at || order.ready_for_pickup_at || order.updated_at },
-                          { label: ['Pay During Pickup', 'Manual UPI Payment'].includes(order.payment_method) ? 'Payment at pickup' : 'Payment Completed', active: ['Confirmed', 'Packing Started', 'Packing Completed', 'Ready For Pickup', 'Delivered'].includes(order.order_status) || (order.payment_method !== null && order.payment_method !== undefined), time: order.confirmed_at || order.packing_started_at || order.ready_for_pickup_at || order.updated_at },
+                          { label: ['Pay During Pickup', 'Manual UPI Payment'].includes(order.payment_method) ? (order.fulfillment_method === 'Delivery' ? 'Payment on Delivery' : 'Payment at pickup') : 'Payment Completed', active: ['Confirmed', 'Packing Started', 'Packing Completed', 'Ready For Pickup', 'Delivered'].includes(order.order_status) || (order.payment_method !== null && order.payment_method !== undefined), time: order.confirmed_at || order.packing_started_at || order.ready_for_pickup_at || order.updated_at },
                           { label: 'Packing Started', active: ['Packing Started', 'Packing Completed', 'Ready For Pickup', 'Delivered'].includes(order.order_status), time: order.packing_started_at || order.ready_for_pickup_at || order.updated_at },
-                          { label: 'Ready For Pickup / Delivery', active: ['Ready For Pickup', 'Delivered'].includes(order.order_status), time: order.ready_for_pickup_at || order.delivered_at || order.updated_at }
+                          { label: order.fulfillment_method === 'Delivery' ? 'Ready For Delivery' : 'Ready For Pickup', active: ['Ready For Pickup', 'Delivered'].includes(order.order_status), time: order.ready_for_pickup_at || order.delivered_at || order.updated_at }
                         );
 
                         if (order.order_status === 'Cancelled') {
@@ -769,9 +774,9 @@ const MyOrders = ({ coords }) => {
                           )}
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className={`grid grid-cols-1 ${order.shop_catalog_enabled === false ? 'sm:grid-cols-2' : ''} gap-4`}>
                           {/* Original List (Left Column) */}
-                          {(() => {
+                          {order.shop_catalog_enabled === false && (() => {
                             let originalItems = [];
                             try {
                               originalItems = JSON.parse(order.digital_item_list || '[]');
@@ -875,8 +880,8 @@ const MyOrders = ({ coords }) => {
                                           <div className="text-right flex-shrink-0 text-[11px] min-w-[50px]">
                                             {!isRemoved ? (
                                               <>
-                                                <span className="font-extrabold text-slate-900 block">₹{((parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0)).toFixed(2)}</span>
-                                                <span className="text-[8px] text-slate-400 font-semibold block">₹{item.price}/{item.unit}</span>
+                                                <span className="font-extrabold text-slate-900 block">₹{((parseFloat(item.quantity) || 0) * (parseFloat(item.price || item.mrp || 0))).toFixed(2)}</span>
+                                                <span className="text-[8px] text-slate-400 font-semibold block">₹{parseFloat(item.price || item.mrp || 0).toFixed(2)}/{item.unit}</span>
                                               </>
                                             ) : (
                                               <span className="text-[10px] font-bold text-red-500">₹0.00</span>

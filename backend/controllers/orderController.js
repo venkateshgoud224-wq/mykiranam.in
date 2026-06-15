@@ -66,7 +66,19 @@ const updateShopQueueCount = async (shopId) => {
 // 1. Customer Places Order (Uploads Chitti or Types Digitally)
 const createOrder = async (req, res) => {
   const customerId = req.user.id;
-  const { shop_id, notes, preferred_pickup_time, order_type, digital_item_list } = req.body;
+  const { 
+    shop_id, 
+    notes, 
+    preferred_pickup_time, 
+    order_type, 
+    digital_item_list,
+    fulfillment_method,
+    delivery_address,
+    delivery_landmark,
+    delivery_phone,
+    delivery_latitude,
+    delivery_longitude
+  } = req.body;
   const file = req.file;
 
   const isDigital = order_type === 'digital';
@@ -209,7 +221,7 @@ const createOrder = async (req, res) => {
     let initialAmount = null;
     let initialModifiedList = null;
     
-    if (isDigital && req.body.estimated_amount) {
+    if (isDigital && req.body.estimated_amount && shop.catalog_enabled !== false) {
       initialStatus = 'Waiting For Customer Confirmation';
       initialAmount = parseFloat(req.body.estimated_amount);
       initialModifiedList = JSON.stringify(itemsList);
@@ -217,8 +229,8 @@ const createOrder = async (req, res) => {
 
     // Insert order
     const result = await db.query(
-      `INSERT INTO orders (customer_id, shop_id, original_chitti, notes, preferred_pickup_time, order_status, custom_order_id, order_type, digital_item_list, gateway_fee, amount, modified_item_list) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+      `INSERT INTO orders (customer_id, shop_id, original_chitti, notes, preferred_pickup_time, order_status, custom_order_id, order_type, digital_item_list, gateway_fee, amount, modified_item_list, fulfillment_method, delivery_address, delivery_landmark, delivery_phone, delivery_latitude, delivery_longitude) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) 
        RETURNING *`,
       [
         customerId, 
@@ -232,7 +244,13 @@ const createOrder = async (req, res) => {
         isDigital ? JSON.stringify(itemsList) : null,
         0,
         initialAmount,
-        initialModifiedList
+        initialModifiedList,
+        fulfillment_method || 'Pickup',
+        delivery_address || null,
+        delivery_landmark || null,
+        delivery_phone || null,
+        delivery_latitude ? parseFloat(delivery_latitude) : null,
+        delivery_longitude ? parseFloat(delivery_longitude) : null
       ]
     );
 
@@ -240,7 +258,7 @@ const createOrder = async (req, res) => {
 
     // Fetch complete order details including joined shops and users fields, matching getOrders
     const orderDetailsResult = await db.query(
-      `SELECT o.*, s.shop_name, s.address as shop_address, s.latitude as shop_latitude, s.longitude as shop_longitude, s.working_hours as shop_working_hours, s.upi_id, s.qr_code_image, COALESCE(su.phone, su.whatsapp_number) as seller_phone, u.name as customer_name, COALESCE(u.phone, u.whatsapp_number) as customer_phone, cp.status as commitment_status
+      `SELECT o.*, s.shop_name, s.address as shop_address, s.latitude as shop_latitude, s.longitude as shop_longitude, s.working_hours as shop_working_hours, s.upi_id, s.qr_code_image, s.delivery_option, s.delivery_charges, s.delivery_time, s.home_delivery_ready, s.catalog_enabled as shop_catalog_enabled, COALESCE(su.phone, su.whatsapp_number) as seller_phone, u.name as customer_name, COALESCE(u.phone, u.whatsapp_number) as customer_phone, cp.status as commitment_status
        FROM orders o 
        JOIN shops s ON o.shop_id = s.id 
        JOIN users u ON o.customer_id = u.id
@@ -302,7 +320,7 @@ const getOrders = async (req, res) => {
     let result;
     if (role === 'customer') {
       result = await db.query(
-        `SELECT o.*, s.shop_name, s.address as shop_address, s.latitude as shop_latitude, s.longitude as shop_longitude, s.working_hours as shop_working_hours, s.upi_id, s.qr_code_image, COALESCE(su.phone, su.whatsapp_number) as seller_phone, u.name as customer_name, cp.status as commitment_status,
+        `SELECT o.*, s.shop_name, s.address as shop_address, s.latitude as shop_latitude, s.longitude as shop_longitude, s.working_hours as shop_working_hours, s.upi_id, s.qr_code_image, s.delivery_option, s.delivery_charges, s.delivery_time, s.home_delivery_ready, s.catalog_enabled as shop_catalog_enabled, COALESCE(su.phone, su.whatsapp_number) as seller_phone, u.name as customer_name, cp.status as commitment_status,
                 COALESCE(ct.cancellations, 0) as cancellations
          FROM orders o 
          JOIN shops s ON o.shop_id = s.id 
@@ -323,7 +341,7 @@ const getOrders = async (req, res) => {
       const shopId = shopResult.rows[0].id;
 
       result = await db.query(
-        `SELECT o.*, u.name as customer_name, COALESCE(u.phone, u.whatsapp_number) as customer_phone,
+        `SELECT o.*, s.catalog_enabled as shop_catalog_enabled, u.name as customer_name, COALESCE(u.phone, u.whatsapp_number) as customer_phone,
                 COALESCE(ct.trust_score, 100) as customer_trust_score,
                 COALESCE(ct.customer_level, 'Standard Customer') as customer_level,
                 COALESCE(ct.successful_pickups, 0) as successful_pickups,
@@ -336,6 +354,7 @@ const getOrders = async (req, res) => {
                 END as reliability_score,
                 cp.status as commitment_status
          FROM orders o 
+         JOIN shops s ON o.shop_id = s.id
          JOIN users u ON o.customer_id = u.id 
          LEFT JOIN customer_trust ct ON u.id = ct.customer_id
          LEFT JOIN commitment_payments cp ON o.id = cp.order_id
@@ -488,6 +507,36 @@ const updateOrderStatus = async (req, res) => {
       // Phase 8A: Extract historical prices
       const priceEngine = require('../services/priceEngine');
       await priceEngine.extractOrderPrices(updatedOrder.id);
+
+      // Auto-catalog growth: Add items to seller_products if they don't exist
+      try {
+          const shopId = order.shop_id;
+          const sellerId = order.seller_user_id;
+          let items = [];
+          if (updatedOrder.modified_item_list) {
+              items = typeof updatedOrder.modified_item_list === 'string' ? JSON.parse(updatedOrder.modified_item_list) : updatedOrder.modified_item_list;
+          }
+          if (Array.isArray(items)) {
+              for (const item of items) {
+                  const name = item.name || item.itemName;
+                  if (!name) continue;
+                  
+                  // Check if it exists in seller_products
+                  const existCheck = await db.query(
+                      'SELECT id FROM seller_products WHERE shop_id = $1 AND LOWER(product_name) = LOWER($2)',
+                      [shopId, name.trim()]
+                  );
+                  if (existCheck.rows.length === 0) {
+                      await db.query(
+                          'INSERT INTO seller_products (shop_id, seller_id, product_name, category, price, quantity, unit) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                          [shopId, sellerId, name.trim(), item.category || 'General', parseFloat(item.price || 0), parseFloat(item.quantity || 1), item.unit || 'unit']
+                      );
+                  }
+              }
+          }
+      } catch (err) {
+          console.error('Error auto-populating seller products on order delivery:', err);
+      }
 
       // Phase 8B / Phase 6: Savings Engine
       try {
@@ -693,7 +742,9 @@ const updateOrderStatus = async (req, res) => {
             customOrderId: order.custom_order_id,
             shopName: order.shop_name,
             customerName: order.customer_name || 'Customer',
-            pickupOtp: updatedOrder.pickup_otp
+            pickupOtp: updatedOrder.pickup_otp,
+            fulfillmentMethod: updatedOrder.fulfillment_method,
+            amount: updatedOrder.amount
           }
         );
       }
@@ -830,7 +881,7 @@ const uploadBill = async (req, res) => {
 // 5. Customer Confirms Order & Selects Payment (Optionally uploads UPI receipt screenshot)
 const confirmOrder = async (req, res) => {
   const { id } = req.params;
-  const { payment_method } = req.body;
+  const { payment_method, fulfillment_method, delivery_address, delivery_landmark, delivery_phone, delivery_latitude, delivery_longitude } = req.body;
   const file = req.file; // optional payment proof
   const customerId = req.user.id;
 
@@ -893,10 +944,27 @@ const confirmOrder = async (req, res) => {
     const result = await db.query(
       `UPDATE orders 
        SET order_status = 'Packing Started', payment_method = $1, payment_status = $2, 
-           payment_proof_image = $3, confirmed_at = CURRENT_TIMESTAMP, packing_started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+           payment_proof_image = $3, confirmed_at = CURRENT_TIMESTAMP, packing_started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
+           fulfillment_method = COALESCE($5, fulfillment_method),
+           delivery_address = COALESCE($6, delivery_address),
+           delivery_landmark = COALESCE($7, delivery_landmark),
+           delivery_phone = COALESCE($8, delivery_phone),
+           delivery_latitude = COALESCE($9, delivery_latitude),
+           delivery_longitude = COALESCE($10, delivery_longitude)
        WHERE id = $4 
        RETURNING *`,
-      [payment_method, paymentStatus, proofUrl, id]
+      [
+        payment_method, 
+        paymentStatus, 
+        proofUrl, 
+        id,
+        fulfillment_method || null,
+        delivery_address || null,
+        delivery_landmark || null,
+        delivery_phone || null,
+        delivery_latitude ? parseFloat(delivery_latitude) : null,
+        delivery_longitude ? parseFloat(delivery_longitude) : null
+      ]
     );
 
     const updatedOrder = result.rows[0];
@@ -1266,6 +1334,114 @@ const getMarketComparison = async (req, res) => {
   }
 };
 
+const updateOrderFulfillment = async (req, res) => {
+  const { id } = req.params;
+  const { 
+    fulfillment_method,
+    delivery_address,
+    delivery_landmark,
+    delivery_phone,
+    delivery_latitude,
+    delivery_longitude
+  } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // Check order ownership
+    const orderRes = await db.query('SELECT customer_id FROM orders WHERE id = $1', [id]);
+    if (orderRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+    if (Number(orderRes.rows[0].customer_id) !== Number(userId)) {
+      return res.status(403).json({ error: 'Unauthorized.' });
+    }
+
+    const result = await db.query(
+      `UPDATE orders 
+       SET fulfillment_method = $1,
+           delivery_address = $2,
+           delivery_landmark = $3,
+           delivery_phone = $4,
+           delivery_latitude = $5,
+           delivery_longitude = $6,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $7 RETURNING *`,
+      [
+        fulfillment_method,
+        delivery_address || null,
+        delivery_landmark || null,
+        delivery_phone || null,
+        delivery_latitude ? parseFloat(delivery_latitude) : null,
+        delivery_longitude ? parseFloat(delivery_longitude) : null,
+        id
+      ]
+    );
+
+    return res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error('Update fulfillment error:', err);
+    return res.status(500).json({ error: 'Server error updating fulfillment details.' });
+  }
+};
+
+const askPayment = async (req, res) => {
+  const { id } = req.params;
+  const sellerId = req.user.id;
+
+  try {
+    const orderResult = await db.query(
+      `SELECT o.*, s.owner_id as seller_user_id, s.shop_name, u.name as customer_name
+       FROM orders o 
+       JOIN shops s ON o.shop_id = s.id 
+       JOIN users u ON o.customer_id = u.id
+       WHERE o.id = $1`,
+      [id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    const order = orderResult.rows[0];
+
+    if (Number(order.seller_user_id) !== Number(sellerId)) {
+      return res.status(403).json({ error: 'Unauthorized to modify this shop\'s orders.' });
+    }
+
+    // Insert automated chat message
+    const chatResult = await db.query(
+      `INSERT INTO order_chats (order_id, sender_id, sender_role, message)
+       VALUES ($1, $2, 'seller', $3) RETURNING *`,
+      [order.id, sellerId, `Hi, I have prepared your bill. Please verify and pay the amount of ₹${order.amount}.`]
+    );
+
+    // Dispatch realtime socket chat update
+    if (socketService.io) {
+      socketService.io.emit('new_chat', chatResult.rows[0]);
+    }
+
+    // Dispatch notification
+    const notificationEngine = require('../services/notificationEngine');
+    await notificationEngine.dispatchNotification(
+      order.customer_id,
+      'Payment Request',
+      `Please verify your bill and pay ₹${order.amount} for Order #${order.custom_order_id || order.id}.`,
+      'payment_request',
+      {
+        orderId: order.id,
+        customOrderId: order.custom_order_id,
+        shopName: order.shop_name,
+        amount: order.amount
+      }
+    );
+
+    return res.status(200).json({ success: true, message: 'Payment requested successfully.' });
+  } catch (err) {
+    console.error('Ask payment error:', err);
+    return res.status(500).json({ error: 'Server error requesting payment.' });
+  }
+};
+
 module.exports = {
   createOrder,
   getOrders,
@@ -1275,5 +1451,7 @@ module.exports = {
   verifyOTP,
   getChats,
   sendChat,
-  getMarketComparison
+  getMarketComparison,
+  updateOrderFulfillment,
+  askPayment
 };

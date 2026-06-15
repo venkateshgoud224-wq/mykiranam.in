@@ -321,13 +321,23 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
                           {shop.address}
                         </p>
                       </div>
-
-                      {/* Shop Category Badge */}
-                      <span className="px-2 py-1 bg-slate-50 border border-slate-200/60 text-slate-500 rounded-lg text-[9px] font-bold">
-                        {shop.shop_category || 'General Store'}
-                      </span>
+                      {/* Shop Category & Fulfillment Badges */}
+                      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                        <span className="px-2 py-1 bg-slate-50 border border-slate-200/60 text-slate-500 rounded-lg text-[9px] font-bold">
+                          {shop.shop_category || 'General Store'}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black border ${
+                          shop.delivery_option === 'Delivery Only' 
+                            ? 'bg-purple-50 text-purple-700 border-purple-200/50' 
+                            : shop.delivery_option === 'Pickup + Delivery'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50'
+                            : 'bg-amber-50 text-amber-700 border-amber-200/50'
+                        }`}>
+                          {shop.delivery_option || 'Pickup Only'}
+                        </span>
+                      </div>
                     </div>
-
+ 
                     {/* Visual metrics cards */}
                     <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-2xl text-center">
                       <div className="border-r border-slate-200">
@@ -346,6 +356,16 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
                         </span>
                       </div>
                     </div>
+
+                    {/* Delivery details sub-bar */}
+                    {shop.delivery_option && shop.delivery_option !== 'Pickup Only' && (
+                      <div className="text-[10px] text-slate-500 bg-slate-50/50 border border-slate-100 rounded-2xl px-3 py-1.5 flex justify-between items-center font-bold">
+                        <span>Est. Delivery Charges:</span>
+                        <span className="text-slate-800">
+                          ₹{parseFloat(shop.delivery_charges || 0).toFixed(2)} • {shop.delivery_time || '30 mins'}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Ratings and discounts */}
                     <div className="flex items-center justify-between text-xs">

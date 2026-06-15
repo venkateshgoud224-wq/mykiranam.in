@@ -213,7 +213,13 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange, isRevision }) => {
                       <span className="block font-semibold text-slate-700 max-w-[150px] truncate">
                         Notes: {order.notes || 'None'}
                       </span>
-                      <span className="inline-block bg-amber-100 text-amber-800 border border-amber-200 rounded-full px-2 py-0.5 text-xs font-medium ml-2">Manual Pickup (Default)</span>
+                      <span className={`inline-block border rounded-full px-2 py-0.5 text-xs font-semibold mt-1 ${
+                        order.fulfillment_method === 'Delivery'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                          : 'bg-amber-100 text-amber-800 border-amber-200'
+                      }`}>
+                        {order.fulfillment_method === 'Delivery' ? '🛵 Home Delivery' : '🏪 Shop Pickup'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -389,13 +395,44 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange, isRevision }) => {
               ) : null}
 
               {/* Note / pickup time Details */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs space-y-1.5">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs space-y-2">
                 {selectedOrder.notes && (
                   <p className="text-slate-700">
                     <strong>Customer Instructions:</strong> "{selectedOrder.notes}"
                   </p>
                 )}
-                <span className="inline-block bg-amber-100 text-amber-800 border border-amber-200 rounded-full px-2 py-0.5 text-xs font-medium ml-2">Manual Pickup (Default)</span>
+                {selectedOrder.preferred_pickup_time && (
+                  <p className="text-slate-700">
+                    <strong>Preferred Pickup Time:</strong> {selectedOrder.preferred_pickup_time}
+                  </p>
+                )}
+                <div>
+                  <span className={`inline-block border rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    selectedOrder.fulfillment_method === 'Delivery'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                      : 'bg-amber-100 text-amber-800 border-amber-200'
+                  }`}>
+                    {selectedOrder.fulfillment_method === 'Delivery' ? '🛵 Home Delivery' : '🏪 Store Pickup'}
+                  </span>
+                </div>
+
+                {selectedOrder.fulfillment_method === 'Delivery' && (
+                  <div className="mt-3 pt-3 border-t border-slate-200/60 space-y-1.5 text-left text-slate-700">
+                    <p className="leading-normal">
+                      <strong>Delivery Address:</strong> {selectedOrder.delivery_address}
+                    </p>
+                    {selectedOrder.delivery_landmark && (
+                      <p className="text-slate-600 text-[11px]">
+                        <strong>Landmark:</strong> {selectedOrder.delivery_landmark}
+                      </p>
+                    )}
+                    {selectedOrder.delivery_phone && (
+                      <p className="text-slate-600 text-[11px]">
+                        <strong>Delivery Contact:</strong> {selectedOrder.delivery_phone}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {error && <div className="text-crimson text-xs font-semibold">{error}</div>}

@@ -33,7 +33,7 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
           setEditableItems(
             parsed.map(item => ({
               ...item,
-              price: item.price !== undefined ? item.price : '',
+              price: item.price !== undefined && item.price !== '' ? item.price : (item.mrp !== undefined ? item.mrp : ''),
               notes: item.notes || '',
               status: item.status || 'unchanged'
             }))
@@ -67,7 +67,8 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
       .filter(item => item.status !== 'removed')
       .reduce((sum, item) => {
         const pr = parseFloat(item.price) || 0;
-        return sum + pr;
+        const qty = parseFloat(item.quantity) || 1;
+        return sum + (pr * qty);
       }, 0)
       .toFixed(2);
   };
@@ -114,7 +115,7 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
   };
 
   const calculateItemSubtotal = (item) => {
-    return (parseFloat(item.price) || 0).toFixed(2);
+    return ((parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1)).toFixed(2);
   };
   const [billUploaded, setBillUploaded] = useState(false);
   const handleAcceptSubmit = async (e) => {
@@ -330,7 +331,7 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
                           type="number"
                           step="0.01"
                           required
-                          placeholder="₹ Total Price"
+                          placeholder="₹ Unit Price"
                           value={item.price}
                           onChange={(e) => handleUpdateItemField(item.id, 'price', e.target.value)}
                           className="px-2 py-1.5 bg-slate-50 border-2 border-kirana-500/35 rounded-lg text-xs font-bold text-slate-900 focus:border-kirana-600 focus:outline-none"
@@ -373,10 +374,7 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
               <span className="text-sm font-black text-slate-950">₹{calculateGrandTotal()}</span>
             </div>
 
-            <div className="p-3 bg-amber-100/20 border border-amber-200 rounded-xl flex justify-between items-center text-xs mt-2">
-              
-              <span className="text-sm font-bold text-slate-950">₹{Math.min(parseFloat(calculateGrandTotal()) * 0.1, 50).toFixed(2)}</span>
-            </div>
+
           </div>
         ) : (
           <>

@@ -9,6 +9,7 @@ import CustomerQuotes from './pages/customer/CustomerQuotes';
 import MyOrders from './pages/customer/MyOrders';
 import SellerDashboard from './pages/seller/SellerDashboard';
 import SellerSettings from './pages/seller/SellerSettings';
+import MyProducts from './pages/seller/MyProducts';
 import AdminDashboard from './pages/admin/AdminDashboard'; // Import Admin Panel
 import Profile from './pages/Profile';
 import SavingsDashboard from './pages/customer/SavingsDashboard';
@@ -16,13 +17,19 @@ import WhatsAppVerificationRequired from './pages/WhatsAppVerificationRequired';
 import SupportAssistant from './pages/SupportAssistant';
 import Navbar from './components/common/Navbar';
 import BottomNavigation from './components/common/BottomNavigation';
-import { Store, ShoppingBag, User, Settings, Layers, Bell, ShieldAlert, Trophy, HelpCircle, Scale } from 'lucide-react';
+import { Store, ShoppingBag, User, Settings, Layers, Bell, ShieldAlert, Trophy, HelpCircle, Scale, Package } from 'lucide-react';
 
-// Capture shopId from URL immediately upon script load to ensure it's available for child components
+// Capture shopId and orderId from URL immediately upon script load to ensure it's available for child components
 const urlParams = new URLSearchParams(window.location.search);
 const initialShopId = urlParams.get('shopId');
 if (initialShopId) {
   sessionStorage.setItem('kirana_scannedShopId', initialShopId);
+}
+const initialOrderId = urlParams.get('order_id');
+if (initialOrderId) {
+  sessionStorage.setItem('kirana_verificationOrderId', initialOrderId);
+}
+if (initialShopId || initialOrderId) {
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
@@ -33,7 +40,7 @@ const DashboardContent = () => {
   // Selected tab state (initialises based on role)
   const [activeTab, setActiveTab] = useState(() => {
     const queryParams = new URLSearchParams(window.location.search);
-    if (queryParams.get('order_id')) {
+    if (queryParams.get('order_id') || sessionStorage.getItem('kirana_verificationOrderId')) {
       return 'orders';
     }
     const savedTab = sessionStorage.getItem('kirana_activeTab');
@@ -115,6 +122,7 @@ const DashboardContent = () => {
       { id: 'seller-new', label: 'New Chittis', icon: Bell },
       { id: 'seller-active', label: 'Active Queue', icon: Layers },
       { id: 'seller-completed', label: 'Completed Log', icon: ShoppingBag },
+      { id: 'seller-products', label: 'My Products', icon: Package },
       { id: 'seller-disputes', label: 'Disputes & Trust', icon: Scale },
       { id: 'seller-settings', label: 'Store Config', icon: Settings },
       { id: 'support', label: 'Help & Support', icon: HelpCircle },
@@ -201,6 +209,8 @@ const DashboardContent = () => {
             onTabChange={setActiveTab}
           />
         );
+      case 'seller-products':
+        return <MyProducts />;
       case 'seller-settings':
         return <SellerSettings />;
 
@@ -210,7 +220,7 @@ const DashboardContent = () => {
 
       // Shared profiles
       case 'profile':
-        return <Profile />;
+        return <Profile onTabChange={setActiveTab} />;
 
       case 'support':
         return <SupportAssistant />;

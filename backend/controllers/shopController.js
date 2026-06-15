@@ -185,61 +185,73 @@ const getMyShop = async (req, res) => {
 // 4. Update Shop Settings (including coordinates fraud duplicate location blocker)
 const updateShopSettings = async (req, res) => {
   const sellerId = req.user.id;
-  const {
-    shop_name,
-    address,
-    latitude,
-    longitude,
-    availability_status,
-    max_active_orders,
-    waiting_time,
-    discounts,
-    online_start_time,
-    online_end_time,
-    working_hours,
-    shop_category
-  } = req.body;
-
-  try {
-    const shopCheck = await db.query('SELECT * FROM shops WHERE owner_id = $1', [sellerId]);
-    if (shopCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Shop not found for this seller.' });
-    }
-    const shop = shopCheck.rows[0];
-
-    const newLat = latitude ? parseFloat(latitude) : parseFloat(shop.latitude);
-    const newLng = longitude ? parseFloat(longitude) : parseFloat(shop.longitude);
-
-    // Fraud check: block duplicate coordinates
-    if (latitude || longitude) {
-      const duplicateShopName = await checkLocationDuplicate(newLat, newLng, shop.id);
-      if (duplicateShopName) {
-        return res.status(400).json({
-          error: `Fraud coordinates flagged. Coordinates match too closely with registered shop: "${duplicateShopName}".`
-        });
+    const {
+      shop_name,
+      address,
+      latitude,
+      longitude,
+      availability_status,
+      max_active_orders,
+      waiting_time,
+      discounts,
+      online_start_time,
+      online_end_time,
+      working_hours,
+      shop_category,
+      delivery_option,
+      delivery_charges,
+      delivery_time,
+      home_delivery_ready,
+      catalog_enabled
+    } = req.body;
+  
+    try {
+      const shopCheck = await db.query('SELECT * FROM shops WHERE owner_id = $1', [sellerId]);
+      if (shopCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Shop not found for this seller.' });
       }
-    }
-
-    const newShopName = shop_name || shop.shop_name;
-    const newAddress = address || shop.address;
-    const newStatus = availability_status || shop.availability_status;
-    const newMaxActive = (max_active_orders !== undefined && max_active_orders !== '') ? parseInt(max_active_orders) : shop.max_active_orders;
-    const newWait = (waiting_time !== undefined && waiting_time !== '') ? parseInt(waiting_time) : shop.waiting_time;
-    const newDiscounts = discounts !== undefined ? discounts : shop.discounts;
-    const newStart = online_start_time || shop.online_start_time;
-    const newEnd = online_end_time || shop.online_end_time;
-    const newHours = working_hours || shop.working_hours;
-    const newCategory = shop_category || shop.shop_category;
-
-    const result = await db.query(
-      `UPDATE shops 
-       SET shop_name = $1, address = $2, latitude = $3, longitude = $4, availability_status = $5, 
-           max_active_orders = $6, waiting_time = $7, discounts = $8, online_start_time = $9, online_end_time = $10,
-           working_hours = $11, shop_category = $12
-       WHERE id = $13 
-       RETURNING *`,
-      [newShopName, newAddress, newLat, newLng, newStatus, newMaxActive, newWait, newDiscounts, newStart, newEnd, newHours, newCategory, shop.id]
-    );
+      const shop = shopCheck.rows[0];
+  
+      const newLat = latitude ? parseFloat(latitude) : parseFloat(shop.latitude);
+      const newLng = longitude ? parseFloat(longitude) : parseFloat(shop.longitude);
+  
+      // Fraud check: block duplicate coordinates
+      if (latitude || longitude) {
+        const duplicateShopName = await checkLocationDuplicate(newLat, newLng, shop.id);
+        if (duplicateShopName) {
+          return res.status(400).json({
+            error: `Fraud coordinates flagged. Coordinates match too closely with registered shop: "${duplicateShopName}".`
+          });
+        }
+      }
+  
+      const newShopName = shop_name || shop.shop_name;
+      const newAddress = address || shop.address;
+      const newStatus = availability_status || shop.availability_status;
+      const newMaxActive = (max_active_orders !== undefined && max_active_orders !== '') ? parseInt(max_active_orders) : shop.max_active_orders;
+      const newWait = (waiting_time !== undefined && waiting_time !== '') ? parseInt(waiting_time) : shop.waiting_time;
+      const newDiscounts = discounts !== undefined ? discounts : shop.discounts;
+      const newStart = online_start_time || shop.online_start_time;
+      const newEnd = online_end_time || shop.online_end_time;
+      const newHours = working_hours || shop.working_hours;
+      const newCategory = shop_category || shop.shop_category;
+      
+      const newDeliveryOption = delivery_option || shop.delivery_option || 'Pickup Only';
+      const newDeliveryCharges = (delivery_charges !== undefined && delivery_charges !== '') ? parseFloat(delivery_charges) : (shop.delivery_charges || 0.00);
+      const newDeliveryTime = delivery_time !== undefined ? delivery_time : (shop.delivery_time || '');
+      const newHomeDeliveryReady = home_delivery_ready !== undefined ? (home_delivery_ready === true || home_delivery_ready === 'true') : (shop.home_delivery_ready || false);
+      const newCatalogEnabled = catalog_enabled !== undefined ? (catalog_enabled === true || catalog_enabled === 'true') : (shop.catalog_enabled !== false);
+  
+      const result = await db.query(
+        `UPDATE shops 
+         SET shop_name = $1, address = $2, latitude = $3, longitude = $4, availability_status = $5, 
+             max_active_orders = $6, waiting_time = $7, discounts = $8, online_start_time = $9, online_end_time = $10,
+             working_hours = $11, shop_category = $12, delivery_option = $13, delivery_charges = $14, delivery_time = $15,
+             home_delivery_ready = $16, catalog_enabled = $17
+         WHERE id = $18 
+         RETURNING *`,
+        [newShopName, newAddress, newLat, newLng, newStatus, newMaxActive, newWait, newDiscounts, newStart, newEnd, newHours, newCategory, newDeliveryOption, newDeliveryCharges, newDeliveryTime, newHomeDeliveryReady, newCatalogEnabled, shop.id]
+      );
 
     const updatedShop = result.rows[0];
 

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { User, Mail, Phone, ShoppingBag, ShieldAlert, Award, Star, History, Clock, Bell, Volume2, MessageSquare, CheckCircle2, AlertCircle, Info, FileText, ShieldCheck, ScrollText, Sparkles, TrendingUp, TrendingDown, Coins, Zap, Ban, Eye, RefreshCw, Heart, Users, Check, X, Percent, Store, Database, Package } from 'lucide-react';
+import { User, Mail, Phone, ShoppingBag, ShieldAlert, Award, Star, History, Clock, Bell, Volume2, MessageSquare, CheckCircle2, AlertCircle, Info, FileText, ShieldCheck, ScrollText, Sparkles, TrendingUp, TrendingDown, Coins, Zap, Ban, Eye, RefreshCw, Heart, Users, Check, X, Percent, Store, Database, Package, Upload, Scale } from 'lucide-react';
 
-const Profile = () => {
+const Profile = ({ onTabChange }) => {
   const { user, extraData, refreshProfile, deleteAccount, apiUrl } = useAuth();
   const { playSoundAlert } = useSocket();
 
@@ -45,6 +45,8 @@ const Profile = () => {
   // Seller reviews state
   const [sellerReviews, setSellerReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+
+
 
   useEffect(() => {
     if (user?.role === 'seller' && extraData.shop?.id) {
@@ -243,6 +245,8 @@ const Profile = () => {
       setDeleteLoading(false);
     }
   };
+
+
 
   const getRoleIcon = () => {
     if (user?.role === 'seller') return '🏪';
@@ -791,6 +795,7 @@ const Profile = () => {
               </p>
             </div>
           )}
+
           {/* --- SELLER PERFORMANCE SECTION --- */}
           {user?.role === 'seller' && extraData.shop && (
             <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-md space-y-4">
@@ -830,6 +835,47 @@ const Profile = () => {
                     </span>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- SELLER DISPUTES & TRUST SECTION --- */}
+          {user?.role === 'seller' && extraData.shop && (
+            <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-md space-y-4 mt-6">
+              <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400 flex items-center space-x-1.5">
+                <Scale className="w-4 h-4 text-amber-500" />
+                <span>Disputes & Trust Center</span>
+              </h3>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="space-y-1">
+                  <div className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                    <span>Warning Level:</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${
+                      extraData.shop?.warning_level === 'None' || !extraData.shop?.warning_level
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50'
+                        : 'bg-red-50 text-red-700 border-red-200/50'
+                    }`}>
+                      {extraData.shop?.warning_level || 'None'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-normal">
+                    Protect your store reputation, respond to disputes, and review customer complaints.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onTabChange) {
+                      onTabChange('seller-disputes');
+                    }
+                  }}
+                  className="w-full sm:w-auto py-2.5 px-4 bg-slate-900 hover:bg-slate-950 text-white font-extrabold rounded-xl text-xs transition-all active:scale-[0.98] flex items-center justify-center space-x-1.5 whitespace-nowrap self-stretch sm:self-auto"
+                >
+                  <Scale className="w-4 h-4 text-amber-400" />
+                  <span>Manage Disputes</span>
+                </button>
               </div>
             </div>
           )}

@@ -39,6 +39,7 @@ const mockDb = {
   price_analytics: [],
   customer_savings: {},
   commitment_payments: [],
+  seller_products: [],
   community_savings: {
     id: 1,
     total_orders: 0,
@@ -125,6 +126,11 @@ const seedMockDbIfEmpty = () => {
         online_start_time: "08:00",
         online_end_time: "22:00",
         upi_id: "seller@upi",
+        delivery_option: "Pickup + Delivery",
+        delivery_charges: 25.00,
+        delivery_time: "30-45 mins",
+        home_delivery_ready: false,
+        catalog_enabled: true,
         created_at: new Date()
       },
       {
@@ -150,6 +156,11 @@ const seedMockDbIfEmpty = () => {
         online_start_time: "08:00",
         online_end_time: "22:00",
         upi_id: "seller2@upi",
+        delivery_option: "Pickup + Delivery",
+        delivery_charges: 30.00,
+        delivery_time: "40-60 mins",
+        home_delivery_ready: false,
+        catalog_enabled: true,
         created_at: new Date()
       }
     );
@@ -528,7 +539,10 @@ const mockQuery = async (text, params = []) => {
           seller_user_id: shop.owner_id || null,
           seller_phone: seller.phone || '',
           customer_name: customer.name || 'Demo Customer',
-          customer_phone: customer.phone || ''
+          customer_phone: customer.phone || '',
+          delivery_option: shop.delivery_option || 'Pickup Only',
+          delivery_charges: shop.delivery_charges || 0.00,
+          delivery_time: shop.delivery_time || ''
         };
       });
 
@@ -602,6 +616,27 @@ const mockQuery = async (text, params = []) => {
         return { rows: product ? [product] : [] };
       }
       return { rows: mockDb.products };
+    }
+
+    if (normalizedText.includes('from seller_products')) {
+      let list = mockDb.seller_products || [];
+      if (normalizedText.includes('where shop_id = $1 and lower(product_name) = lower($2)')) {
+        const shopId = Number(params[0]);
+        const prodName = params[1].toLowerCase().trim();
+        const found = list.find(p => Number(p.shop_id) === shopId && p.product_name.toLowerCase().trim() === prodName);
+        return { rows: found ? [found] : [] };
+      }
+      if (normalizedText.includes('where id = $1 and shop_id = $2')) {
+        const id = Number(params[0]);
+        const shopId = Number(params[1]);
+        const found = list.find(p => Number(p.id) === id && Number(p.shop_id) === shopId);
+        return { rows: found ? [found] : [] };
+      }
+      if (normalizedText.includes('where shop_id =')) {
+        const shopId = Number(params[0]);
+        return { rows: list.filter(p => Number(p.shop_id) === shopId) };
+      }
+      return { rows: list };
     }
 
     if (normalizedText.includes('from product_aliases')) {
@@ -864,6 +899,10 @@ const mockQuery = async (text, params = []) => {
       online_end_time: '22:00',
       upi_id: params[6] || null,
       qr_code_image: null,
+      delivery_option: 'Pickup + Delivery',
+      delivery_charges: 0.00,
+      delivery_time: '',
+      home_delivery_ready: false,
       created_at: new Date()
     };
     mockDb.shops.push(newShop);
@@ -899,7 +938,13 @@ const mockQuery = async (text, params = []) => {
       order_type: 'handwritten',
       digital_item_list: null,
       modified_item_list: null,
-      item_change_history: null
+      item_change_history: null,
+      fulfillment_method: 'Pickup',
+      delivery_address: null,
+      delivery_landmark: null,
+      delivery_phone: null,
+      delivery_latitude: null,
+      delivery_longitude: null
     };
 
     columns.forEach((col, idx) => {
@@ -917,6 +962,12 @@ const mockQuery = async (text, params = []) => {
       else if (col === 'amount') newOrder.amount = val !== null && val !== undefined ? Number(val) : null;
       else if (col === 'gateway_fee') newOrder.gateway_fee = val !== null && val !== undefined ? Number(val) : 0;
       else if (col === 'item_change_history') newOrder.item_change_history = val;
+      else if (col === 'fulfillment_method') newOrder.fulfillment_method = val || 'Pickup';
+      else if (col === 'delivery_address') newOrder.delivery_address = val;
+      else if (col === 'delivery_landmark') newOrder.delivery_landmark = val;
+      else if (col === 'delivery_phone') newOrder.delivery_phone = val;
+      else if (col === 'delivery_latitude') newOrder.delivery_latitude = val !== null && val !== undefined ? Number(val) : null;
+      else if (col === 'delivery_longitude') newOrder.delivery_longitude = val !== null && val !== undefined ? Number(val) : null;
     });
 
     mockDb.orders.push(newOrder);
@@ -994,6 +1045,25 @@ const mockQuery = async (text, params = []) => {
     };
     mockDb.products.push(newProduct);
     return { rows: [newProduct] };
+  }
+
+  if (normalizedText.startsWith('insert into seller_products')) {
+    if (!mockDb.seller_products) mockDb.seller_products = [];
+    const newProd = {
+      id: mockDb.seller_products.length + 1,
+      shop_id: Number(params[0]),
+      seller_id: Number(params[1]),
+      product_name: params[2],
+      category: params[3] || 'General',
+      price: Number(params[4]),
+      quantity: Number(params[5]),
+      unit: params[6],
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+    mockDb.seller_products.push(newProd);
+    isMockDbDirty = true;
+    return { rows: [newProd] };
   }
 
   if (normalizedText.startsWith('insert into product_aliases')) {
@@ -1259,6 +1329,11 @@ const mockQuery = async (text, params = []) => {
           shop.online_end_time = params[9];
           shop.working_hours = params[10];
           shop.shop_category = params[11];
+          shop.delivery_option = params[12] || 'Pickup Only';
+          shop.delivery_charges = params[13] !== null && params[13] !== undefined ? parseFloat(params[13]) : 0.00;
+          shop.delivery_time = params[14] || '';
+          shop.home_delivery_ready = params[15] === true || params[15] === 'true' || params[15] === 't' || false;
+          shop.catalog_enabled = params[16] === true || params[16] === 'true' || params[16] === 't' || false;
         }
         // 4. updateShopSettings (original simplified version)
         else if (normalizedText.includes('availability_status = $1') || normalizedText.includes('set availability_status =')) {
@@ -1292,7 +1367,8 @@ const mockQuery = async (text, params = []) => {
 
     if (normalizedText.includes('update orders')) {
       let orderId;
-      if (normalizedText.includes('where id = $5')) orderId = params[4];
+      if (normalizedText.includes('where id = $7')) orderId = params[6];
+      else if (normalizedText.includes('where id = $5')) orderId = params[4];
       else if (normalizedText.includes('where id = $4')) orderId = params[3];
       else if (normalizedText.includes('where id = $3')) orderId = params[2];
       else if (normalizedText.includes('where id = $2')) orderId = params[1];
@@ -1389,6 +1465,22 @@ const mockQuery = async (text, params = []) => {
           order.payment_status = params[1];
           order.payment_proof_image = params[2] || null;
           order.confirmed_at = new Date();
+          if (params.length >= 10) {
+            order.fulfillment_method = params[4] || order.fulfillment_method;
+            order.delivery_address = params[5] || order.delivery_address;
+            order.delivery_landmark = params[6] || order.delivery_landmark;
+            order.delivery_phone = params[7] || order.delivery_phone;
+            order.delivery_latitude = params[8] ? Number(params[8]) : order.delivery_latitude;
+            order.delivery_longitude = params[9] ? Number(params[9]) : order.delivery_longitude;
+          }
+        }
+        else if (normalizedText.includes('fulfillment_method = $1') && normalizedText.includes('delivery_address = $2')) {
+          order.fulfillment_method = params[0];
+          order.delivery_address = params[1] || null;
+          order.delivery_landmark = params[2] || null;
+          order.delivery_phone = params[3] || null;
+          order.delivery_latitude = params[4] ? Number(params[4]) : null;
+          order.delivery_longitude = params[5] ? Number(params[5]) : null;
         }
         // Fallbacks
         else if (normalizedText.includes('set order_status = $1') && normalizedText.includes('modified_bill = $2')) {
@@ -1435,6 +1527,35 @@ const mockQuery = async (text, params = []) => {
         }
       }
       return { rows: order ? [order] : [] };
+    }
+
+    if (normalizedText.includes('update seller_products')) {
+      const hasRename = normalizedText.includes('product_name =');
+      let prod;
+      if (hasRename) {
+        const id = Number(params[5]);
+        prod = mockDb.seller_products.find(p => Number(p.id) === id);
+        if (prod) {
+          prod.product_name = params[0];
+          prod.category = params[1];
+          prod.price = Number(params[2]);
+          prod.quantity = Number(params[3]);
+          prod.unit = params[4];
+          prod.updated_at = new Date();
+        }
+      } else {
+        const id = Number(params[4]);
+        prod = mockDb.seller_products.find(p => Number(p.id) === id);
+        if (prod) {
+          prod.category = params[0];
+          prod.price = Number(params[1]);
+          prod.quantity = Number(params[2]);
+          prod.unit = params[3];
+          prod.updated_at = new Date();
+        }
+      }
+      isMockDbDirty = true;
+      return { rows: prod ? [prod] : [] };
     }
   }
 
@@ -1501,6 +1622,18 @@ const mockQuery = async (text, params = []) => {
         return { rows: [] };
       }
     }
+
+    if (normalizedText.includes('from seller_products')) {
+      const id = Number(params[0]);
+      const shopId = Number(params[1]);
+      const targetIndex = mockDb.seller_products.findIndex(p => Number(p.id) === id && Number(p.shop_id) === shopId);
+      let deleted = [];
+      if (targetIndex !== -1) {
+        deleted = mockDb.seller_products.splice(targetIndex, 1);
+        isMockDbDirty = true;
+      }
+      return { rows: deleted };
+    }
   }
 
   return { rows: [] };
@@ -1524,6 +1657,7 @@ const initDb = async () => {
     // Safely add custom_order_id and transition timestamps to existing database schemas if not present
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS custom_order_id VARCHAR(50);');
     await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS image_banner TEXT;');
+    await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS catalog_enabled BOOLEAN DEFAULT true;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS packing_started_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS ready_for_pickup_at TIMESTAMP WITH TIME ZONE;');
@@ -1542,6 +1676,11 @@ const initDb = async () => {
 
     
     // Phase 5 migrations for digital / hybrid chitti updates
+    try {
+      await pool.query('ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_payment_method_check;');
+    } catch (err) {
+      console.log('Note: Could not drop orders_payment_method_check constraint:', err.message);
+    }
     await pool.query('ALTER TABLE orders ALTER COLUMN original_chitti DROP NOT NULL;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(20) DEFAULT \'handwritten\';');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS digital_item_list TEXT;');
@@ -1609,6 +1748,22 @@ const initDb = async () => {
         reason TEXT NOT NULL,
         suspended_until TIMESTAMP WITH TIME ZONE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS seller_products (
+        id SERIAL PRIMARY KEY,
+        shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE,
+        seller_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        product_name VARCHAR(255) NOT NULL,
+        category VARCHAR(100) DEFAULT 'General',
+        price DECIMAL(10,2) NOT NULL,
+        quantity DECIMAL(10,2) NOT NULL,
+        unit VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(shop_id, product_name)
       );
     `);
     
