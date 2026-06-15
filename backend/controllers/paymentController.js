@@ -56,7 +56,9 @@ const createPhonePeOrder = async (req, res) => {
   const { amount, receipt, order_id, redirect_url, is_security_deposit } = req.body;
 
   let finalAmount = Math.round(Number(amount));
-  let merchantTransactionId = receipt || `order_${Date.now()}`;
+  // Structure merchantTransactionId so we can always parse order_id from it:
+  // e.g. order_86_1718468765223 or sec_dep_86_1718468765223
+  let merchantTransactionId = receipt || `order_${order_id || Date.now()}_${Date.now()}`;
 
   if (is_security_deposit) {
     finalAmount = 5000; // ₹50
@@ -153,6 +155,154 @@ const createPhonePeOrder = async (req, res) => {
   }
 };
 
+/**
+ * Shared helper to complete an order payment and perform DB updates/notifications
+ */
+const completeOrderPayment = async (transactionId, orderId, paymentMethod) => {
+  const isSecurityDeposit = transactionId.startsWith('sec_dep_');
+  const targetOrderId = orderId || (isSecurityDeposit ? Number(transactionId.split('_')[2]) : Number(transactionId.split('_')[1]));
+
+  if (!targetOrderId || isNaN(targetOrderId)) {
+    console.error('Invalid target order ID parsed from transactionId:', transactionId);
+    return false;
+  }
+
+  // Fetch order details first to get shop_id, seller_user_id, etc.
+  const orderResult = await db.query(
+    `SELECT o.*, s.owner_id as seller_user_id, s.shop_name 
+     FROM orders o 
+     JOIN shops s ON o.shop_id = s.id 
+     WHERE o.id = $1`,
+    [targetOrderId]
+  );
+
+  if (orderResult.rows.length === 0) {
+    console.error(`Order ID ${targetOrderId} not found in database.`);
+    return false;
+  }
+
+  const order = orderResult.rows[0];
+  const originalStatus = order.order_status;
+
+  // Prevent duplicate updates if already confirmed/paid
+  if (isSecurityDeposit && order.order_status === 'Packing Started') {
+    console.log(`Order #${targetOrderId} already marked as Packing Started (deposit paid).`);
+    return true;
+  }
+  if (!isSecurityDeposit && order.payment_status === 'Paid') {
+    console.log(`Order #${targetOrderId} already marked as Paid.`);
+    return true;
+  }
+
+  if (isSecurityDeposit) {
+    // Update order for security deposit Pay During Pickup
+    const updateRes = await db.query(
+      `UPDATE orders 
+       SET order_status = 'Packing Started',
+           payment_status = 'Pending', 
+           payment_method = 'Pay During Pickup', 
+           confirmed_at = CURRENT_TIMESTAMP,
+           packing_started_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 RETURNING *`,
+      [targetOrderId]
+    );
+    const updatedOrder = updateRes.rows[0];
+
+    // Insert commitment payment record
+    await db.query(
+      `INSERT INTO commitment_payments (order_id, amount, status, razorpay_payment_id) 
+       VALUES ($1, $2, $3, $4)`,
+      [targetOrderId, 5000, 'paid', transactionId]
+    );
+
+    // Update shop active orders count
+    try {
+      const activeCountRes = await db.query(
+        `SELECT COUNT(*) FROM orders 
+         WHERE shop_id = $1 AND order_status IN (
+           'Waiting For Seller', 'Accepted', 'Bill Uploaded', 
+           'Waiting For Customer Confirmation', 'Confirmed', 'Packing Started', 'Packing Completed'
+         )`,
+        [order.shop_id]
+      );
+      const activeCount = parseInt(activeCountRes.rows[0].count);
+      await db.query('UPDATE shops SET active_orders = $1 WHERE id = $2', [activeCount, order.shop_id]);
+    } catch (queueErr) {
+      console.error('Error updating queue in paymentController:', queueErr);
+    }
+
+    // Notifications & Socket emit
+    try {
+      const socketService = require('../services/socketService');
+      const notificationEngine = require('../services/notificationEngine');
+
+      socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
+
+      const message = `Customer confirmed Order #${order.custom_order_id || order.id} with a ₹50 Security Deposit (Pay During Pickup)!`;
+      await notificationEngine.dispatchNotification(
+        order.seller_user_id,
+        'Order Confirmed',
+        message,
+        'order_confirmed',
+        {
+          orderId: order.id,
+          customOrderId: order.custom_order_id,
+          shopName: order.shop_name,
+          paymentMethod: 'Pay During Pickup'
+        }
+      );
+
+      await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id, originalStatus);
+    } catch (notifErr) {
+      console.error('Error sending notifications in paymentController:', notifErr);
+    }
+
+  } else {
+    // Standard Full Payment confirmed
+    const updateRes = await db.query(
+      `UPDATE orders 
+       SET order_status = 'Confirmed',
+           payment_status = 'Paid', 
+           payment_method = $1, 
+           cashfree_order_id = $2, 
+           confirmed_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3 RETURNING *`,
+      [paymentMethod || 'PhonePe UPI', transactionId, targetOrderId]
+    );
+    const updatedOrder = updateRes.rows[0];
+
+    // Update shop active orders count
+    try {
+      const activeCountRes = await db.query(
+        `SELECT COUNT(*) FROM orders 
+         WHERE shop_id = $1 AND order_status IN (
+           'Waiting For Seller', 'Accepted', 'Bill Uploaded', 
+           'Waiting For Customer Confirmation', 'Confirmed', 'Packing Started', 'Packing Completed'
+         )`,
+        [order.shop_id]
+      );
+      const activeCount = parseInt(activeCountRes.rows[0].count);
+      await db.query('UPDATE shops SET active_orders = $1 WHERE id = $2', [activeCount, order.shop_id]);
+    } catch (queueErr) {
+      console.error('Error updating queue in paymentController:', queueErr);
+    }
+
+    try {
+      const socketService = require('../services/socketService');
+      const notificationEngine = require('../services/notificationEngine');
+
+      socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
+      await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id, originalStatus);
+    } catch (notifErr) {
+      console.error('Error sending notifications in paymentController:', notifErr);
+    }
+  }
+
+  return true;
+};
+
 const verifyPhonePePayment = async (req, res) => {
   try {
     const { order_id, payment_method } = req.body; 
@@ -199,129 +349,9 @@ const verifyPhonePePayment = async (req, res) => {
     // As per V2 Checklist: Root-level state parameter determines status
     if (data && data.state === 'COMPLETED') {
       const isSecurityDeposit = transactionId.startsWith('sec_dep_');
-      const targetOrderId = order_id || (isSecurityDeposit ? Number(transactionId.split('_')[2]) : null);
+      const targetOrderId = order_id || (isSecurityDeposit ? Number(transactionId.split('_')[2]) : Number(transactionId.split('_')[1]));
 
-      if (targetOrderId) {
-        // Fetch order details first to get shop_id, seller_user_id, etc.
-        const orderResult = await db.query(
-          `SELECT o.*, s.owner_id as seller_user_id, s.shop_name 
-           FROM orders o 
-           JOIN shops s ON o.shop_id = s.id 
-           WHERE o.id = $1`,
-          [targetOrderId]
-        );
-
-        if (orderResult.rows.length > 0) {
-          const order = orderResult.rows[0];
-          const originalStatus = order.order_status;
-
-          if (isSecurityDeposit) {
-            // Update order for security deposit Pay During Pickup
-            const updateRes = await db.query(
-              `UPDATE orders 
-               SET order_status = 'Packing Started',
-                   payment_status = 'Pending', 
-                   payment_method = 'Pay During Pickup', 
-                   confirmed_at = CURRENT_TIMESTAMP,
-                   packing_started_at = CURRENT_TIMESTAMP,
-                   updated_at = CURRENT_TIMESTAMP
-               WHERE id = $1 RETURNING *`,
-              [targetOrderId]
-            );
-            const updatedOrder = updateRes.rows[0];
-
-            // Insert commitment payment record
-            await db.query(
-              `INSERT INTO commitment_payments (order_id, amount, status, razorpay_payment_id) 
-               VALUES ($1, $2, $3, $4)`,
-              [targetOrderId, 5000, 'paid', transactionId]
-            );
-
-            // Update shop active orders count
-            try {
-              const activeCountRes = await db.query(
-                `SELECT COUNT(*) FROM orders 
-                 WHERE shop_id = $1 AND order_status IN (
-                   'Waiting For Seller', 'Accepted', 'Bill Uploaded', 
-                   'Waiting For Customer Confirmation', 'Confirmed', 'Packing Started', 'Packing Completed'
-                 )`,
-                [order.shop_id]
-              );
-              const activeCount = parseInt(activeCountRes.rows[0].count);
-              await db.query('UPDATE shops SET active_orders = $1 WHERE id = $2', [activeCount, order.shop_id]);
-            } catch (queueErr) {
-              console.error('Error updating queue in paymentController:', queueErr);
-            }
-
-            // Notifications & Socket emit
-            try {
-              const socketService = require('../services/socketService');
-              const notificationEngine = require('../services/notificationEngine');
-
-              socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
-
-              const message = `Customer confirmed Order #${order.custom_order_id || order.id} with a ₹50 Security Deposit (Pay During Pickup)!`;
-              await notificationEngine.dispatchNotification(
-                order.seller_user_id,
-                'Order Confirmed',
-                message,
-                'order_confirmed',
-                {
-                  orderId: order.id,
-                  customOrderId: order.custom_order_id,
-                  shopName: order.shop_name,
-                  paymentMethod: 'Pay During Pickup'
-                }
-              );
-
-              await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id, originalStatus);
-            } catch (notifErr) {
-              console.error('Error sending notifications in paymentController:', notifErr);
-            }
-
-          } else {
-            // Standard Full Payment confirmed
-            const updateRes = await db.query(
-              `UPDATE orders 
-               SET order_status = 'Confirmed',
-                   payment_status = 'Paid', 
-                   payment_method = $1, 
-                   cashfree_order_id = $2, 
-                   confirmed_at = CURRENT_TIMESTAMP,
-                   updated_at = CURRENT_TIMESTAMP
-               WHERE id = $3 RETURNING *`,
-              [payment_method || 'PhonePe UPI', transactionId, targetOrderId]
-            );
-            const updatedOrder = updateRes.rows[0];
-
-            // Update shop active orders count
-            try {
-              const activeCountRes = await db.query(
-                `SELECT COUNT(*) FROM orders 
-                 WHERE shop_id = $1 AND order_status IN (
-                   'Waiting For Seller', 'Accepted', 'Bill Uploaded', 
-                   'Waiting For Customer Confirmation', 'Confirmed', 'Packing Started', 'Packing Completed'
-                 )`,
-                [order.shop_id]
-              );
-              const activeCount = parseInt(activeCountRes.rows[0].count);
-              await db.query('UPDATE shops SET active_orders = $1 WHERE id = $2', [activeCount, order.shop_id]);
-            } catch (queueErr) {
-              console.error('Error updating queue in paymentController:', queueErr);
-            }
-
-            try {
-              const socketService = require('../services/socketService');
-              const notificationEngine = require('../services/notificationEngine');
-
-              socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
-              await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id, originalStatus);
-            } catch (notifErr) {
-              console.error('Error sending notifications in paymentController:', notifErr);
-            }
-          }
-        }
-      }
+      await completeOrderPayment(transactionId, targetOrderId, payment_method);
       return res.status(200).json({ success: true, message: 'Payment verified successfully' });
     } else {
       console.error('PhonePe verification failed:', data);
@@ -333,7 +363,72 @@ const verifyPhonePePayment = async (req, res) => {
   }
 };
 
+/**
+ * Handle incoming PhonePe webhook callback (S2S)
+ */
+const handlePhonePeWebhook = async (req, res) => {
+  try {
+    const xVerify = req.headers['x-verify'];
+    const responseBase64 = req.body.response;
+    const clientSecret = process.env.PHONEPE_CLIENT_SECRET;
+    const saltIndex = process.env.PHONEPE_SALT_INDEX || '1';
+
+    if (!responseBase64) {
+      return res.status(400).json({ error: 'Missing response payload' });
+    }
+
+    // Verify webhook signature authenticity if credentials are set
+    if (xVerify && clientSecret) {
+      const crypto = require('crypto');
+      const dataToHash = responseBase64 + clientSecret;
+      const computedHash = crypto
+        .createHash('sha256')
+        .update(dataToHash)
+        .digest('hex');
+      const expectedXVerify = `${computedHash}###${saltIndex}`;
+      if (xVerify !== expectedXVerify) {
+        console.error('PhonePe Webhook signature verification failed: X-VERIFY mismatch');
+        return res.status(400).json({ error: 'Invalid signature' });
+      }
+    }
+
+    // Decode base64 callback data
+    const decodedString = Buffer.from(responseBase64, 'base64').toString('utf-8');
+    const payload = JSON.parse(decodedString);
+
+    console.log('PhonePe Webhook Decoded Payload:', payload);
+
+    const success = payload.success;
+    const code = payload.code;
+    const data = payload.data || {};
+    const transactionId = data.merchantTransactionId || data.transactionId || payload.merchantTransactionId;
+    const state = data.state || payload.state;
+
+    if (success && (code === 'PAYMENT_SUCCESS' || state === 'COMPLETED')) {
+      const isSecurityDeposit = transactionId.startsWith('sec_dep_');
+      const orderId = isSecurityDeposit ? Number(transactionId.split('_')[2]) : Number(transactionId.split('_')[1]);
+
+      const completed = await completeOrderPayment(transactionId, orderId, 'PhonePe');
+      if (completed) {
+        console.log(`PhonePe Webhook: Order #${orderId} marked as Paid successfully via webhook.`);
+        return res.status(200).json({ success: true, message: 'Webhook processed successfully' });
+      } else {
+        console.error(`PhonePe Webhook: Order ID ${orderId} not found or could not be updated.`);
+        return res.status(404).json({ error: 'Order not found' });
+      }
+    } else {
+      console.warn('PhonePe Webhook reported payment failure:', payload);
+      // PhonePe expects 200 OK even on failures to prevent retry loops
+      return res.status(200).json({ success: false, message: 'Failure state acknowledged' });
+    }
+  } catch (error) {
+    console.error('PhonePe Webhook Error:', error.message);
+    res.status(500).json({ error: 'Webhook processing failed', details: error.message });
+  }
+};
+
 module.exports = {
   createPhonePeOrder,
-  verifyPhonePePayment
+  verifyPhonePePayment,
+  handlePhonePeWebhook
 };

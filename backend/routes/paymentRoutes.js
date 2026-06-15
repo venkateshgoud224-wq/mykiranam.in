@@ -6,5 +6,6 @@ const protect = require('../middleware/authMiddleware');
 // PhonePe Routes
 router.post('/phonepe/create-order', protect, paymentController.createPhonePeOrder);
 router.post('/phonepe/verify', protect, paymentController.verifyPhonePePayment);
+router.post('/phonepe/webhook', paymentController.handlePhonePeWebhook);
 
 module.exports = router;
