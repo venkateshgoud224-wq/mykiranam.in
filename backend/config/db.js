@@ -1504,6 +1504,17 @@ const mockQuery = async (text, params = []) => {
           order.payment_method = params[1];
           order.payment_status = params[2];
           order.payment_proof_image = params[3] || null;
+        } else if (normalizedText.includes("payment_status = 'paid'") && normalizedText.includes("order_status = 'confirmed'")) {
+          order.order_status = 'Confirmed';
+          syncStatusTimestamp(order, 'Confirmed');
+          order.payment_status = 'Paid';
+          order.payment_method = params[0] || 'PhonePe UPI';
+          order.cashfree_order_id = params[1] || null;
+        } else if (normalizedText.includes("order_status = 'packing started'") && normalizedText.includes("payment_method = 'pay during pickup'")) {
+          order.order_status = 'Packing Started';
+          syncStatusTimestamp(order, 'Packing Started');
+          order.payment_status = 'Pending';
+          order.payment_method = 'Pay During Pickup';
         } else if (normalizedText.includes('razorpay_order_id = $1')) {
           order.order_status = 'Confirmed';
           syncStatusTimestamp(order, 'Confirmed');
