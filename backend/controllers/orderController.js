@@ -301,7 +301,7 @@ const createOrder = async (req, res) => {
 
     // Multi-channel notification engine dispatch
     const notificationEngine = require('../services/notificationEngine');
-    await notificationEngine.dispatchNotification(
+    notificationEngine.dispatchNotification(
       shop.owner_id,
       'New Order Received',
       `New order received from customer ${req.user.name}! Order ID: ${order.custom_order_id || 'KRN' + order.id}`,
@@ -312,10 +312,10 @@ const createOrder = async (req, res) => {
         customerName: req.user.name,
         shopName: shop.shop_name
       }
-    );
+    ).catch(err => console.error('Notification dispatch error:', err));
 
     // Send transactional emails to both customer and seller
-    await notificationEngine.dispatchOrderTransactionEmails(order.id);
+    notificationEngine.dispatchOrderTransactionEmails(order.id).catch(err => console.error('Order emails dispatch error:', err));
 
     return res.status(201).json(order);
   } catch (err) {

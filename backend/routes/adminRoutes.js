@@ -41,4 +41,10 @@ router.get('/trust-dashboard', adminController.getTrustDashboard);
 // Upload prices CSV
 router.post('/upload-prices', upload.single('file'), adminController.uploadPricesCsv);
 
+// Fetch customers list
+router.get('/customers', adminController.getCustomersList);
+
+// Fetch completed/cancelled orders list
+router.get('/completed-orders', adminController.getCompletedOrdersList);
+
 module.exports = router;

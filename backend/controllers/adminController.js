@@ -442,6 +442,88 @@ const uploadPricesCsv = async (req, res) => {
   }
 };
 
+// 8. Get List of Customers
+const getCustomersList = async (req, res) => {
+  try {
+    const isMock = db.getIsMock && db.getIsMock();
+    if (!isMock) {
+      const result = await db.query(
+        `SELECT u.id, u.name, u.email, u.phone, u.verified_whatsapp, u.verified_email, u.created_at, u.last_login,
+                COALESCE(ct.trust_score, 100) as trust_score,
+                COALESCE(ct.customer_level, 'Standard Customer') as customer_level,
+                COALESCE(ct.successful_pickups, 0) as successful_pickups,
+                COALESCE(ct.cancellations, 0) as cancellations
+         FROM users u
+         LEFT JOIN customer_trust ct ON u.id = ct.customer_id
+         WHERE u.role = 'customer'
+         ORDER BY u.created_at DESC`
+      );
+      return res.status(200).json(result.rows);
+    } else {
+      const users = db.getMockDb ? db.getMockDb().users : [];
+      const customers = users.filter(u => u.role === 'customer');
+      const enriched = customers.map(u => {
+        const trust = (db.getMockDb && db.getMockDb().customer_trust) ? (db.getMockDb().customer_trust[u.id] || {}) : {};
+        return {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          phone: u.phone,
+          verified_whatsapp: u.verified_whatsapp,
+          verified_email: u.verified_email,
+          created_at: u.created_at,
+          last_login: u.last_login,
+          trust_score: trust.trust_score !== undefined ? trust.trust_score : 100,
+          customer_level: trust.customer_level || 'Standard Customer',
+          successful_pickups: trust.successful_pickups || 0,
+          cancellations: trust.cancellations || 0
+        };
+      });
+      enriched.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      return res.status(200).json(enriched);
+    }
+  } catch (err) {
+    console.error('Error fetching admin customers list:', err);
+    return res.status(500).json({ error: 'Server error retrieving customer list.' });
+  }
+};
+
+// 9. Get List of Completed/Cancelled Orders
+const getCompletedOrdersList = async (req, res) => {
+  try {
+    const isMock = db.getIsMock && db.getIsMock();
+    if (!isMock) {
+      const result = await db.query(
+        `SELECT o.*, s.shop_name, u.name as customer_name, u.phone as customer_phone
+         FROM orders o
+         JOIN shops s ON o.shop_id = s.id
+         JOIN users u ON o.customer_id = u.id
+         WHERE o.order_status IN ('Delivered', 'Cancelled')
+         ORDER BY o.created_at DESC`
+      );
+      return res.status(200).json(result.rows);
+    } else {
+      const orders = db.getMockDb ? db.getMockDb().orders : [];
+      const completed = orders.filter(o => ['Delivered', 'Cancelled'].includes(o.order_status));
+      const enriched = completed.map(o => {
+        const shop = db.getMockDb().shops.find(s => s.id === o.shop_id) || {};
+        const customer = db.getMockDb().users.find(u => u.id === o.customer_id) || {};
+        return {
+          ...o,
+          shop_name: shop.shop_name || 'Store',
+          customer_name: customer.name || 'Customer',
+          customer_phone: customer.phone || ''
+        };
+      });
+      enriched.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      return res.status(200).json(enriched);
+    }
+  } catch (err) {
+    console.error('Error fetching admin completed orders list:', err);
+    return res.status(500).json({ error: 'Server error retrieving completed orders.' });
+  }
+};
+
 module.exports = {
   getSellersList,
   updateVerificationStatus,
@@ -450,5 +532,7 @@ module.exports = {
   getComplaints,
   verifyComplaint,
   rejectComplaint,
-  uploadPricesCsv
+  uploadPricesCsv,
+  getCustomersList,
+  getCompletedOrdersList
 };
