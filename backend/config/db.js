@@ -130,7 +130,7 @@ const seedMockDbIfEmpty = () => {
         delivery_charges: 25.00,
         delivery_time: "30-45 mins",
         home_delivery_ready: false,
-        catalog_enabled: true,
+        catalog_enabled: false,
         created_at: new Date()
       },
       {
@@ -160,7 +160,7 @@ const seedMockDbIfEmpty = () => {
         delivery_charges: 30.00,
         delivery_time: "40-60 mins",
         home_delivery_ready: false,
-        catalog_enabled: true,
+        catalog_enabled: false,
         created_at: new Date()
       }
     );
@@ -903,6 +903,7 @@ const mockQuery = async (text, params = []) => {
       delivery_charges: 0.00,
       delivery_time: '',
       home_delivery_ready: false,
+      catalog_enabled: false,
       created_at: new Date()
     };
     mockDb.shops.push(newShop);
@@ -1657,7 +1658,7 @@ const initDb = async () => {
     // Safely add custom_order_id and transition timestamps to existing database schemas if not present
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS custom_order_id VARCHAR(50);');
     await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS image_banner TEXT;');
-    await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS catalog_enabled BOOLEAN DEFAULT true;');
+    await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS catalog_enabled BOOLEAN DEFAULT false;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS packing_started_at TIMESTAMP WITH TIME ZONE;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS ready_for_pickup_at TIMESTAMP WITH TIME ZONE;');

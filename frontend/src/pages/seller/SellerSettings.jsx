@@ -132,7 +132,7 @@ const SellerSettings = () => {
   const [deliveryCharges, setDeliveryCharges] = useState(0);
   const [deliveryTime, setDeliveryTime] = useState('');
   const [homeDeliveryReady, setHomeDeliveryReady] = useState(false);
-  const [catalogEnabled, setCatalogEnabled] = useState(true);
+  const [catalogEnabled, setCatalogEnabled] = useState(false);
 
   // Shop Banner states
   const [bannerFile, setBannerFile] = useState(null);

@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS shops (
     delivery_option VARCHAR(30) DEFAULT 'Pickup Only' CHECK (delivery_option IN ('Pickup Only', 'Delivery Only', 'Pickup + Delivery')),
     delivery_charges DECIMAL(10,2) DEFAULT 0.00,
     delivery_time VARCHAR(100) DEFAULT '',
-    catalog_enabled BOOLEAN DEFAULT true,
+    catalog_enabled BOOLEAN DEFAULT false,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

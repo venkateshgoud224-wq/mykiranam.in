@@ -141,6 +141,10 @@ const getShops = async (req, res) => {
 const getShopById = async (req, res) => {
   const { id } = req.params;
 
+  if (isNaN(id)) {
+    return res.status(404).json({ error: 'Shop not found.' });
+  }
+
   try {
     const shopResult = await db.query('SELECT * FROM shops WHERE id = $1', [id]);
     if (shopResult.rows.length === 0) {
