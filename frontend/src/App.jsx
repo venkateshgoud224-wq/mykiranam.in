@@ -29,6 +29,18 @@ const initialOrderId = urlParams.get('order_id');
 if (initialOrderId) {
   sessionStorage.setItem('kirana_verificationOrderId', initialOrderId);
 }
+const initialMethod = urlParams.get('method');
+if (initialMethod) {
+  sessionStorage.setItem('kirana_verificationMethod', initialMethod);
+}
+const initialTransactionId = urlParams.get('transactionId');
+if (initialTransactionId) {
+  sessionStorage.setItem('kirana_verificationTransactionId', initialTransactionId);
+}
+const initialPayMethod = urlParams.get('pay_method');
+if (initialPayMethod) {
+  sessionStorage.setItem('kirana_verificationPayMethod', initialPayMethod);
+}
 if (initialShopId || initialOrderId) {
   window.history.replaceState({}, document.title, window.location.pathname);
 }

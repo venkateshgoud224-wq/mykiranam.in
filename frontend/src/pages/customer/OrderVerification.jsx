@@ -64,12 +64,18 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
 
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
-    const method = queryParams.get('method');
-    const transactionId = queryParams.get('transactionId');
-    const payMethod = queryParams.get('pay_method') || 'Pay During Pickup';
+    const method = queryParams.get('method') || sessionStorage.getItem('kirana_verificationMethod');
+    const transactionId = queryParams.get('transactionId') || sessionStorage.getItem('kirana_verificationTransactionId');
+    const payMethod = queryParams.get('pay_method') || sessionStorage.getItem('kirana_verificationPayMethod') || 'Pay During Pickup';
     
     if (method === 'phonepe' && transactionId) {
       setLoading(true);
+      // Clean up session storage so we don't trigger verification again on refresh
+      sessionStorage.removeItem('kirana_verificationMethod');
+      sessionStorage.removeItem('kirana_verificationTransactionId');
+      sessionStorage.removeItem('kirana_verificationPayMethod');
+      sessionStorage.removeItem('kirana_verificationOrderId');
+
       fetch(`${apiUrl}/payment/phonepe/verify`, {
         method: 'POST',
         headers: {
