@@ -140,10 +140,10 @@ const recalculateSellerPerformance = async (shopId) => {
       // Update shops table
       await db.query(
         `UPDATE shops 
-         SET verified_complaints_count = $1, warning_level = $2::varchar, suspension_end_date = $3,
-             availability_status = CASE WHEN $2::varchar = 'Warning 5' THEN 'Offline'::varchar ELSE availability_status END
-         WHERE id = $4`,
-        [verifiedCount, warningLevel, suspensionEndDate, shopId]
+         SET verified_complaints_count = $1, warning_level = $2, suspension_end_date = $3,
+             availability_status = CASE WHEN $4 = 'Warning 5' THEN 'Offline' ELSE availability_status END
+         WHERE id = $5`,
+        [verifiedCount, warningLevel, suspensionEndDate, warningLevel, shopId]
       );
       
       // Update/Insert seller_performance table
