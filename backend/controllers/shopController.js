@@ -72,7 +72,7 @@ const getShops = async (req, res) => {
       }
     }
 
-    const isSpecialUser = userEmail === 'hyperthouughts542@gmail.com';
+    const isSpecialUser = userEmail === 'hyperthoughts542@gmail.com' || userEmail === 'hyperthouughts542@gmail.com';
 
     let shops = result.rows.map(shop => {
       const distance = calculateDistance(
@@ -88,7 +88,7 @@ const getShops = async (req, res) => {
     });
 
     if (!isSpecialUser) {
-      shops = shops.filter(s => s.distance <= 7.0);
+      shops = shops.filter(s => s.distance <= 5.0);
     }
 
     // Apply filters

@@ -1707,6 +1707,38 @@ const initDb = async () => {
     
     // Phase 5 migrations for digital / hybrid chitti updates
     try {
+      const constraints = await pool.query(`
+        SELECT DISTINCT constraint_name 
+        FROM information_schema.constraint_column_usage 
+        WHERE table_name = 'orders' AND column_name = 'order_status'
+      `);
+      for (const row of constraints.rows) {
+        await pool.query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS ${row.constraint_name};`);
+      }
+      await pool.query(`
+        ALTER TABLE orders ADD CONSTRAINT orders_order_status_check CHECK (order_status IN (
+          'Waiting For Seller', 
+          'Accepted', 
+          'Bill Uploaded', 
+          'Waiting For Customer Confirmation', 
+          'Confirmed', 
+          'Packing Started', 
+          'Packing Completed', 
+          'Ready For Pickup', 
+          'Delivered', 
+          'Pickup Overdue',
+          'Cancelled',
+          'PENDING_PAYMENT',
+          'PAYMENT_SUBMITTED',
+          'PAYMENT_VERIFIED'
+        ));
+      `);
+      console.log('Successfully updated order_status check constraint on orders table');
+    } catch (err) {
+      console.log('Note: Could not update orders_order_status_check constraint:', err.message);
+    }
+
+    try {
       await pool.query('ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_payment_method_check;');
     } catch (err) {
       console.log('Note: Could not drop orders_payment_method_check constraint:', err.message);
