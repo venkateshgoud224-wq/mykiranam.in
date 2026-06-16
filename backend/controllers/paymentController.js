@@ -427,9 +427,25 @@ const handlePhonePeWebhook = async (req, res) => {
 };
 
 const logUpiError = async (req, res) => {
-  const { deepLink, browser, deviceType, errorMsg, orderId } = req.body;
+  const { deepLink, browser, deviceType, errorMsg, orderId, upiAppOpened } = req.body;
   
-  const logMessage = `[${new Date().toISOString()}] UPI Log: Order ID: ${orderId || 'N/A'} | Device: ${deviceType || 'Unknown'} | Browser: ${browser || 'Unknown'} | Error: ${errorMsg || 'None'} | Link: ${deepLink || 'None'}\n`;
+  let upiId = req.body.upiId;
+  let amount = req.body.amount;
+  let transactionNote = req.body.transactionNote;
+  
+  if (deepLink) {
+    try {
+      const urlStr = deepLink.replace('upi://pay', 'http://pay');
+      const parsedUrl = new URL(urlStr);
+      if (!upiId) upiId = parsedUrl.searchParams.get('pa');
+      if (!amount) amount = parsedUrl.searchParams.get('am');
+      if (!transactionNote) transactionNote = parsedUrl.searchParams.get('tn');
+    } catch (e) {
+      // Ignore URL parsing errors
+    }
+  }
+
+  const logMessage = `[${new Date().toISOString()}] UPI Log: Order ID: ${orderId || 'N/A'} | UPI ID: ${upiId || 'N/A'} | Amount: ${amount || 'N/A'} | Note: ${transactionNote || 'N/A'} | Device: ${deviceType || 'Unknown'} | Browser: ${browser || 'Unknown'} | App: ${upiAppOpened || 'Generic UPI'} | Error: ${errorMsg || 'None'} | Link: ${deepLink || 'None'}\n`;
   
   console.log('📝 LOGGING UPI EVENT:', logMessage.trim());
   
@@ -438,9 +454,55 @@ const logUpiError = async (req, res) => {
   const logFilePath = path.join(__dirname, '../uploads/upi_payment_errors.log');
   
   try {
+    const dir = path.dirname(logFilePath);
+    if (!fs.existsSync(dir)){
+      fs.mkdirSync(dir, { recursive: true });
+    }
     fs.appendFileSync(logFilePath, logMessage, 'utf8');
   } catch (err) {
     console.error('❌ Failed to write to upi_payment_errors.log:', err.message);
+  }
+
+  try {
+    if (db.getIsMock()) {
+      const mockDb = db.getMockDb();
+      if (!mockDb.upi_payment_logs) mockDb.upi_payment_logs = [];
+      const newLog = {
+        id: mockDb.upi_payment_logs.length + 1,
+        order_id: orderId ? Number(orderId) : null,
+        deep_link: deepLink || '',
+        upi_id: upiId || '',
+        amount: amount ? Number(amount) : 0.00,
+        transaction_note: transactionNote || '',
+        browser: browser || 'Unknown',
+        device_info: deviceType || 'Unknown',
+        upi_app_opened: upiAppOpened || 'Generic UPI',
+        error_msg: errorMsg || '',
+        created_at: new Date()
+      };
+      mockDb.upi_payment_logs.push(newLog);
+      db.markMockDbDirty();
+      db.saveMockDb();
+    } else {
+      await db.query(
+        `INSERT INTO upi_payment_logs 
+         (order_id, deep_link, upi_id, amount, transaction_note, browser, device_info, upi_app_opened, error_msg) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          orderId ? Number(orderId) : null,
+          deepLink || '',
+          upiId || '',
+          amount ? Number(amount) : 0.00,
+          transactionNote || '',
+          browser || 'Unknown',
+          deviceType || 'Unknown',
+          upiAppOpened || 'Generic UPI',
+          errorMsg || ''
+        ]
+      );
+    }
+  } catch (dbErr) {
+    console.error('❌ Failed to insert UPI log into DB:', dbErr.message);
   }
   
   return res.status(200).json({ success: true });

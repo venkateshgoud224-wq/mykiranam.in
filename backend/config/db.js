@@ -40,6 +40,7 @@ const mockDb = {
   customer_savings: {},
   commitment_payments: [],
   seller_products: [],
+  upi_payment_logs: [],
   community_savings: {
     id: 1,
     total_orders: 0,
@@ -1826,6 +1827,22 @@ const initDb = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(shop_id, product_name)
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS upi_payment_logs (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER,
+        deep_link TEXT NOT NULL,
+        upi_id VARCHAR(100) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        transaction_note TEXT,
+        browser VARCHAR(100),
+        device_info VARCHAR(100),
+        upi_app_opened VARCHAR(50),
+        error_msg TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
     
