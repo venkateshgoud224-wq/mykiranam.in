@@ -180,7 +180,7 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                   </button>
 
                   <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
-                    {['Bill Uploaded', 'Waiting For Customer Confirmation'].includes(order.order_status) && billingOrderId !== order.id && (
+                    {['Bill Uploaded', 'Waiting For Customer Confirmation', 'PENDING_PAYMENT'].includes(order.order_status) && billingOrderId !== order.id && (
                       <>
                         <button
                           onClick={() => handleStartBilling(order)}
@@ -195,6 +195,68 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                           Ask Payment
                         </button>
                       </>
+                    )}
+
+                    {order.order_status === 'PAYMENT_SUBMITTED' && (
+                      <div className="flex space-x-2 w-full sm:w-auto">
+                        <button
+                          onClick={async () => {
+                            if (window.confirm("Approve this payment of ₹" + order.amount + "?")) {
+                              try {
+                                const res = await fetch(`${apiUrl}/orders/${order.id}/verify-upi-payment`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                  },
+                                  body: JSON.stringify({ action: 'approve' })
+                                });
+                                if (!res.ok) {
+                                  const data = await res.json();
+                                  throw new Error(data.error || 'Failed to approve payment');
+                                }
+                                alert('Payment approved! Order is now ready for pickup.');
+                                playSoundAlert('success');
+                                window.location.reload();
+                              } catch (err) {
+                                alert(err.message);
+                              }
+                            }
+                          }}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all"
+                        >
+                          Approve Payment
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const reason = prompt("Enter reason for rejecting payment:");
+                            if (reason !== null) {
+                              try {
+                                const res = await fetch(`${apiUrl}/orders/${order.id}/verify-upi-payment`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                  },
+                                  body: JSON.stringify({ action: 'reject', reject_reason: reason })
+                                });
+                                if (!res.ok) {
+                                  const data = await res.json();
+                                  throw new Error(data.error || 'Failed to reject payment');
+                                }
+                                alert('Payment rejected. Customer will be notified to pay again.');
+                                playSoundAlert('cancelled');
+                                window.location.reload();
+                              } catch (err) {
+                                alert(err.message);
+                              }
+                            }
+                          }}
+                          className="px-4 py-2 bg-red-650 hover:bg-red-750 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all"
+                        >
+                          Reject Payment
+                        </button>
+                      </div>
                     )}
 
                     {showReadyForDelivery && (
@@ -288,7 +350,13 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                           let isPast = false;
                           
                           // Determine states based on current order.order_status
-                          const currentIdx = arr.indexOf(order.order_status === 'Confirmed' ? 'Packing Started' : order.order_status);
+                          const getStepName = (statusVal) => {
+                            if (statusVal === 'PENDING_PAYMENT') return 'Bill Uploaded';
+                            if (statusVal === 'PAYMENT_SUBMITTED') return 'Packing Started';
+                            if (statusVal === 'PAYMENT_VERIFIED') return 'Packing Started';
+                            return statusVal;
+                          };
+                          const currentIdx = arr.indexOf(order.order_status === 'Confirmed' ? 'Packing Started' : getStepName(order.order_status));
                           if (currentIdx === -1 && ['Delivered', 'Completed'].includes(order.order_status)) isPast = true;
                           else if (i === currentIdx) isActive = true;
                           else if (i < currentIdx) isPast = true;
@@ -577,17 +645,28 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                       )}
 
                       {/* UPI screenshot details */}
-                      {order.payment_proof_image && (
+                      {(order.payment_proof_image || order.payment_utr) && (
                         <div className="border border-slate-200 bg-white p-3 rounded-2xl space-y-2">
-                          <span className="block text-[10px] font-bold text-slate-500">Manual payment screenshot confirmation:</span>
-                          <img
-                            src={getFullImageUrl(order.payment_proof_image)}
-                            alt="Receipt proof"
-                            className="max-h-24 object-contain rounded border border-slate-100 mx-auto cursor-pointer hover:opacity-90 transition-opacity"
-                            onClick={() => setPreviewImage(getFullImageUrl(order.payment_proof_image))}
-                          />
+                          <span className="block text-[10px] font-bold text-slate-500">Direct UPI payment confirmation:</span>
+                          {order.payment_utr && (
+                            <div className="bg-slate-50 p-2.5 rounded-xl border mb-2 text-left">
+                              <span className="block text-[9px] uppercase font-black text-slate-400">UTR / Ref Number</span>
+                              <span className="font-extrabold text-xs text-slate-800 break-all select-all">{order.payment_utr}</span>
+                            </div>
+                          )}
+                          {order.payment_proof_image && (
+                            <>
+                              <span className="block text-[9px] uppercase font-black text-slate-400">Screenshot Proof</span>
+                              <img
+                                src={getFullImageUrl(order.payment_proof_image)}
+                                alt="Receipt proof"
+                                className="max-h-56 object-contain rounded border border-slate-100 mx-auto cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => setPreviewImage(getFullImageUrl(order.payment_proof_image))}
+                              />
+                            </>
+                          )}
                           <div className="flex space-x-2 pt-1 text-[10px]">
-                            {['Confirmed', 'Packing Started'].includes(order.order_status) ? (
+                            {['Confirmed', 'Packing Started', 'PAYMENT_SUBMITTED'].includes(order.order_status) ? (
                               <button
                                 onClick={() => handleProgress(order.id, 'Ready For Pickup')}
                                 className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded text-center transition-all"

@@ -1468,6 +1468,13 @@ const mockQuery = async (text, params = []) => {
           order.payment_proof_image = null;
         }
         // 3. confirmOrder
+        else if (normalizedText.includes('payment_utr = $4') || normalizedText.includes('payment_utr =')) {
+          order.order_status = params[0];
+          order.payment_status = params[1];
+          order.payment_proof_image = params[2];
+          order.payment_utr = params[3];
+          syncStatusTimestamp(order, params[0]);
+        }
         else if (normalizedText.includes('payment_method = $1') && normalizedText.includes('payment_status = $2')) {
           order.order_status = 'Confirmed';
           order.payment_method = params[0];

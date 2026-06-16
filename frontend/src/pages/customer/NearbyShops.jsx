@@ -49,7 +49,14 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
         filterNearby: filterNearby ? 'true' : 'false'
       });
 
-      const response = await fetch(`${apiUrl}/shops?${queryParams.toString()}`);
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${apiUrl}/shops?${queryParams.toString()}`, {
+        headers
+      });
       if (response.ok) {
         const data = await response.json();
         setShops(data);

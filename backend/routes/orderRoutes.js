@@ -28,6 +28,12 @@ router.post('/:id/ask-payment', orderController.askPayment);
 // Customer confirms order + selects payment method + uploads screenshot receipt
 router.post('/:id/confirm', upload.single('payment_proof_image'), orderController.confirmOrder);
 
+// Customer submits UPI payment proof
+router.post('/:id/submit-upi-payment', upload.single('payment_proof_image'), orderController.submitUpiPayment);
+
+// Seller verifies direct UPI payment
+router.post('/:id/verify-upi-payment', orderController.verifyUpiPayment);
+
 // Customer updates fulfillment options during payment verification
 router.patch('/:id/fulfillment', orderController.updateOrderFulfillment);
 

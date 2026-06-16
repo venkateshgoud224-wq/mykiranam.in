@@ -397,7 +397,6 @@ const handlePhonePeWebhook = async (req, res) => {
     const payload = JSON.parse(decodedString);
 
     console.log('PhonePe Webhook Decoded Payload:', payload);
-
     const success = payload.success;
     const code = payload.code;
     const data = payload.data || {};
@@ -427,8 +426,29 @@ const handlePhonePeWebhook = async (req, res) => {
   }
 };
 
+const logUpiError = async (req, res) => {
+  const { deepLink, browser, deviceType, errorMsg, orderId } = req.body;
+  
+  const logMessage = `[${new Date().toISOString()}] UPI Log: Order ID: ${orderId || 'N/A'} | Device: ${deviceType || 'Unknown'} | Browser: ${browser || 'Unknown'} | Error: ${errorMsg || 'None'} | Link: ${deepLink || 'None'}\n`;
+  
+  console.log('📝 LOGGING UPI EVENT:', logMessage.trim());
+  
+  const fs = require('fs');
+  const path = require('path');
+  const logFilePath = path.join(__dirname, '../uploads/upi_payment_errors.log');
+  
+  try {
+    fs.appendFileSync(logFilePath, logMessage, 'utf8');
+  } catch (err) {
+    console.error('❌ Failed to write to upi_payment_errors.log:', err.message);
+  }
+  
+  return res.status(200).json({ success: true });
+};
+
 module.exports = {
   createPhonePeOrder,
   verifyPhonePePayment,
-  handlePhonePeWebhook
+  handlePhonePeWebhook,
+  logUpiError
 };

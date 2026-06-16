@@ -15,6 +15,7 @@ import Profile from './pages/Profile';
 import SavingsDashboard from './pages/customer/SavingsDashboard';
 import WhatsAppVerificationRequired from './pages/WhatsAppVerificationRequired';
 import SupportAssistant from './pages/SupportAssistant';
+import UPITestPage from './pages/customer/UPITestPage';
 import Navbar from './components/common/Navbar';
 import BottomNavigation from './components/common/BottomNavigation';
 import { Store, ShoppingBag, User, Settings, Layers, Bell, ShieldAlert, Trophy, HelpCircle, Scale, Package } from 'lucide-react';
@@ -274,6 +275,11 @@ const DashboardContent = () => {
 };
 
 const App = () => {
+  // Direct route bypass for testing mobile deep links
+  if (window.location.pathname === '/upi-test') {
+    return <UPITestPage />;
+  }
+
   const { user, loading } = useAuth();
 
   const [whatsappSkipped, setWhatsappSkipped] = useState(() => {

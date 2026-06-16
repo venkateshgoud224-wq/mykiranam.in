@@ -108,5 +108,8 @@ module.exports = {
   alertNewOrder,
   emitOrderStatus,
   emitShopStatus,
-  getActiveSocketCount
+  getActiveSocketCount,
+  get io() {
+    return io;
+  }
 };

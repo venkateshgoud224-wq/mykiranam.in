@@ -57,6 +57,23 @@ const getShops = async (req, res) => {
        LEFT JOIN seller_performance sp ON s.id = sp.shop_id
        WHERE s.verification_status = 'Verified' AND (s.warning_level IS NULL OR s.warning_level != 'Warning 5')`
     );
+    // Check if user is authenticated and is hyperthouughts542@gmail.com
+    let userEmail = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const jwt = require('jsonwebtoken');
+        const JWT_SECRET = process.env.JWT_SECRET || 'kiranam-dev-secret-key-12345';
+        const decoded = jwt.verify(token, JWT_SECRET);
+        userEmail = decoded.email;
+      } catch (err) {
+        // Ignore token errors for public endpoint
+      }
+    }
+
+    const isSpecialUser = userEmail === 'hyperthouughts542@gmail.com';
+
     let shops = result.rows.map(shop => {
       const distance = calculateDistance(
         customerLat,
@@ -70,6 +87,10 @@ const getShops = async (req, res) => {
       };
     });
 
+    if (!isSpecialUser) {
+      shops = shops.filter(s => s.distance <= 7.0);
+    }
+
     // Apply filters
     if (filterAvailable === 'true') {
       shops = shops.filter(s => s.availability_status === 'Available');
@@ -77,7 +98,7 @@ const getShops = async (req, res) => {
     if (filterVerified === 'true') {
       shops = shops.filter(s => s.verified === true);
     }
-    if (filterNearby === 'true') {
+    if (filterNearby === 'true' && !isSpecialUser) {
       shops = shops.filter(s => s.distance <= 5.0);
     }
 

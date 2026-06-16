@@ -430,7 +430,7 @@ const updateOrderStatus = async (req, res) => {
         return res.status(403).json({ error: 'Unauthorized to modify this order.' });
       }
       
-      const isAwaitingVerification = ['Bill Uploaded', 'Waiting For Customer Confirmation'].includes(order.order_status);
+      const isAwaitingVerification = ['Bill Uploaded', 'Waiting For Customer Confirmation', 'PENDING_PAYMENT'].includes(order.order_status);
       
       // Awaiting customer verification: customer can reject (Cancelled), or request changes (Waiting For Seller)
       if (isAwaitingVerification) {
@@ -826,12 +826,12 @@ const uploadBill = async (req, res) => {
         }
       }
 
-      // Update digital order -> Bill Uploaded
+      // Update digital order -> PENDING_PAYMENT
       result = await db.query(
         `UPDATE orders 
          SET modified_item_list = $1, amount = $2, notes = $3, 
              payment_method = NULL, payment_status = 'Pending', payment_proof_image = NULL,
-             order_status = 'Bill Uploaded', updated_at = CURRENT_TIMESTAMP 
+             order_status = 'PENDING_PAYMENT', updated_at = CURRENT_TIMESTAMP 
          WHERE id = $4 
          RETURNING *`,
         [JSON.stringify(itemsList), parseFloat(amount), notes || '', id]
@@ -843,12 +843,12 @@ const uploadBill = async (req, res) => {
         billUrl = await uploadImage(file);
       }
 
-      // Update handwritten order -> Bill Uploaded
+      // Update handwritten order -> PENDING_PAYMENT
       result = await db.query(
         `UPDATE orders 
          SET modified_bill = $1, amount = $2, notes = $3, 
              payment_method = NULL, payment_status = 'Pending', payment_proof_image = NULL,
-             order_status = 'Bill Uploaded', updated_at = CURRENT_TIMESTAMP 
+             order_status = 'PENDING_PAYMENT', updated_at = CURRENT_TIMESTAMP 
          WHERE id = $4 
          RETURNING *`,
         [billUrl, parseFloat(amount), notes || '', id]
@@ -923,7 +923,7 @@ const confirmOrder = async (req, res) => {
     if (Number(order.customer_id) !== Number(customerId)) {
       return res.status(403).json({ error: 'Unauthorized.' });
     }
-    const allowedStatuses = ['Confirmed', 'Bill Uploaded', 'Waiting For Customer Confirmation'];
+    const allowedStatuses = ['Confirmed', 'Bill Uploaded', 'Waiting For Customer Confirmation', 'PENDING_PAYMENT'];
     if (!allowedStatuses.includes(order.order_status)) {
       return res.status(400).json({ error: 'Order must be confirmed after commitment payment or bill upload before proceeding.' });
     }
@@ -1271,8 +1271,9 @@ const sendChat = async (req, res) => {
     const recipientId = role === 'seller' ? order.customer_id : order.seller_user_id;
     const senderName = role === 'seller' ? order.shop_name : 'Customer';
     
-    const halfLen = Math.max(1, Math.floor(message.length / 2));
-    const halfMessage = message.substring(0, halfLen);
+    const msgText = message || '';
+    const halfLen = Math.max(1, Math.floor(msgText.length / 2));
+    const halfMessage = msgText.substring(0, halfLen);
 
     const notificationEngine = require('../services/notificationEngine');
     notificationEngine.dispatchNotification(
@@ -1283,7 +1284,9 @@ const sendChat = async (req, res) => {
       { orderId: order.id, chatMessage: halfMessage, senderName }
     ).catch(err => console.error('Background notification error:', err));
 
-    socketService.io.emit('new_chat', newChat); // Basic global emit, ideally should emit to room
+    if (socketService.io) {
+      socketService.io.emit('new_chat', newChat); // Basic global emit, ideally should emit to room
+    }
 
     return res.status(201).json(newChat);
   } catch (err) {
@@ -1448,10 +1451,209 @@ const askPayment = async (req, res) => {
       }
     );
 
-    return res.status(200).json({ success: true, message: 'Payment requested successfully.' });
+    return res.status(200).json({ success: true });
   } catch (err) {
     console.error('Ask payment error:', err);
     return res.status(500).json({ error: 'Server error requesting payment.' });
+  }
+};
+
+// Customer submits UPI payment screenshot and UTR code
+const submitUpiPayment = async (req, res) => {
+  const { id } = req.params;
+  const { payment_utr } = req.body;
+  const file = req.file; // screenshot proof
+  const customerId = req.user.id;
+
+  if (!payment_utr || payment_utr.trim().length === 0) {
+    return res.status(400).json({ error: 'Transaction Reference Number / UTR is required.' });
+  }
+  if (!file) {
+    return res.status(400).json({ error: 'Payment screenshot proof image is required.' });
+  }
+
+  try {
+    const orderResult = await db.query(
+      `SELECT o.*, s.owner_id as seller_user_id, s.shop_name 
+       FROM orders o 
+       JOIN shops s ON o.shop_id = s.id 
+       WHERE o.id = $1`,
+      [id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    const order = orderResult.rows[0];
+
+    if (Number(order.customer_id) !== Number(customerId)) {
+      return res.status(403).json({ error: 'Unauthorized to submit payment for this order.' });
+    }
+
+    const allowedStatuses = ['PENDING_PAYMENT', 'Bill Uploaded', 'Waiting For Customer Confirmation'];
+    if (!allowedStatuses.includes(order.order_status)) {
+      return res.status(400).json({ error: `Cannot submit payment proof for order in status '${order.order_status}'.` });
+    }
+
+    const proofUrl = await uploadImage(file);
+
+    const result = await db.query(
+      `UPDATE orders 
+       SET order_status = 'PAYMENT_SUBMITTED', 
+           payment_status = 'Uploaded Proof', 
+           payment_proof_image = $1, 
+           payment_utr = $2, 
+           payment_method = 'Manual UPI Payment',
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $3 
+       RETURNING *`,
+      [proofUrl, payment_utr.trim(), id]
+    );
+
+    const updatedOrder = result.rows[0];
+    const notificationEngine = require('../services/notificationEngine');
+
+    // Notify seller
+    await notificationEngine.dispatchNotification(
+      order.seller_user_id,
+      'Payment Submitted',
+      `Customer uploaded UPI receipt for Order #${order.custom_order_id || order.id}! UTR: ${payment_utr.trim()}`,
+      'order_confirmed',
+      {
+        orderId: order.id,
+        customOrderId: order.custom_order_id,
+        shopName: order.shop_name,
+        paymentMethod: 'Manual UPI Payment'
+      }
+    );
+
+    socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
+
+    return res.status(200).json(updatedOrder);
+  } catch (err) {
+    console.error('Submit direct UPI error:', err);
+    return res.status(500).json({ error: 'Server error processing payment proof upload.' });
+  }
+};
+
+// Seller approves or rejects the payment proof
+const verifyUpiPayment = async (req, res) => {
+  const { id } = req.params;
+  const { action, reject_reason } = req.body; // 'approve' or 'reject'
+  const sellerId = req.user.id;
+
+  if (!['approve', 'reject'].includes(action)) {
+    return res.status(400).json({ error: 'Invalid action. Must be approve or reject.' });
+  }
+
+  try {
+    const orderResult = await db.query(
+      `SELECT o.*, s.owner_id as seller_user_id, s.shop_name 
+       FROM orders o 
+       JOIN shops s ON o.shop_id = s.id 
+       WHERE o.id = $1`,
+      [id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    const order = orderResult.rows[0];
+
+    if (Number(order.seller_user_id) !== Number(sellerId)) {
+      return res.status(403).json({ error: 'Unauthorized to verify payments for this store.' });
+    }
+
+    if (order.order_status !== 'PAYMENT_SUBMITTED') {
+      return res.status(400).json({ error: 'No pending payment proof to verify for this order.' });
+    }
+
+    let updatedOrder;
+    const notificationEngine = require('../services/notificationEngine');
+
+    if (action === 'approve') {
+      // 1. Transition to PAYMENT_VERIFIED and then automatically to READY_FOR_PICKUP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const deadline = new Date();
+      deadline.setHours(deadline.getHours() + 6); // default 6 hours
+
+      // First run a transition query or set directly to READY_FOR_PICKUP
+      // We will set to Ready For Pickup directly while logging PAYMENT_VERIFIED
+      const result = await db.query(
+        `UPDATE orders 
+         SET order_status = 'Ready For Pickup', 
+             payment_status = 'Paid',
+             confirmed_at = CURRENT_TIMESTAMP,
+             ready_for_pickup_at = CURRENT_TIMESTAMP,
+             pickup_otp = $1, 
+             otp_generated_at = CURRENT_TIMESTAMP, 
+             pickup_deadline = $2,
+             updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $3 
+         RETURNING *`,
+        [otp, deadline, id]
+      );
+      updatedOrder = result.rows[0];
+
+      // Notify customer
+      await notificationEngine.dispatchNotification(
+        order.customer_id,
+        'Payment Verified',
+        `Your payment for Order #${order.custom_order_id || order.id} was verified! Order is ready for pickup.`,
+        'pickup_ready',
+        {
+          orderId: order.id,
+          customOrderId: order.custom_order_id,
+          shopName: order.shop_name,
+          pickupOtp: otp,
+          fulfillmentMethod: updatedOrder.fulfillment_method,
+          amount: updatedOrder.amount
+        }
+      );
+
+      // Trigger performance metrics updates
+      await updateShopQueueCount(order.shop_id);
+
+    } else {
+      // Reject: Transition back to PENDING_PAYMENT
+      const reasonNotes = reject_reason ? `Payment proof rejected: ${reject_reason}` : 'Payment proof rejected by seller. Please re-submit.';
+      const result = await db.query(
+        `UPDATE orders 
+         SET order_status = 'PENDING_PAYMENT', 
+             payment_status = 'Pending',
+             payment_proof_image = NULL,
+             payment_utr = NULL,
+             notes = $1,
+             updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $2 
+         RETURNING *`,
+        [reasonNotes, id]
+      );
+      updatedOrder = result.rows[0];
+
+      // Notify customer
+      await notificationEngine.dispatchNotification(
+        order.customer_id,
+        'Payment Rejected',
+        `Payment proof for Order #${order.custom_order_id || order.id} was rejected. Reason: ${reject_reason || 'Not specified'}. Please try paying again.`,
+        'payment_request',
+        {
+          orderId: order.id,
+          customOrderId: order.custom_order_id,
+          shopName: order.shop_name,
+          amount: order.amount
+        }
+      );
+    }
+
+    socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
+
+    return res.status(200).json(updatedOrder);
+  } catch (err) {
+    console.error('Verify UPI payment error:', err);
+    return res.status(500).json({ error: 'Server error processing payment verification.' });
   }
 };
 
@@ -1467,5 +1669,7 @@ module.exports = {
   getMarketComparison,
   updateOrderFulfillment,
   askPayment,
-  updateShopQueueCount
+  updateShopQueueCount,
+  submitUpiPayment,
+  verifyUpiPayment
 };

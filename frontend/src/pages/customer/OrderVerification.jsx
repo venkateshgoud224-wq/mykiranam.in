@@ -13,6 +13,8 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const [proofFile, setProofFile] = useState(null);
   const [proofPreview, setProofPreview] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [upiLaunchFailed, setUpiLaunchFailed] = useState(false);
+  const [paymentUtr, setPaymentUtr] = useState('');
 
   // Fulfillment states
   const [fulfillmentMethod, setFulfillmentMethod] = useState(order.fulfillment_method || 'Pickup');
@@ -108,6 +110,66 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
     }
   }, []);
 
+  const upiUrl = `upi://pay?pa=${order.upi_id || 'mykiranam@upi'}&pn=${encodeURIComponent(order.shop_name)}&am=${order.amount}&tn=${encodeURIComponent(order.custom_order_id || order.id)}&cu=INR`;
+
+  const logUpiLaunchError = async (errorMsg) => {
+    try {
+      const userAgent = navigator.userAgent;
+      let browser = "Unknown Browser";
+      if (userAgent.indexOf("Chrome") > -1) browser = "Chrome";
+      else if (userAgent.indexOf("Safari") > -1) browser = "Safari";
+      else if (userAgent.indexOf("Firefox") > -1) browser = "Firefox";
+
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+      const deviceType = isMobile ? "Mobile" : "Desktop";
+
+      await fetch(`${apiUrl}/payment/upi-log`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          deepLink: upiUrl,
+          browser,
+          deviceType,
+          errorMsg,
+          orderId: order.id
+        })
+      });
+    } catch (err) {
+      console.error("Failed to log UPI error:", err);
+    }
+  };
+
+  const handleLaunchUpi = () => {
+    const startTime = Date.now();
+    let appOpened = false;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        appOpened = true;
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    setTimeout(() => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      const duration = Date.now() - startTime;
+      if (!appOpened && duration < 2500) {
+        setUpiLaunchFailed(true);
+        logUpiLaunchError("UPI app launch timed out or failed to open protocol");
+      }
+    }, 2000);
+
+    try {
+      window.location.href = upiUrl;
+    } catch (err) {
+      setUpiLaunchFailed(true);
+      logUpiLaunchError(err.message || "Exception during window.location redirect");
+    }
+  };
+
   // Confirm order action (Approve & Pay)
   const handleConfirmOrder = async (e) => {
     if (e) e.preventDefault();
@@ -135,7 +197,13 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
         formData.append('payment_proof_image', proofFile);
       }
 
-      const response = await fetch(`${apiUrl}/orders/${order.id}/confirm`, {
+      let url = `${apiUrl}/orders/${order.id}/confirm`;
+      if (paymentMethod === 'Manual UPI Payment') {
+        url = `${apiUrl}/orders/${order.id}/submit-upi-payment`;
+        formData.append('payment_utr', paymentUtr);
+      }
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -960,15 +1028,36 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
 
                 {/* Manual Seller UPI */}
                 {paymentMethod === 'Manual UPI Payment' && (
-                  <div className="space-y-4 bg-slate-50/50 p-4 border border-slate-150 rounded-3xl animate-fadeIn">
+                  <div className="space-y-4 bg-slate-50/50 p-5 border border-slate-150 rounded-3xl animate-fadeIn">
                     <div className="text-center space-y-1.5">
                       <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 uppercase tracking-wider">
-                        ⚡ Direct Transfer (0% Fee)
+                        ⚡ Direct UPI Transfer (0% Fee)
                       </span>
-                      <p className="text-[10px] text-slate-455 leading-relaxed">
+                      <p className="text-[10px] text-slate-500 leading-relaxed font-semibold">
                         Pay directly to the shopkeeper's UPI address. No platform commissions or extra gateway fees.
                       </p>
                     </div>
+
+                    {/* Pay Now Button (Deep Link Launch) */}
+                    <div className="bg-white border border-slate-150 rounded-2xl p-4 text-center shadow-sm space-y-3">
+                      <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Pay Directly via UPI App</span>
+                      <button
+                        type="button"
+                        onClick={handleLaunchUpi}
+                        className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-750 hover:to-indigo-750 text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center space-x-2"
+                      >
+                        <QrCode className="w-4 h-4" />
+                        <span>Pay Now (Launch UPI App)</span>
+                      </button>
+                      <span className="block text-[9px] text-slate-400">Supports PhonePe, Google Pay, Paytm, BHIM and other UPI apps.</span>
+                    </div>
+
+                    {upiLaunchFailed && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-[10px] text-amber-800 font-semibold space-y-1.5 animate-fadeIn">
+                        <span className="block font-black text-amber-900">⚠️ UPI App Launch Failed?</span>
+                        <span>We couldn't open a UPI app automatically. Please use the fallback details below to complete your payment manually.</span>
+                      </div>
+                    )}
 
                     {/* UPI ID Display */}
                     <div className="bg-white border border-slate-150 rounded-2xl p-3.5 flex justify-between items-center shadow-sm">
@@ -989,9 +1078,9 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                       </button>
                     </div>
 
-                    {/* QR Code Scan */}
+                    {/* QR Code Scan Fallback */}
                     <div className="bg-white border border-slate-150 rounded-2xl p-4 flex flex-col items-center justify-center shadow-sm">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-2">Scan QR to Pay</span>
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-2">Manual QR Fallback</span>
                       <div className="p-2.5 bg-white rounded-xl border border-slate-100 shadow-inner flex items-center justify-center">
                         {order.qr_code_image ? (
                           <img
@@ -1002,7 +1091,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                         ) : (
                           <div id="QRCodeSVG">
                             <QRCode
-                              value={`upi://pay?pa=${order.upi_id || 'mykiranam@upi'}&pn=${encodeURIComponent(order.shop_name)}&am=${order.amount}&cu=INR`}
+                              value={`upi://pay?pa=${order.upi_id || 'mykiranam@upi'}&pn=${encodeURIComponent(order.shop_name)}&am=${order.amount}&tn=${encodeURIComponent(order.custom_order_id || order.id)}&cu=INR`}
                               size={180}
                               level="M"
                             />
@@ -1022,9 +1111,23 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                       )}
                     </div>
 
+                    {/* UTR Input Field */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">Enter 12-digit UPI Ref / UTR Number <span className="text-crimson">*</span></label>
+                      <input
+                        type="text"
+                        required
+                        maxLength={12}
+                        placeholder="e.g. 123456789012"
+                        value={paymentUtr}
+                        onChange={(e) => setPaymentUtr(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none placeholder-slate-400 text-slate-800 font-bold"
+                      />
+                    </div>
+
                     {/* Payment screenshot upload */}
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-600 block">Upload Transfer Screenshot Proof <span className="text-crimson">*</span></label>
+                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">Upload Transfer Screenshot Proof <span className="text-crimson">*</span></label>
                       <div className="relative border border-dashed border-slate-300 hover:border-kirana-500 rounded-2xl p-4 bg-white text-center cursor-pointer transition-colors">
                         <input
                           type="file"
@@ -1068,14 +1171,14 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                       <button
                         type="button"
                         onClick={handleConfirmOrder}
-                        disabled={loading || !proofFile}
+                        disabled={loading || !proofFile || paymentUtr.length < 12}
                         className="w-full py-3 bg-slate-900 hover:bg-slate-950 text-white text-xs font-extrabold rounded-xl shadow transition-all flex items-center justify-center space-x-1.5 disabled:opacity-50"
                       >
                         <span>Confirm UPI Payment</span>
                       </button>
-                      {!proofFile && (
+                      {(!proofFile || paymentUtr.length < 12) && (
                         <span className="block text-[8px] text-center text-crimson font-bold mt-1.5 animate-pulse">
-                          * Please upload payment screenshot proof to proceed
+                          * Please upload payment screenshot and enter valid 12-digit UTR to proceed
                         </span>
                       )}
                     </div>

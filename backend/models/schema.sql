@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS orders (
     payment_method VARCHAR(30),
     payment_status VARCHAR(20) DEFAULT 'Pending' CHECK (payment_status IN ('Pending', 'Uploaded Proof', 'Paid', 'Failed')),
     payment_proof_image TEXT,
+    payment_utr VARCHAR(100),
     notes TEXT,
     preferred_pickup_time VARCHAR(50),
     order_status VARCHAR(50) DEFAULT 'Waiting For Seller' CHECK (order_status IN (
@@ -107,7 +108,10 @@ CREATE TABLE IF NOT EXISTS orders (
         'Ready For Pickup', 
         'Delivered', 
         'Pickup Overdue',
-        'Cancelled'
+        'Cancelled',
+        'PENDING_PAYMENT',
+        'PAYMENT_SUBMITTED',
+        'PAYMENT_VERIFIED'
     )),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
