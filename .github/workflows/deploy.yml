@@ -138,6 +138,12 @@ jobs:
           SMTP_PASS=${{ secrets.EMAIL_PASS }}
           NODE_ENV=production
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          PHONEPE_MERCHANT_ID=${{ secrets.PHONEPE_MERCHANT_ID }}
+          PHONEPE_SALT_KEY=${{ secrets.PHONEPE_SALT_KEY }}
+          PHONEPE_SALT_INDEX=${{ secrets.PHONEPE_SALT_INDEX }}
+          PHONEPE_ENV=${{ secrets.PHONEPE_ENV }}
+          PHONEPE_CLIENT_ID=${{ secrets.PHONEPE_CLIENT_ID }}
+          PHONEPE_CLIENT_SECRET=${{ secrets.PHONEPE_CLIENT_SECRET }}
           ENVEOF"
 
       - name: Install dependencies & restart services on EC2
