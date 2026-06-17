@@ -1509,7 +1509,30 @@ const mockQuery = async (text, params = []) => {
           order.payment_proof_image = null;
         }
         // 3. confirmOrder
-        else if (normalizedText.includes('payment_utr = $4') || normalizedText.includes('payment_utr =')) {
+        else if (normalizedText.includes("order_status = 'payment_submitted'")) {
+          order.order_status = 'PAYMENT_SUBMITTED';
+          order.payment_status = 'Uploaded Proof';
+          order.payment_proof_image = params[0];
+          order.payment_utr = params[1];
+          order.payment_method = 'Manual UPI Payment';
+        }
+        else if (normalizedText.includes("order_status = 'ready for pickup'") && normalizedText.includes('pickup_otp = $1')) {
+          order.order_status = 'Ready For Pickup';
+          order.payment_status = 'Paid';
+          order.pickup_otp = params[0];
+          order.otp_generated_at = new Date();
+          order.pickup_deadline = params[1];
+          order.confirmed_at = new Date();
+          order.ready_for_pickup_at = new Date();
+        }
+        else if (normalizedText.includes("order_status = 'pending_payment'") && normalizedText.includes('payment_utr = null')) {
+          order.order_status = 'PENDING_PAYMENT';
+          order.payment_status = 'Pending';
+          order.payment_proof_image = null;
+          order.payment_utr = null;
+          order.notes = params[0];
+        }
+        else if (normalizedText.includes('payment_utr = $4') || (normalizedText.includes('payment_utr =') && params.length >= 4)) {
           order.order_status = params[0];
           order.payment_status = params[1];
           order.payment_proof_image = params[2];
@@ -1517,7 +1540,7 @@ const mockQuery = async (text, params = []) => {
           syncStatusTimestamp(order, params[0]);
         }
         else if (normalizedText.includes('payment_method = $1') && normalizedText.includes('payment_status = $2')) {
-          order.order_status = 'Confirmed';
+          order.order_status = normalizedText.includes("'packing started'") ? 'Packing Started' : 'Confirmed';
           order.payment_method = params[0];
           order.payment_status = params[1];
           order.payment_proof_image = params[2] || null;
