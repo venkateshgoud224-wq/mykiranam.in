@@ -311,11 +311,44 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
     return `${apiUrl.replace('/api', '')}${path}`;
   };
 
-  const handleDownloadQR = () => {
-    const svg = document.getElementById("QRCodeSVG");
-    if (!svg) return;
+  const handleDownloadQR = async () => {
+    if (order.qr_code_image) {
+      try {
+        const imageUrl = getFullImageUrl(order.qr_code_image);
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        // Extract extension from the URL if possible, default to .png
+        const ext = imageUrl.split('.').pop() || 'png';
+        a.download = `QR_${order.id}.${ext.length <= 4 ? ext : 'png'}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (err) {
+        console.error("Failed to download image, opening in new tab instead.", err);
+        const link = document.createElement("a");
+        link.href = getFullImageUrl(order.qr_code_image);
+        link.download = `QR_${order.id}.png`;
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      return;
+    }
+
+    const svgElement = document.querySelector("#QRCodeSVG svg");
+    if (!svgElement) {
+      console.error("QR Code SVG not found");
+      return;
+    }
     
-    let svgData = new XMLSerializer().serializeToString(svg);
+    let svgData = new XMLSerializer().serializeToString(svgElement);
     if (!svgData.includes('xmlns=')) {
       svgData = svgData.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
     }
@@ -338,8 +371,15 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
       const downloadLink = document.createElement("a");
       downloadLink.download = `QR_${order.id}.png`;
       downloadLink.href = pngFile;
+      document.body.appendChild(downloadLink);
       downloadLink.click();
+      document.body.removeChild(downloadLink);
     };
+    
+    img.onerror = (e) => {
+       console.error("Error loading SVG into Image", e);
+    };
+
     img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
   };
 
@@ -1022,16 +1062,14 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                         )}
                       </div>
                       
-                      {!order.qr_code_image && (
-                        <button
-                          type="button"
-                          onClick={handleDownloadQR}
-                          className="mt-3 text-[10px] font-bold text-slate-500 hover:text-slate-850 flex items-center space-x-1"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>Download QR Code</span>
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={handleDownloadQR}
+                        className="mt-3 text-[10px] font-bold text-slate-500 hover:text-slate-850 flex items-center space-x-1"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download QR Code</span>
+                      </button>
                     </div>
 
                     {/* UTR Input Field */}
