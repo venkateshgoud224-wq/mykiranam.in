@@ -201,60 +201,11 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
                       <div className="flex space-x-2 w-full sm:w-auto">
                         <button
                           onClick={async () => {
-                            if (window.confirm("Approve this payment of ₹" + order.amount + "?")) {
-                              try {
-                                const res = await fetch(`${apiUrl}/orders/${order.id}/verify-upi-payment`, {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${token}`
-                                  },
-                                  body: JSON.stringify({ action: 'approve' })
-                                });
-                                if (!res.ok) {
-                                  const data = await res.json();
-                                  throw new Error(data.error || 'Failed to approve payment');
-                                }
-                                alert('Payment approved! Order is now ready for pickup.');
-                                playSoundAlert('success');
-                                window.location.reload();
-                              } catch (err) {
-                                alert(err.message);
-                              }
-                            }
+                            handleProgress(order.id, 'Ready For Pickup');
                           }}
                           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all"
                         >
-                          Approve Payment
-                        </button>
-                        <button
-                          onClick={async () => {
-                            const reason = prompt("Enter reason for rejecting payment:");
-                            if (reason !== null) {
-                              try {
-                                const res = await fetch(`${apiUrl}/orders/${order.id}/verify-upi-payment`, {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${token}`
-                                  },
-                                  body: JSON.stringify({ action: 'reject', reject_reason: reason })
-                                });
-                                if (!res.ok) {
-                                  const data = await res.json();
-                                  throw new Error(data.error || 'Failed to reject payment');
-                                }
-                                alert('Payment rejected. Customer will be notified to pay again.');
-                                playSoundAlert('cancelled');
-                                window.location.reload();
-                              } catch (err) {
-                                alert(err.message);
-                              }
-                            }
-                          }}
-                          className="px-4 py-2 bg-red-650 hover:bg-red-750 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all"
-                        >
-                          Reject Payment
+                           Ready For Pickup
                         </button>
                       </div>
                     )}

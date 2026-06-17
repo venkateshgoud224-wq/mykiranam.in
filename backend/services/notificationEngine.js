@@ -42,19 +42,10 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
     if (isOnline) {
       // Respect user's browser notification preferences
       if (user.pref_browser_notif) {
-        // Emit Socket Event
-        const notifPayload = {
-          id: Date.now(), // Temp or DB ID
-          user_id: uid,
-          title,
-          message,
-          type,
-          channel: 'Web',
-          read_status: false,
-          created_at: new Date()
-        };
-        
-        socketService.sendNotification(uid, notifPayload);
+        // Emit Socket Event will be handled after DB insert to use correct ID
+        // Previously used temporary Date.now() ID which caused mismatch.
+        // No action here.
+        // channelsUsed will be updated after insert if needed.
         channelsUsed.push('Web');
       }
     }
@@ -241,8 +232,26 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
       [uid, title, message, type, finalChannel, false, sentStatus]
     );
 
-    console.log(`💾 Saved notification log to database: ID #${insertRes.rows[0].id} (Channel: ${finalChannel})`);
-    return { success: true, notifId: insertRes.rows[0].id };
+    const dbNotif = insertRes.rows[0];
+    console.log(`💾 Saved notification log to database: ID #${dbNotif.id} (Channel: ${finalChannel})`);
+
+    // Emit realtime notification if user is online
+    if (isOnline && user.pref_browser_notif) {
+      const realtimePayload = {
+        id: dbNotif.id,
+        user_id: uid,
+        title,
+        message,
+        type,
+        channel: finalChannel,
+        read_status: false,
+        created_at: dbNotif.created_at
+      };
+      socketService.sendNotification(uid, realtimePayload);
+      if (!channelsUsed.includes('Web')) channelsUsed.push('Web');
+    }
+
+    return { success: true, notifId: dbNotif.id };
   } catch (err) {
     console.error('❌ Notification Engine Dispatch Error:', err.message);
     return { success: false, error: err.message };
