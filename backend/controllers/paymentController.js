@@ -64,7 +64,7 @@ const createPhonePeOrder = async (req, res) => {
     const xVerify = sha256 + '###' + saltIndex;
 
     const url = env === 'PROD' 
-      ? 'https://api.phonepe.com/apis/hermes/pg/v1/pay' 
+      ? 'https://api.phonepe.com/apis/pg/pg/v1/pay' 
       : 'https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1/pay';
 
     const options = {
@@ -298,7 +298,7 @@ const verifyPhonePePayment = async (req, res) => {
     const xVerify = sha256 + '###' + saltIndex;
 
     const url = env === 'PROD' 
-      ? `https://api.phonepe.com/apis/hermes/pg/v1/status/${merchantId}/${transactionId}` 
+      ? `https://api.phonepe.com/apis/pg/pg/v1/status/${merchantId}/${transactionId}` 
       : `https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1/status/${merchantId}/${transactionId}`;
 
     const options = {
