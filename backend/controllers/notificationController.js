@@ -23,9 +23,15 @@ const markNotificationsAsRead = async (req, res) => {
 
   try {
     if (id) {
+      const parsedId = Number(id);
+      if (isNaN(parsedId) || parsedId <= 0 || parsedId > 2147483647) {
+        console.warn(`⚠️ Warning: markNotificationsAsRead received an invalid or out-of-range notification ID: ${id}`);
+        return res.status(200).json({ message: 'Notification skipped (invalid or local ID).' });
+      }
+
       const result = await db.query(
         'UPDATE notifications SET read_status = true WHERE id = $1 AND user_id = $2 RETURNING *',
-        [id, userId]
+        [parsedId, userId]
       );
       if (result.rows.length === 0) {
         return res.status(404).json({ error: 'Notification not found or access denied.' });
