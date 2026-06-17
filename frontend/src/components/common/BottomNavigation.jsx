@@ -3,7 +3,7 @@ import { Store, ShoppingBag, User, Settings, Layers, ShieldAlert, Scale, Trophy,
 import { useAuth } from '../../context/AuthContext';
 
 const BottomNavigation = ({ activeTab, onTabChange }) => {
-  const { user } = useAuth();
+  const { user, extraData } = useAuth();
 
   if (!user || user.role === 'pending') return null;
 
@@ -101,101 +101,165 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
     </>
   );
 
-  const renderSellerTabs = () => (
-    <>
-      <button
-        onClick={() => onTabChange('seller-active')}
-        className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
-      >
-        <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
-          activeTab === 'seller-active' || ['seller-new', 'seller-completed'].includes(activeTab)
-            ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
-            : 'text-slate-400 hover:text-slate-600'
-        }`}>
-          <Layers className="w-4.5 h-4.5" />
-        </div>
-        <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
-          activeTab === 'seller-active' || ['seller-new', 'seller-completed'].includes(activeTab)
-            ? 'text-slate-900 font-black'
-            : 'text-slate-400'
-        }`}>
-          Active Queue
-        </span>
-      </button>
+  const renderSellerTabs = () => {
+    const isVerifiedSeller = extraData.shop?.verification_status === 'Verified';
 
-      <button
-        onClick={() => onTabChange('seller-settings')}
-        className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
-      >
-        <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
-          activeTab === 'seller-settings'
-            ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
-            : 'text-slate-400 hover:text-slate-600'
-        }`}>
-          <Settings className="w-4.5 h-4.5" />
-        </div>
-        <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
-          activeTab === 'seller-settings' ? 'text-slate-900 font-black' : 'text-slate-400'
-        }`}>
-          Store Config
-        </span>
-      </button>
+    if (!isVerifiedSeller) {
+      return (
+        <>
+          <button
+            onClick={() => onTabChange('seller-active')}
+            className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
+          >
+            <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
+              activeTab === 'seller-active'
+                ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
+                : 'text-slate-400 hover:text-slate-600'
+            }`}>
+              <ShieldAlert className="w-4.5 h-4.5" />
+            </div>
+            <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
+              activeTab === 'seller-active' ? 'text-slate-900 font-black' : 'text-slate-400'
+            }`}>
+              Verification
+            </span>
+          </button>
 
-      <button
-        onClick={() => onTabChange('seller-products')}
-        className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
-      >
-        <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
-          activeTab === 'seller-products'
-            ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
-            : 'text-slate-400 hover:text-slate-600'
-        }`}>
-          <Package className="w-4.5 h-4.5" />
-        </div>
-        <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
-          activeTab === 'seller-products' ? 'text-slate-900 font-black' : 'text-slate-400'
-        }`}>
-          My Products
-        </span>
-      </button>
+          <button
+            onClick={() => onTabChange('support')}
+            className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
+          >
+            <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
+              activeTab === 'support'
+                ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
+                : 'text-slate-400 hover:text-slate-600'
+            }`}>
+              <HelpCircle className="w-4.5 h-4.5" />
+            </div>
+            <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
+              activeTab === 'support' ? 'text-slate-900 font-black' : 'text-slate-400'
+            }`}>
+              Support
+            </span>
+          </button>
 
-      <button
-        onClick={() => onTabChange('support')}
-        className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
-      >
-        <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
-          activeTab === 'support'
-            ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
-            : 'text-slate-400 hover:text-slate-600'
-        }`}>
-          <HelpCircle className="w-4.5 h-4.5" />
-        </div>
-        <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
-          activeTab === 'support' ? 'text-slate-900 font-black' : 'text-slate-400'
-        }`}>
-          Support
-        </span>
-      </button>
+          <button
+            onClick={() => onTabChange('profile')}
+            className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
+          >
+            <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
+              activeTab === 'profile'
+                ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
+                : 'text-slate-400 hover:text-slate-600'
+            }`}>
+              <User className="w-4.5 h-4.5" />
+            </div>
+            <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
+              activeTab === 'profile' ? 'text-slate-900 font-black' : 'text-slate-400'
+            }`}>
+              Profile
+            </span>
+          </button>
+        </>
+      );
+    }
 
-      <button
-        onClick={() => onTabChange('profile')}
-        className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
-      >
-        <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
-          activeTab === 'profile'
-            ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
-            : 'text-slate-400 hover:text-slate-600'
-        }`}>
-          <User className="w-4.5 h-4.5" />
-        </div>
-        <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
-          activeTab === 'profile' ? 'text-slate-900 font-black' : 'text-slate-400'
-        }`}>
-          Profile
-        </span>
-      </button>
-    </>
-  );
+    return (
+      <>
+        <button
+          onClick={() => onTabChange('seller-active')}
+          className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
+        >
+          <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
+            activeTab === 'seller-active' || ['seller-new', 'seller-completed'].includes(activeTab)
+              ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}>
+            <Layers className="w-4.5 h-4.5" />
+          </div>
+          <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
+            activeTab === 'seller-active' || ['seller-new', 'seller-completed'].includes(activeTab)
+              ? 'text-slate-900 font-black'
+              : 'text-slate-400'
+          }`}>
+            Active Queue
+          </span>
+        </button>
+
+        <button
+          onClick={() => onTabChange('seller-settings')}
+          className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
+        >
+          <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
+            activeTab === 'seller-settings'
+              ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}>
+            <Settings className="w-4.5 h-4.5" />
+          </div>
+          <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
+            activeTab === 'seller-settings' ? 'text-slate-900 font-black' : 'text-slate-400'
+          }`}>
+            Store Config
+          </span>
+        </button>
+
+        <button
+          onClick={() => onTabChange('seller-products')}
+          className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
+        >
+          <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
+            activeTab === 'seller-products'
+              ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}>
+            <Package className="w-4.5 h-4.5" />
+          </div>
+          <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
+            activeTab === 'seller-products' ? 'text-slate-900 font-black' : 'text-slate-400'
+          }`}>
+            My Products
+          </span>
+        </button>
+
+        <button
+          onClick={() => onTabChange('support')}
+          className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
+        >
+          <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
+            activeTab === 'support'
+              ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}>
+            <HelpCircle className="w-4.5 h-4.5" />
+          </div>
+          <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
+            activeTab === 'support' ? 'text-slate-900 font-black' : 'text-slate-400'
+          }`}>
+            Support
+          </span>
+        </button>
+
+        <button
+          onClick={() => onTabChange('profile')}
+          className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-all outline-none"
+        >
+          <div className={`transition-all duration-300 rounded-xl flex items-center justify-center w-8 h-8 ${
+            activeTab === 'profile'
+              ? 'bg-kirana-500 text-slate-950 shadow-sm scale-110'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}>
+            <User className="w-4.5 h-4.5" />
+          </div>
+          <span className={`text-[9px] font-bold mt-1 transition-all duration-300 ${
+            activeTab === 'profile' ? 'text-slate-900 font-black' : 'text-slate-400'
+          }`}>
+            Profile
+          </span>
+        </button>
+      </>
+    );
+  };
 
   const renderAdminTabs = () => (
     <>

@@ -195,7 +195,7 @@ const getMyShop = async (req, res) => {
       // Auto-create a default shop profile for this seller
       const defaultShopName = `${req.user.name}'s Kirana Store`;
       await db.query(
-        'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, verified, verification_status, verified_by_admin, verified_by_seller, verification_date) VALUES ($1, $2, $3, $4, $5, true, \'Verified\', true, true, CURRENT_TIMESTAMP)',
+        'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, verified, verification_status, verified_by_admin, verified_by_seller, verification_date) VALUES ($1, $2, $3, $4, $5, false, \'Pending\', false, false, NULL)',
         [sellerId, defaultShopName, 'Huzurnagar, Nalgonda, Telangana', 16.8970, 79.8705]
       );
       shopResult = await db.query('SELECT * FROM shops WHERE owner_id = $1', [sellerId]);
@@ -375,14 +375,14 @@ const verifyOtp = async (req, res) => {
   }
 };
 
-// Upload 5 verification images and submit shop for Under Review status
+// Upload 4 verification images and submit shop for Under Review status
 const verifyShop = async (req, res) => {
   const sellerId = req.user.id;
   const files = req.files; // Multer uploads object
   const { working_hours, shop_category, shop_name, address, latitude, longitude } = req.body;
 
-  if (!files || !files.image_front || !files.image_counter || !files.image_inside1 || !files.image_inside2 || !files.image_additional) {
-    return res.status(400).json({ error: 'All 5 mandatory shop images are required.' });
+  if (!files || !files.image_front || !files.image_counter || !files.image_inside1 || !files.image_inside2) {
+    return res.status(400).json({ error: 'All 4 mandatory shop images are required.' });
   }
 
   try {
@@ -391,7 +391,7 @@ const verifyShop = async (req, res) => {
       // Auto-create missing shop profile
       const defaultShopName = `${req.user.name}'s Kirana Store`;
       await db.query(
-        'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, verified, verification_status, verified_by_admin, verified_by_seller, verification_date) VALUES ($1, $2, $3, $4, $5, true, \'Verified\', true, true, CURRENT_TIMESTAMP)',
+        'INSERT INTO shops (owner_id, shop_name, address, latitude, longitude, verified, verification_status, verified_by_admin, verified_by_seller, verification_date) VALUES ($1, $2, $3, $4, $5, false, \'Pending\', false, false, NULL)',
         [sellerId, defaultShopName, 'Huzurnagar, Nalgonda, Telangana', 16.8970, 79.8705]
       );
       shopCheck = await db.query('SELECT * FROM shops WHERE owner_id = $1', [sellerId]);
@@ -411,12 +411,12 @@ const verifyShop = async (req, res) => {
       }
     }
 
-    // Upload all 5 files to Storage
+    // Upload all 4 files to Storage
     const imgFront = await uploadImage(files.image_front[0]);
     const imgCounter = await uploadImage(files.image_counter[0]);
     const imgInside1 = await uploadImage(files.image_inside1[0]);
     const imgInside2 = await uploadImage(files.image_inside2[0]);
-    const imgAdd = await uploadImage(files.image_additional[0]);
+    const imgAdd = null;
 
     // Update shop verification status to Under Review
     const result = await db.query(
@@ -529,6 +529,99 @@ const getPremiumAnalytics = async (req, res) => {
 };
 
 
+// 8. Submit Seller KYC Details (Identity Verification)
+const submitSellerKyc = async (req, res) => {
+  const sellerId = req.user.id;
+  const {
+    owner_full_name,
+    aadhaar_number,
+    pan_number,
+    business_type,
+    gst_number,
+    bank_account_number,
+    bank_ifsc_code,
+    declaration_accepted
+  } = req.body;
+
+  // Validate required fields
+  if (!owner_full_name || !aadhaar_number || !pan_number || !bank_account_number || !bank_ifsc_code) {
+    return res.status(400).json({ error: 'Owner name, Aadhaar number, PAN number, bank account and IFSC code are required.' });
+  }
+  if (!aadhaar_number.match(/^\d{12}$/)) {
+    return res.status(400).json({ error: 'Aadhaar number must be exactly 12 digits.' });
+  }
+  if (!pan_number.match(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/)) {
+    return res.status(400).json({ error: 'PAN number must be in valid format (e.g. ABCDE1234F).' });
+  }
+  if (!declaration_accepted || declaration_accepted === 'false') {
+    return res.status(400).json({ error: 'You must accept the declaration to submit KYC.' });
+  }
+
+  const files = req.files || {};
+  if (!files.aadhaar_image || !files.pan_image) {
+    return res.status(400).json({ error: 'Aadhaar photo and PAN card photo are required.' });
+  }
+
+  try {
+    // Ensure seller has a shop
+    let shopCheck = await db.query('SELECT * FROM shops WHERE owner_id = $1', [sellerId]);
+    if (shopCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Shop profile not found. Please complete shop setup first.' });
+    }
+    const shop = shopCheck.rows[0];
+
+    // Upload document images
+    const aadhaarImageUrl = await uploadImage(files.aadhaar_image[0]);
+    const panImageUrl = await uploadImage(files.pan_image[0]);
+
+    // Upsert KYC record
+    const kycResult = await db.query(
+      `INSERT INTO seller_kyc 
+         (shop_id, seller_id, owner_full_name, aadhaar_number, pan_number, business_type, gst_number,
+          bank_account_number, bank_ifsc_code, aadhaar_image, pan_image, declaration_accepted, submitted_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       ON CONFLICT (shop_id) DO UPDATE
+         SET owner_full_name = EXCLUDED.owner_full_name,
+             aadhaar_number = EXCLUDED.aadhaar_number,
+             pan_number = EXCLUDED.pan_number,
+             business_type = EXCLUDED.business_type,
+             gst_number = EXCLUDED.gst_number,
+             bank_account_number = EXCLUDED.bank_account_number,
+             bank_ifsc_code = EXCLUDED.bank_ifsc_code,
+             aadhaar_image = EXCLUDED.aadhaar_image,
+             pan_image = EXCLUDED.pan_image,
+             declaration_accepted = EXCLUDED.declaration_accepted,
+             updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [
+        shop.id, sellerId, owner_full_name,
+        aadhaar_number, pan_number.toUpperCase(),
+        business_type || 'Sole Proprietor',
+        gst_number || null,
+        bank_account_number, bank_ifsc_code.toUpperCase(),
+        aadhaarImageUrl, panImageUrl,
+        true
+      ]
+    );
+
+    // Set shop to "Under Review" if it was Pending/Rejected
+    if (['Pending', 'Rejected'].includes(shop.verification_status)) {
+      await db.query(
+        `UPDATE shops SET verification_status = 'Under Review', verified_by_seller = true WHERE id = $1`,
+        [shop.id]
+      );
+    }
+
+    return res.status(200).json({
+      message: 'KYC details submitted successfully. Your application is now Under Review.',
+      kyc: kycResult.rows[0]
+    });
+  } catch (err) {
+    console.error('Error submitting seller KYC:', err);
+    return res.status(500).json({ error: 'Server error processing KYC submission.' });
+  }
+};
+
 module.exports = {
   getShops,
   getShopById,
@@ -539,6 +632,7 @@ module.exports = {
   verifyOtp,
   verifyShop,
   updateShopBanner,
-  getPremiumAnalytics
+  getPremiumAnalytics,
+  submitSellerKyc
 };
 

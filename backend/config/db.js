@@ -116,11 +116,11 @@ const seedMockDbIfEmpty = () => {
         waiting_time: 0,
         availability_status: "Available",
         discounts: "10% off on first order",
-        verified: true,
-        verification_status: "Verified",
-        verified_by_admin: true,
-        verified_by_seller: true,
-        verification_date: new Date(),
+        verified: false,
+        verification_status: "Pending",
+        verified_by_admin: false,
+        verified_by_seller: false,
+        verification_date: null,
         working_hours: "08:00 - 22:00",
         shop_category: "General Provisions",
         max_active_orders: 10,
@@ -146,11 +146,11 @@ const seedMockDbIfEmpty = () => {
         waiting_time: 0,
         availability_status: "Available",
         discounts: "No discounts",
-        verified: true,
-        verification_status: "Verified",
-        verified_by_admin: true,
-        verified_by_seller: true,
-        verification_date: new Date(),
+        verified: false,
+        verification_status: "Pending",
+        verified_by_admin: false,
+        verified_by_seller: false,
+        verification_date: null,
         working_hours: "08:00 - 22:00",
         shop_category: "General Provisions",
         max_active_orders: 10,
@@ -168,7 +168,9 @@ const seedMockDbIfEmpty = () => {
     isMockDbDirty = true;
   }
 
-  // Auto-verify any existing pending shops in mock database for ease of testing
+
+  // Auto-verify any existing pending shops in mock database for ease of testing disabled to prevent automatic verification
+  /*
   mockDb.shops.forEach(shop => {
     if (shop.verification_status !== 'Verified') {
       shop.verification_status = 'Verified';
@@ -179,6 +181,8 @@ const seedMockDbIfEmpty = () => {
       isMockDbDirty = true;
     }
   });
+  */
+
 
   // Seed mock products, aliases, and historical prices for price comparison demo
   if (!mockDb.products || mockDb.products.length === 0) {
@@ -535,6 +539,22 @@ const mockQuery = async (text, params = []) => {
         filteredOrders = filteredOrders.filter(o => Number(o.shop_id) === Number(shopId));
       }
 
+      // Dynamically filter by order_status if NOT IN or exclusion is requested in the query
+      if (normalizedText.includes("order_status not in") || normalizedText.includes("order_status !=")) {
+        const hasDelivered = normalizedText.includes('delivered');
+        const hasCancelled = normalizedText.includes('cancelled');
+        const hasCompleted = normalizedText.includes('completed');
+        
+        filteredOrders = filteredOrders.filter(o => {
+          const status = o.order_status;
+          if (hasDelivered && status === 'Delivered') return false;
+          if (hasCancelled && status === 'Cancelled') return false;
+          if (hasCompleted && status === 'Completed') return false;
+          return true;
+        });
+      }
+
+
       // Enrich orders with joined shop and user info
       const enrichedOrders = filteredOrders.map(o => {
         const shop = mockDb.shops.find(s => Number(s.id) === Number(o.shop_id)) || {};
@@ -883,30 +903,33 @@ const mockQuery = async (text, params = []) => {
   }
 
   if (normalizedText.startsWith('insert into shops')) {
+    const colMatch = text.match(/\(([^)]+)\)/);
+    const columns = colMatch ? colMatch[1].split(',').map(c => c.trim().toLowerCase()) : [];
+
     const newShop = {
       id: mockDb.shops.length + 1,
-      owner_id: params[0],
-      shop_name: params[1],
-      address: params[2],
-      latitude: Number(params[3]),
-      longitude: Number(params[4]),
+      owner_id: null,
+      shop_name: '',
+      address: '',
+      latitude: 16.8970,
+      longitude: 79.8705,
       rating: 4.0,
       active_orders: 0,
       waiting_time: 0,
       availability_status: 'Available',
-      discounts: params[5] || 'No discounts',
-      verified: true, // Default to true in Mock mode for instant visibility
-      verification_status: 'Verified', // Default to Verified in Mock mode
-      verified_by_admin: true,
-      verified_by_seller: true,
-      verification_date: new Date(),
+      discounts: 'No discounts',
+      verified: false,
+      verification_status: 'Pending',
+      verified_by_admin: false,
+      verified_by_seller: false,
+      verification_date: null,
       working_hours: '08:00 - 22:00',
       shop_category: 'General Provisions',
       image_front: null, image_counter: null, image_inside1: null, image_inside2: null, image_additional: null, image_banner: null,
       max_active_orders: 10,
       online_start_time: '08:00',
       online_end_time: '22:00',
-      upi_id: params[6] || null,
+      upi_id: null,
       qr_code_image: null,
       delivery_option: 'Pickup + Delivery',
       delivery_charges: 0.00,
@@ -915,6 +938,23 @@ const mockQuery = async (text, params = []) => {
       catalog_enabled: false,
       created_at: new Date()
     };
+
+    columns.forEach((col, idx) => {
+      const val = params[idx];
+      if (col === 'owner_id') newShop.owner_id = val !== null && val !== undefined ? Number(val) : null;
+      else if (col === 'shop_name') newShop.shop_name = val;
+      else if (col === 'address') newShop.address = val;
+      else if (col === 'latitude') newShop.latitude = val !== null && val !== undefined ? Number(val) : 16.8970;
+      else if (col === 'longitude') newShop.longitude = val !== null && val !== undefined ? Number(val) : 79.8705;
+      else if (col === 'verified') newShop.verified = (val === true || val === 'true' || val === 't');
+      else if (col === 'verification_status') newShop.verification_status = val;
+      else if (col === 'verified_by_admin') newShop.verified_by_admin = (val === true || val === 'true' || val === 't');
+      else if (col === 'verified_by_seller') newShop.verified_by_seller = (val === true || val === 'true' || val === 't');
+      else if (col === 'verification_date') newShop.verification_date = val;
+      else if (col === 'upi_id') newShop.upi_id = val;
+      else if (col === 'discounts') newShop.discounts = val || 'No discounts';
+    });
+
     mockDb.shops.push(newShop);
     return { rows: [newShop] };
   }
@@ -1852,9 +1892,9 @@ const initDb = async () => {
     await pool.query('ALTER TABLE complaints ADD COLUMN IF NOT EXISTS seller_explanation TEXT;');
     await pool.query('ALTER TABLE complaints ADD COLUMN IF NOT EXISTS seller_response_at TIMESTAMP WITH TIME ZONE;');
     
-    // Auto-verify all existing shops in PostgreSQL database to restore visibility
-    console.log('⚡ Auto-verifying all existing shops in PostgreSQL...');
-    await pool.query("UPDATE shops SET verification_status = 'Verified', verified = true WHERE verification_status = 'Pending' OR verification_status = 'Under Review';");
+    // Auto-verify all existing shops in PostgreSQL database disabled to prevent automatic verification
+    // console.log('⚡ Auto-verifying all existing shops in PostgreSQL...');
+    // await pool.query("UPDATE shops SET verification_status = 'Verified', verified = true WHERE verification_status = 'Pending' OR verification_status = 'Under Review';");
 
     // Remove Bangalore seeding
     console.log('ℹ️ Startup complete.');

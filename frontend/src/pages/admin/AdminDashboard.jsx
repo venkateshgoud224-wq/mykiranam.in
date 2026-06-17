@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { ShieldCheck, UserCheck, Eye, Trash2, EyeOff, AlertOctagon, User, Store, Layers, X, Check, MapPin, ChevronLeft, ChevronRight, Play, Square, RefreshCcw, Activity, AlertCircle } from 'lucide-react';
+import { ShieldCheck, UserCheck, Eye, Trash2, EyeOff, AlertOctagon, User, Store, Layers, X, Check, MapPin, ChevronLeft, ChevronRight, Play, Square, RefreshCcw, Activity, AlertCircle, CreditCard, Banknote, Building2, FileText, Lock } from 'lucide-react';
 import ComplaintsManagement from '../../components/admin/ComplaintsManagement';
 
 const AdminDashboard = () => {
@@ -18,6 +18,11 @@ const AdminDashboard = () => {
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+
+  // KYC state for seller audit modal
+  const [sellerKyc, setSellerKyc] = useState(null);
+  const [kycLoading, setKycLoading] = useState(false);
+  const [expandedKycImage, setExpandedKycImage] = useState(null); // 'aadhaar' | 'pan' | null
 
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const mapContainerRef = useRef(null);
@@ -133,7 +138,7 @@ const AdminDashboard = () => {
       mapRef.current = null;
     }
 
-    const map = L.map(mapContainerRef.current).setView([initialLat, initialLng], 15);
+    const map = L.map(mapContainerRef.current, { scrollWheelZoom: false }).setView([initialLat, initialLng], 15);
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
@@ -179,6 +184,27 @@ const AdminDashboard = () => {
       alert(err.message || 'Error executing action.');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const fetchSellerKyc = async (shopId) => {
+    setKycLoading(true);
+    setSellerKyc(null);
+    try {
+      const response = await fetch(`${apiUrl}/admin/sellers/${shopId}/kyc`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (response.ok && data.hasKyc) {
+        setSellerKyc(data.kyc);
+      } else {
+        setSellerKyc(null);
+      }
+    } catch (err) {
+      console.error('Error fetching KYC:', err);
+      setSellerKyc(null);
+    } finally {
+      setKycLoading(false);
     }
   };
 
@@ -546,7 +572,7 @@ const AdminDashboard = () => {
                       {seller.verification_status}
                     </span>
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">Owner: {seller.owner_name} • Category: {seller.shop_category}</p>
+                  <p className="text-xs text-slate-500 mt-1">Owner: {seller.owner_name} • Phone: {seller.owner_phone || 'N/A'} {seller.owner_whatsapp ? `• WA: ${seller.owner_whatsapp}` : ''} • Category: {seller.shop_category}</p>
                   <p className="text-[10px] text-slate-400 mt-1 max-w-[250px] sm:max-w-md truncate">📍 Address: {seller.address}</p>
                 </div>
                 
@@ -555,6 +581,7 @@ const AdminDashboard = () => {
                     setSelectedSeller(seller);
                     setActiveImageIdx(0);
                     setShowRejectForm(false);
+                    fetchSellerKyc(seller.id);
                   }}
                   className="px-4 py-2.5 bg-slate-900 hover:bg-slate-950 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all"
                 >
@@ -684,7 +711,7 @@ const AdminDashboard = () => {
                       {seller.verification_status}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Owner: {seller.owner_name} • Phone: {seller.owner_phone}</p>
+                  <p className="text-xs text-slate-500 mt-1">Owner: {seller.owner_name} • Phone: {seller.owner_phone || 'N/A'} {seller.owner_whatsapp ? `• WA: ${seller.owner_whatsapp}` : ''}</p>
                 </div>
 
                 <button
@@ -711,13 +738,15 @@ const AdminDashboard = () => {
                 <h3 className="text-base font-extrabold text-slate-900 mt-1">
                   Audit: {selectedSeller.shop_name}
                 </h3>
-                <p className="text-xs text-slate-455">Owner name: {selectedSeller.owner_name} • Tel: {selectedSeller.owner_phone}</p>
+                <p className="text-xs text-slate-455">Owner name: {selectedSeller.owner_name} • Tel: {selectedSeller.owner_phone || 'N/A'} {selectedSeller.owner_whatsapp ? `• WA: ${selectedSeller.owner_whatsapp}` : ''}</p>
               </div>
               <button
                 onClick={() => {
                   setSelectedSeller(null);
                   setShowRejectForm(false);
                   setNotes('');
+                  setSellerKyc(null);
+                  setExpandedKycImage(null);
                 }}
                 className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-655 transition-all"
               >
@@ -728,10 +757,10 @@ const AdminDashboard = () => {
             {/* Modal scroll content */}
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               
-              {/* Mandatory 5 image carousel */}
+              {/* Mandatory 4 image carousel */}
               <div>
                 <span className="block text-[10px] text-slate-450 uppercase font-bold mb-1.5">
-                  Mandatory Shop Image Review (Slide to audit all 5)
+                  Mandatory Shop Image Review (Slide to audit all 4)
                 </span>
                 
                 {/* Carousel Viewer */}
@@ -739,14 +768,14 @@ const AdminDashboard = () => {
                   
                   {/* Slider controls */}
                   <button
-                    onClick={() => setActiveImageIdx(prev => (prev === 0 ? 4 : prev - 1))}
+                    onClick={() => setActiveImageIdx(prev => (prev === 0 ? 3 : prev - 1))}
                     className="absolute left-2.5 top-1/2 transform -translate-y-1/2 p-1.5 bg-slate-900/60 hover:bg-slate-900 text-white rounded-full transition-all z-10"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
 
                   <button
-                    onClick={() => setActiveImageIdx(prev => (prev === 4 ? 0 : prev + 1))}
+                    onClick={() => setActiveImageIdx(prev => (prev === 3 ? 0 : prev + 1))}
                     className="absolute right-2.5 top-1/2 transform -translate-y-1/2 p-1.5 bg-slate-900/60 hover:bg-slate-900 text-white rounded-full transition-all z-10"
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -759,8 +788,7 @@ const AdminDashboard = () => {
                         '1. Full Shop Front View',
                         '2. Billing Counter / Seat View',
                         '3. Grocery Shelves Angle 1',
-                        '4. Grocery Shelves Angle 2',
-                        '5. Additional Angle / Inside Store'
+                        '4. Grocery Shelves Angle 2'
                       ][activeImageIdx]}
                     </span>
 
@@ -769,15 +797,14 @@ const AdminDashboard = () => {
                         selectedSeller.image_front,
                         selectedSeller.image_counter,
                         selectedSeller.image_inside1,
-                        selectedSeller.image_inside2,
-                        selectedSeller.image_additional
+                        selectedSeller.image_inside2
                       ][activeImageIdx] || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏪</text></svg>')}
                       alt={`Audit Shop Angle ${activeImageIdx + 1}`}
                       className="max-h-48 w-full object-contain mx-auto rounded-lg"
                     />
 
                     <div className="flex justify-center space-x-1.5 self-center">
-                      {[0, 1, 2, 3, 4].map(idx => (
+                      {[0, 1, 2, 3].map(idx => (
                         <span
                           key={idx}
                           className={`w-2 h-2 rounded-full ${
@@ -833,6 +860,124 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
+              {/* KYC Identity Details Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="block text-[10px] text-slate-450 uppercase font-bold">KYC Identity Verification</span>
+                  {sellerKyc && (
+                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold rounded-full">
+                      ✓ KYC Submitted
+                    </span>
+                  )}
+                </div>
+
+                {kycLoading ? (
+                  <div className="text-center py-6 text-[10px] text-slate-400 animate-pulse">Loading KYC details...</div>
+                ) : sellerKyc ? (
+                  <div className="space-y-3">
+                    {/* Identity row */}
+                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="block text-[9px] text-slate-400 font-bold uppercase mb-0.5">Owner Name</span>
+                        <span className="font-bold text-slate-800">{sellerKyc.owner_full_name}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] text-slate-400 font-bold uppercase mb-0.5">Business Type</span>
+                        <span className="font-bold text-slate-800">{sellerKyc.business_type}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] text-slate-400 font-bold uppercase mb-0.5 flex items-center gap-0.5">
+                          <Lock className="w-2.5 h-2.5" /> Aadhaar (Masked)
+                        </span>
+                        <span className="font-bold text-slate-800 font-mono">{sellerKyc.aadhaar_masked || 'XXXX-XXXX-****'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] text-slate-400 font-bold uppercase mb-0.5">PAN Number</span>
+                        <span className="font-bold text-slate-800 font-mono">{sellerKyc.pan_number}</span>
+                      </div>
+                      {sellerKyc.gst_number && (
+                        <div className="col-span-2">
+                          <span className="block text-[9px] text-slate-400 font-bold uppercase mb-0.5">GST Number</span>
+                          <span className="font-bold text-slate-800 font-mono">{sellerKyc.gst_number}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bank details */}
+                    <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-xs">
+                      <p className="text-[9px] font-bold text-blue-500 uppercase mb-2 flex items-center gap-1">
+                        <Banknote className="w-3 h-3" /> Bank Account
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="block text-[9px] text-slate-400 font-bold uppercase">Account No.</span>
+                          <span className="font-bold text-slate-800 font-mono">{'*'.repeat(Math.max(0, (sellerKyc.bank_account_number || '').length - 4))}{(sellerKyc.bank_account_number || '').slice(-4)}</span>
+                        </div>
+                        <div>
+                          <span className="block text-[9px] text-slate-400 font-bold uppercase">IFSC</span>
+                          <span className="font-bold text-slate-800 font-mono">{sellerKyc.bank_ifsc_code}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Document photos */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <span className="block text-[9px] text-slate-400 font-bold uppercase">Aadhaar Photo</span>
+                        {sellerKyc.aadhaar_image ? (
+                          <div
+                            className="relative h-24 border border-slate-200 rounded-xl overflow-hidden bg-slate-50 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setExpandedKycImage('aadhaar')}
+                          >
+                            <img
+                              src={getFullImageUrl(sellerKyc.aadhaar_image)}
+                              alt="Aadhaar"
+                              className="w-full h-full object-cover"
+                            />
+                            <span className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/50 text-white text-[8px] rounded">Tap to expand</span>
+                          </div>
+                        ) : (
+                          <div className="h-24 border border-dashed border-slate-200 rounded-xl flex items-center justify-center text-[10px] text-slate-400">
+                            Not uploaded
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <span className="block text-[9px] text-slate-400 font-bold uppercase">PAN Card Photo</span>
+                        {sellerKyc.pan_image ? (
+                          <div
+                            className="relative h-24 border border-slate-200 rounded-xl overflow-hidden bg-slate-50 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setExpandedKycImage('pan')}
+                          >
+                            <img
+                              src={getFullImageUrl(sellerKyc.pan_image)}
+                              alt="PAN"
+                              className="w-full h-full object-cover"
+                            />
+                            <span className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/50 text-white text-[8px] rounded">Tap to expand</span>
+                          </div>
+                        ) : (
+                          <div className="h-24 border border-dashed border-slate-200 rounded-xl flex items-center justify-center text-[10px] text-slate-400">
+                            Not uploaded
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+                      <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>Seller accepted the declaration of authenticity. Submitted: {new Date(sellerKyc.submitted_at).toLocaleString()}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
+                    <span className="text-2xl">⚠️</span>
+                    <p className="text-xs font-bold text-amber-700 mt-1">KYC Not Submitted</p>
+                    <p className="text-[10px] text-amber-600 mt-0.5">This seller has not submitted identity verification documents yet.</p>
+                  </div>
+                )}
+              </div>
+
               {/* Rejection Note Form */}
               {showRejectForm ? (
                 <div className="p-4 border border-crimson/20 bg-crimson/5 rounded-2xl space-y-3">
@@ -881,6 +1026,36 @@ const AdminDashboard = () => {
               )}
 
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* KYC Document Image Lightbox */}
+      {expandedKycImage && sellerKyc && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setExpandedKycImage(null)}
+        >
+          <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-white font-bold text-sm">
+                {expandedKycImage === 'aadhaar' ? '🪪 Aadhaar Card' : '📄 PAN Card'}
+              </span>
+              <button
+                onClick={() => setExpandedKycImage(null)}
+                className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <img
+              src={getFullImageUrl(
+                expandedKycImage === 'aadhaar' ? sellerKyc.aadhaar_image : sellerKyc.pan_image
+              )}
+              alt={expandedKycImage === 'aadhaar' ? 'Aadhaar Document' : 'PAN Document'}
+              className="w-full max-h-[80vh] object-contain rounded-2xl border border-white/10"
+            />
+            <p className="text-center text-white/50 text-[10px] mt-3">Click outside to close</p>
           </div>
         </div>
       )}

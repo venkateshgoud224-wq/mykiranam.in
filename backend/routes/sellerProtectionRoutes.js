@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const sellerProtectionController = require('../controllers/sellerProtectionController');
 const authMiddleware = require('../middleware/authMiddleware');
+const verifiedSellerMiddleware = require('../middleware/verifiedSellerMiddleware');
 
 router.use(authMiddleware);
+router.use(verifiedSellerMiddleware);
 
 // Seller Protection Endpoints
 router.post('/block', sellerProtectionController.blockCustomer);

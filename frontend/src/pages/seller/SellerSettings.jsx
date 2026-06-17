@@ -16,6 +16,7 @@ const SellerSettings = () => {
   const [availabilityStatus, setAvailabilityStatus] = useState('Available');
 
   const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [mapLocked, setMapLocked] = useState(true);
   const mapContainerRef = React.useRef(null);
   const mapRef = React.useRef(null);
   const markerRef = React.useRef(null);
@@ -63,7 +64,11 @@ const SellerSettings = () => {
     const initialLat = parseFloat(latitude) || 16.8970;
     const initialLng = parseFloat(longitude) || 79.8705;
 
-    const map = L.map(mapContainerRef.current).setView([initialLat, initialLng], 15);
+    const map = L.map(mapContainerRef.current, {
+      scrollWheelZoom: false,
+      dragging: !mapLocked,
+      touchZoom: !mapLocked
+    }).setView([initialLat, initialLng], 15);
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
@@ -387,15 +392,40 @@ const SellerSettings = () => {
 
         {/* Map Pinning and Coordinates */}
         <div className="space-y-2">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center flex-wrap gap-2">
             <label className="text-xs font-bold text-slate-700 block">Pin Shop Location on Map</label>
-            <button
-              type="button"
-              onClick={handleAutoDetect}
-              className="text-[10px] font-bold text-kirana-600 bg-kirana-50 hover:bg-kirana-100 px-2.5 py-1 rounded-lg border border-kirana-200 flex items-center gap-1 transition-all active:scale-[0.98]"
-            >
-              <span>📍</span> Auto-Detect GPS
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const newLocked = !mapLocked;
+                  setMapLocked(newLocked);
+                  if (mapRef.current) {
+                    if (newLocked) {
+                      mapRef.current.dragging.disable();
+                      mapRef.current.touchZoom.disable();
+                    } else {
+                      mapRef.current.dragging.enable();
+                      mapRef.current.touchZoom.enable();
+                    }
+                  }
+                }}
+                className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition-all active:scale-[0.98] ${
+                  mapLocked 
+                    ? 'text-slate-500 bg-slate-50 border-slate-250' 
+                    : 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                }`}
+              >
+                <span>{mapLocked ? '🔒 Map Locked' : '🔓 Map Unlocked'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleAutoDetect}
+                className="text-[10px] font-bold text-kirana-600 bg-kirana-50 hover:bg-kirana-100 px-2.5 py-1 rounded-lg border border-kirana-200 flex items-center gap-1 transition-all active:scale-[0.98]"
+              >
+                <span>📍</span> Auto-Detect GPS
+              </button>
+            </div>
           </div>
 
           <div 

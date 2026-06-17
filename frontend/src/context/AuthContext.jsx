@@ -20,6 +20,7 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
+      setLoading(true);
       try {
         const response = await fetch(`${API_URL}/auth/profile`, {
           headers: {
@@ -38,8 +39,8 @@ export const AuthProvider = ({ children }) => {
             spendStats: data.spendStats || null,
             sellerStats: data.sellerStats || null
           });
-        } else if (response.status === 401 || response.status === 403) {
-          // Token expired or invalid
+        } else if (response.status === 401 || response.status === 403 || response.status === 404 || response.status === 400) {
+          // Token expired or invalid, or user not found
           logout();
         } else {
           console.error("Server error while loading profile:", response.status);
@@ -135,6 +136,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', data.token);
       setToken(data.token);
       setUser(data.user);
+      
+      // Fetch the updated profile metrics and extraData (e.g. shop details) for the new role
+      await refreshProfile(data.token);
+      
       return data.user;
     } catch (err) {
       throw err;
@@ -142,12 +147,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Fetch updated profile metrics
-  const refreshProfile = async () => {
-    if (!token) return;
+  const refreshProfile = async (overrideToken) => {
+    const activeToken = overrideToken || token;
+    if (!activeToken) return;
     try {
       const response = await fetch(`${API_URL}/auth/profile`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${activeToken}`
         }
       });
       if (response.ok) {
@@ -160,6 +166,8 @@ export const AuthProvider = ({ children }) => {
           spendStats: data.spendStats || null,
           sellerStats: data.sellerStats || null
         });
+      } else if (response.status === 401 || response.status === 403 || response.status === 404 || response.status === 400) {
+        logout();
       }
     } catch (err) {
       console.error('Error refreshing profile:', err);

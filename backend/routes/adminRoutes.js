@@ -47,4 +47,7 @@ router.get('/customers', adminController.getCustomersList);
 // Fetch completed/cancelled orders list
 router.get('/completed-orders', adminController.getCompletedOrdersList);
 
+// Fetch seller KYC details for a specific shop
+router.get('/sellers/:id/kyc', adminController.getSellerKyc);
+
 module.exports = router;

@@ -4,6 +4,8 @@ const orderController = require('../controllers/orderController');
 const authMiddleware = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 
+const verifiedSellerMiddleware = require('../middleware/verifiedSellerMiddleware');
+
 // All order routes are protected by authMiddleware
 router.use(authMiddleware);
 
@@ -14,16 +16,16 @@ router.get('/', orderController.getOrders);
 router.post('/', upload.single('original_chitti'), orderController.createOrder);
 
 // Update order status (Accept, Reject, progress state)
-router.patch('/:id/status', orderController.updateOrderStatus);
+router.patch('/:id/status', verifiedSellerMiddleware, orderController.updateOrderStatus);
 
 // Get market comparison for order
 router.get('/:id/market-comparison', orderController.getMarketComparison);
 
 // Seller uploads modified bill image + total amount
-router.post('/:id/bill', upload.single('modified_bill'), orderController.uploadBill);
+router.post('/:id/bill', verifiedSellerMiddleware, upload.single('modified_bill'), orderController.uploadBill);
 
 // Seller requests payment
-router.post('/:id/ask-payment', orderController.askPayment);
+router.post('/:id/ask-payment', verifiedSellerMiddleware, orderController.askPayment);
 
 // Customer confirms order + selects payment method + uploads screenshot receipt
 router.post('/:id/confirm', upload.single('payment_proof_image'), orderController.confirmOrder);
@@ -32,13 +34,13 @@ router.post('/:id/confirm', upload.single('payment_proof_image'), orderControlle
 router.post('/:id/submit-upi-payment', upload.single('payment_proof_image'), orderController.submitUpiPayment);
 
 // Seller verifies direct UPI payment
-router.post('/:id/verify-upi-payment', orderController.verifyUpiPayment);
+router.post('/:id/verify-upi-payment', verifiedSellerMiddleware, orderController.verifyUpiPayment);
 
 // Customer updates fulfillment options during payment verification
 router.patch('/:id/fulfillment', orderController.updateOrderFulfillment);
 
 // Verify OTP to complete delivery
-router.post('/:id/verify-otp', orderController.verifyOTP);
+router.post('/:id/verify-otp', verifiedSellerMiddleware, orderController.verifyOTP);
 
 // Communication (Chats)
 router.get('/:id/chats', orderController.getChats);

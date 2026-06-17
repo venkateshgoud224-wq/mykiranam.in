@@ -8,7 +8,7 @@ const sellerPerformanceService = require('../services/sellerPerformanceService')
 const getSellersList = async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT s.*, u.name as owner_name, u.email as owner_email, u.phone as owner_phone 
+      `SELECT s.*, u.name as owner_name, u.email as owner_email, u.phone as owner_phone, u.whatsapp_number as owner_whatsapp 
        FROM shops s
        JOIN users u ON s.owner_id = u.id
        ORDER BY 
@@ -524,6 +524,36 @@ const getCompletedOrdersList = async (req, res) => {
   }
 };
 
+// 10. Get Seller KYC Details (for admin verification)
+const getSellerKyc = async (req, res) => {
+  const { id } = req.params; // shop ID
+  try {
+    const result = await db.query(
+      `SELECT k.*, u.name as user_name, u.email as user_email, u.phone as user_phone
+       FROM seller_kyc k
+       JOIN users u ON k.seller_id = u.id
+       WHERE k.shop_id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No KYC submission found for this shop.', hasKyc: false });
+    }
+
+    const kyc = result.rows[0];
+
+    // Mask Aadhaar for display (show only last 4 digits)
+    if (kyc.aadhaar_number) {
+      kyc.aadhaar_masked = 'XXXX-XXXX-' + kyc.aadhaar_number.slice(-4);
+    }
+
+    return res.status(200).json({ hasKyc: true, kyc });
+  } catch (err) {
+    console.error('Error fetching seller KYC:', err);
+    return res.status(500).json({ error: 'Server error retrieving KYC details.' });
+  }
+};
+
 module.exports = {
   getSellersList,
   updateVerificationStatus,
@@ -534,5 +564,6 @@ module.exports = {
   rejectComplaint,
   uploadPricesCsv,
   getCustomersList,
-  getCompletedOrdersList
+  getCompletedOrdersList,
+  getSellerKyc
 };

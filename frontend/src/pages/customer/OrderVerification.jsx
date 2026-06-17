@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { ChevronLeft, ArrowRight, Eye, FileText, CheckCircle2, XCircle, AlertCircle, Upload, QrCode, ThumbsUp, ThumbsDown, RefreshCcw, Download, Smartphone, AlertTriangle, CheckCircle } from 'lucide-react';
-import { validateUpiId, validateAmount, validateNoteAndName, buildUpiDeepLink, getBrowserCompatibilityInfo } from '../../utils/upiValidator';
+import { ChevronLeft, ArrowRight, Eye, FileText, CheckCircle2, XCircle, AlertCircle, Upload, ThumbsUp, ThumbsDown, RefreshCcw, Download, AlertTriangle, CheckCircle } from 'lucide-react';
 import ImageModal from '../../components/common/ImageModal';
 import QRCode from 'react-qr-code';
 
@@ -14,19 +13,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const [proofFile, setProofFile] = useState(null);
   const [proofPreview, setProofPreview] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [upiLaunchFailed, setUpiLaunchFailed] = useState(false);
   const [paymentUtr, setPaymentUtr] = useState('');
-  
-  // Custom UPI Diagnostics States
-  const [selectedApp, setSelectedApp] = useState('upi');
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackErrorText, setFeedbackErrorText] = useState('');
-  const [compatibility, setCompatibility] = useState({ browserName: '', isMobile: false, warning: null });
-
-  useEffect(() => {
-    setCompatibility(getBrowserCompatibilityInfo());
-  }, []);
-
   // Fulfillment states
   const [fulfillmentMethod, setFulfillmentMethod] = useState(order.fulfillment_method || 'Pickup');
   const [deliveryAddress, setDeliveryAddress] = useState(order.delivery_address || '');
@@ -121,82 +108,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
     }
   }, []);
 
-  const logUpiLaunchError = async (errorMsg, app = selectedApp) => {
-    try {
-      const userAgent = navigator.userAgent;
-      let browser = "Unknown Browser";
-      if (userAgent.indexOf("Chrome") > -1) browser = "Chrome";
-      else if (userAgent.indexOf("Safari") > -1) browser = "Safari";
-      else if (userAgent.indexOf("Firefox") > -1) browser = "Firefox";
 
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-      const deviceType = isMobile ? "Mobile" : "Desktop";
-
-      await fetch(`${apiUrl}/payment/upi-log`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          deepLink: buildUpiDeepLink(order.upi_id || 'mykiranam@upi', order.shop_name, order.amount, order.custom_order_id || order.id, app),
-          upiId: order.upi_id || 'mykiranam@upi',
-          amount: order.amount,
-          transactionNote: order.custom_order_id || order.id,
-          browser,
-          deviceType,
-          upiAppOpened: app.toUpperCase(),
-          errorMsg,
-          orderId: order.id
-        })
-      });
-    } catch (err) {
-      console.error("Failed to log UPI error:", err);
-    }
-  };
-
-  const handleLaunchUpi = (appProto = selectedApp) => {
-    const vpaRes = validateUpiId(order.upi_id || 'mykiranam@upi');
-    if (!vpaRes.isValid) {
-      alert(`UPI ID Validation Error: ${vpaRes.error}`);
-      return;
-    }
-    const amtRes = validateAmount(order.amount);
-    if (!amtRes.isValid) {
-      alert(`Amount Validation Error: ${amtRes.error}`);
-      return;
-    }
-
-    setUpiLaunchFailed(false);
-    const upiUrl = buildUpiDeepLink(order.upi_id || 'mykiranam@upi', order.shop_name, order.amount, order.custom_order_id || order.id, appProto);
-    const startTime = Date.now();
-    let appOpened = false;
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        appOpened = true;
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    setTimeout(() => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      const duration = Date.now() - startTime;
-      if (!appOpened && duration < 2500) {
-        setUpiLaunchFailed(true);
-        logUpiLaunchError("UPI app launch timed out or failed to open protocol", appProto);
-      }
-      setShowFeedbackModal(true);
-    }, 2000);
-
-    try {
-      window.location.href = upiUrl;
-    } catch (err) {
-      setUpiLaunchFailed(true);
-      logUpiLaunchError(err.message || "Exception during window.location redirect", appProto);
-      setShowFeedbackModal(true);
-    }
-  };
 
   // Confirm order action (Approve & Pay)
   const handleConfirmOrder = async (e) => {
@@ -1064,57 +976,11 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                       <p className="text-[10px] text-slate-500 leading-relaxed font-semibold">
                         Pay directly to the shopkeeper's UPI address. No platform commissions or extra gateway fees.
                       </p>
+                      <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-xl text-[9px] text-amber-800 font-bold text-center">
+                        ⚠️ Avoid GPay (restricts screenshots). Use PhonePe, Paytm, or BHIM to upload proof.
+                      </div>
                     </div>
 
-                    {/* Pay Now Button (Deep Link Launch) */}
-                    <div className="bg-white border border-slate-150 rounded-2xl p-4 text-center shadow-sm space-y-3">
-                      <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Pay Directly via UPI App</span>
-                      
-                      {/* App selector */}
-                      <div className="grid grid-cols-5 gap-2 my-2">
-                        {[
-                          { id: 'upi', label: 'Generic', color: 'bg-slate-200 text-slate-900 border-slate-300' },
-                          { id: 'phonepe', label: 'PhonePe', color: 'bg-purple-100 text-purple-900 border-purple-200' },
-                          { id: 'gpay', label: 'GPay', color: 'bg-blue-100 text-blue-900 border-blue-250' },
-                          { id: 'paytm', label: 'Paytm', color: 'bg-cyan-100 text-cyan-900 border-cyan-200' },
-                          { id: 'bhim', label: 'BHIM', color: 'bg-amber-100 text-amber-900 border-amber-200' },
-                        ].map(app => (
-                          <button
-                            key={app.id}
-                            type="button"
-                            onClick={() => setSelectedApp(app.id)}
-                            className={`py-2 px-1 text-center text-[9px] font-bold rounded-xl border transition-all flex flex-col items-center justify-center gap-1 ${
-                              selectedApp === app.id
-                                ? app.color + ' ring-2 ring-violet-500 scale-[1.03]'
-                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:text-slate-700 hover:border-slate-350'
-                            }`}
-                          >
-                            <Smartphone className="w-3.5 h-3.5" />
-                            <span className="truncate w-full">{app.label}</span>
-                          </button>
-                        ))}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleLaunchUpi(selectedApp)}
-                        className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-750 hover:to-indigo-750 text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center space-x-2"
-                      >
-                        <QrCode className="w-4 h-4" />
-                        <span>Launch {selectedApp.toUpperCase()} App</span>
-                      </button>
-                      
-                      {compatibility.warning && (
-                        <span className="block text-[9px] text-amber-600 font-bold">⚠️ Warning: {compatibility.warning}</span>
-                      )}
-                    </div>
-
-                    {upiLaunchFailed && (
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-[10px] text-amber-800 font-semibold space-y-1.5 animate-fadeIn">
-                        <span className="block font-black text-amber-900">⚠️ UPI App Launch Failed?</span>
-                        <span>We couldn't open a UPI app automatically. Please use the fallback details below to complete your payment manually.</span>
-                      </div>
-                    )}
 
                     {/* UPI ID Display */}
                     <div className="bg-white border border-slate-150 rounded-2xl p-3.5 flex justify-between items-center shadow-sm">
@@ -1385,99 +1251,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
         />
       )}
 
-      {showFeedbackModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-6 relative overflow-hidden">
-            <div className="text-center space-y-2">
-              <span className="text-3xl block">🔍</span>
-              <h3 className="text-base font-extrabold text-slate-900">How did the UPI app payment perform?</h3>
-              <p className="text-xs text-slate-500">
-                Please help us identify payment issues by reporting what you experienced in your UPI app.
-              </p>
-            </div>
 
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowFeedbackModal(false);
-                  logUpiLaunchError("PAYMENT_SUCCESSFUL");
-                }}
-                className="w-full p-3.5 bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 text-xs font-bold rounded-xl transition-all flex items-center justify-between"
-              >
-                <span className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" />
-                  <span>Success: Payment completed successfully</span>
-                </span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-
-              <div className="border-t border-slate-100 my-4" />
-              
-              <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider font-mono">Select App-Side Error Message:</span>
-              
-              {[
-                { title: "Transaction restricted", desc: "Blocked P2P deep link with am/tn parameters" },
-                { title: "Payment cannot be processed", desc: "Bank or app security restriction" },
-                { title: "Your money has not been debited", desc: "Immediate app reject" },
-                { title: "App failed to open", desc: "No installed app or bad link protocol" },
-              ].map(err => (
-                <button
-                  key={err.title}
-                  type="button"
-                  onClick={() => {
-                    setShowFeedbackModal(false);
-                    setFeedbackErrorText(err.title);
-                    logUpiLaunchError(`PAYMENT_FAILED: ${err.title}`);
-                  }}
-                  className="w-full p-3.5 bg-rose-50 hover:bg-rose-100 border border-rose-150 text-rose-800 text-xs font-bold rounded-xl text-left transition-all"
-                >
-                  <span className="block font-black text-rose-900">{err.title}</span>
-                  <span className="block text-[9px] text-slate-500 font-normal mt-0.5">{err.desc}</span>
-                </button>
-              ))}
-
-              <button
-                type="button"
-                onClick={() => {
-                  const reason = prompt("Enter the exact error message text:");
-                  if (reason !== null) {
-                    setShowFeedbackModal(false);
-                    setFeedbackErrorText(reason || 'Custom failure');
-                    logUpiLaunchError(`PAYMENT_FAILED: ${reason || 'Custom failure'}`);
-                  }
-                }}
-                className="w-full p-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 text-center transition-all"
-              >
-                Specify Other / Custom Error...
-              </button>
-            </div>
-
-            {/* Explainer card for root cause */}
-            {feedbackErrorText && (
-              <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 text-[10px] text-amber-800 leading-relaxed space-y-1 animate-fadeIn">
-                <span className="block font-black text-amber-900 uppercase">⚠️ Diagnostic Root Cause:</span>
-                <p>
-                  <strong>Personal UPI Restrictions:</strong> Because the seller's UPI VPA is a personal account rather than a verified merchant account, NPCI policies block external app requests with pre-filled amounts/notes. This triggers error messages like <em>"{feedbackErrorText}"</em>.
-                </p>
-                <p className="font-bold text-[10px] mt-1 text-slate-700">
-                  Fallback Option: Please scan the QR code below or copy the UPI ID to complete payment manually in your UPI app.
-                </p>
-              </div>
-            )}
-
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowFeedbackModal(false)}
-                className="text-xs text-slate-500 hover:text-slate-700 font-bold px-3 py-1.5"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

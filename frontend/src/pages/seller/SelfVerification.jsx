@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { ShieldCheck, Mail, Phone, Upload, Image as ImageIcon, Send, ArrowRight, Lock, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Mail, Phone, Upload, Image as ImageIcon, Send, ArrowRight, Lock, CheckCircle2, User, CreditCard, Building2, FileText, Banknote } from 'lucide-react';
 
 const SelfVerification = ({ onVerifySubmitted }) => {
   const { token, user, apiUrl, refreshProfile, extraData } = useAuth();
   const { playSoundAlert } = useSocket();
 
-  // Verification steps: 1 (OTP) | 2 (Category/Hours) | 3 (5 Image Uploads) | 4 (Success Review)
-  const [step, setStep] = useState(extraData?.shop?.verified_by_seller ? 2 : 1);
+  // Verification steps: 1 (OTP) | 2 (Category/Hours) | 3 (4 Image Uploads) | 4 (KYC Identity) | 5 (Success)
+  const [step, setStep] = useState((user?.verified_whatsapp || extraData?.shop?.verified_by_seller) ? 2 : 1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   // Step 1: OTP states
-  const [email, setEmail] = useState(user?.email || '');
+  const [whatsappNumber, setWhatsappNumber] = useState(user?.whatsapp_number || '');
   const [otpCode, setOtpCode] = useState('');
-  const [emailVerified, setEmailVerified] = useState(false);
+  const [whatsappVerified, setWhatsappVerified] = useState(user?.verified_whatsapp || false);
   const [otpSent, setOtpSent] = useState(false);
 
   // Step 2: Store parameters
@@ -27,6 +27,7 @@ const SelfVerification = ({ onVerifySubmitted }) => {
   const [longitude, setLongitude] = useState(extraData?.shop?.longitude || '79.8705');
 
   const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [mapLocked, setMapLocked] = useState(true);
   const mapContainerRef = React.useRef(null);
   const mapRef = React.useRef(null);
   const markerRef = React.useRef(null);
@@ -77,7 +78,11 @@ const SelfVerification = ({ onVerifySubmitted }) => {
       mapRef.current = null;
     }
 
-    const map = L.map(mapContainerRef.current).setView([initialLat, initialLng], 15);
+    const map = L.map(mapContainerRef.current, {
+      scrollWheelZoom: false,
+      dragging: !mapLocked,
+      touchZoom: !mapLocked
+    }).setView([initialLat, initialLng], 15);
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
@@ -137,38 +142,48 @@ const SelfVerification = ({ onVerifySubmitted }) => {
     image_front: null,
     image_counter: null,
     image_inside1: null,
-    image_inside2: null,
-    image_additional: null
+    image_inside2: null
   });
   const [previews, setPreviews] = useState({
     image_front: null,
     image_counter: null,
     image_inside1: null,
-    image_inside2: null,
-    image_additional: null
+    image_inside2: null
   });
+
+  // Step 4: KYC Identity states
+  const [kycData, setKycData] = useState({
+    owner_full_name: user?.name || '',
+    aadhaar_number: '',
+    pan_number: '',
+    business_type: 'Sole Proprietor',
+    gst_number: '',
+    bank_account_number: '',
+    bank_ifsc_code: '',
+    declaration_accepted: false
+  });
+  const [kycImages, setKycImages] = useState({ aadhaar_image: null, pan_image: null });
+  const [kycPreviews, setKycPreviews] = useState({ aadhaar_image: null, pan_image: null });
+  const [kycLoading, setKycLoading] = useState(false);
 
   // OTP handlers
   const handleSendOtp = async () => {
-    if (!email.trim() || !email.includes('@')) {
-      setError('Please provide a valid Gmail / Email address.');
+    if (!whatsappNumber || whatsappNumber.length < 10) {
+      setError('Please provide a valid 10-digit WhatsApp number.');
       return;
     }
     setError('');
     setLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/shops/send-otp`, {
+      const response = await fetch(`${apiUrl}/auth/profile/whatsapp/send-otp`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ whatsappNumber })
       });
-      const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        throw new Error(response.ok ? 'Failed to parse server response.' : `Server Error: ${text.substring(0, 100)}`);
-      }
+      const data = await response.json();
       
       if (!response.ok) throw new Error(data.error || 'Verification failed. Please try again.');
 
@@ -182,26 +197,26 @@ const SelfVerification = ({ onVerifySubmitted }) => {
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpCode.trim()) {
-      setError('Please input the 4-digit code.');
+    if (!otpCode.trim() || otpCode.length < 6) {
+      setError('Please enter the 6-digit OTP code.');
       return;
     }
     setError('');
     setLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/shops/verify-otp`, {
+      const response = await fetch(`${apiUrl}/auth/profile/whatsapp/verify-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ email, code: otpCode })
+        body: JSON.stringify({ otp: otpCode })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Invalid OTP code.');
 
       playSoundAlert('success');
-      setEmailVerified(true);
+      setWhatsappVerified(true);
       setStep(2);
     } catch (err) {
       setError(err.message || 'Invalid code.');
@@ -227,15 +242,69 @@ const SelfVerification = ({ onVerifySubmitted }) => {
     }
   };
 
+  // KYC image change handler
+  const handleKycImageChange = (field, e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        setError('File size should be less than 50MB.');
+        return;
+      }
+      setKycImages(prev => ({ ...prev, [field]: file }));
+      const reader = new FileReader();
+      reader.onloadend = () => setKycPreviews(prev => ({ ...prev, [field]: reader.result }));
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // KYC submit handler
+  const handleKycSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!kycData.owner_full_name.trim()) return setError('Owner full name is required.');
+    if (!kycData.aadhaar_number.match(/^\d{12}$/)) return setError('Aadhaar number must be exactly 12 digits.');
+    if (!kycData.pan_number.match(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/)) return setError('PAN number must be valid format (e.g. ABCDE1234F).');
+    if (!kycData.bank_account_number.trim()) return setError('Bank account number is required.');
+    if (!kycData.bank_ifsc_code.match(/^[A-Z]{4}0[A-Z0-9]{6}$/)) return setError('IFSC code must be valid format (e.g. SBIN0001234).');
+    if (!kycImages.aadhaar_image) return setError('Please upload your Aadhaar card photo.');
+    if (!kycImages.pan_image) return setError('Please upload your PAN card photo.');
+    if (!kycData.declaration_accepted) return setError('Please accept the declaration to proceed.');
+
+    setKycLoading(true);
+    const formData = new FormData();
+    Object.entries(kycData).forEach(([k, v]) => formData.append(k, v));
+    formData.append('aadhaar_image', kycImages.aadhaar_image);
+    formData.append('pan_image', kycImages.pan_image);
+
+    try {
+      const response = await fetch(`${apiUrl}/shops/kyc`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'KYC submission failed.');
+
+      playSoundAlert('success');
+      refreshProfile();
+      if (onVerifySubmitted) onVerifySubmitted();
+    } catch (err) {
+      setError(err.message || 'KYC submission error.');
+    } finally {
+      setKycLoading(false);
+    }
+  };
+
   // Multi-part verification submit handler
   const handleVerificationSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // Ensure all 5 files selected
+    // Ensure all 4 files selected
     const missing = Object.keys(images).filter(k => !images[k]);
     if (missing.length > 0) {
-      setError('All 5 mandatory shop images are required to complete audits.');
+      setError('All 4 mandatory shop images are required to complete audits.');
       return;
     }
 
@@ -252,7 +321,6 @@ const SelfVerification = ({ onVerifySubmitted }) => {
     formData.append('image_counter', images.image_counter);
     formData.append('image_inside1', images.image_inside1);
     formData.append('image_inside2', images.image_inside2);
-    formData.append('image_additional', images.image_additional);
 
     try {
       const response = await fetch(`${apiUrl}/shops/verify`, {
@@ -315,7 +383,7 @@ const SelfVerification = ({ onVerifySubmitted }) => {
         </div>
         <h2 className="text-base font-extrabold text-slate-900">Seller Self-Verification</h2>
         <p className="text-[10px] text-slate-400 max-w-[280px] mx-auto leading-normal">
-          Complete mobile validation and upload mandatory images to register on the verified customer marketplace.
+          Complete identity verification and upload mandatory documents to become a verified seller.
         </p>
 
         {/* Step Indicator dots */}
@@ -323,10 +391,15 @@ const SelfVerification = ({ onVerifySubmitted }) => {
           {[1, 2, 3].map(s => (
             <span
               key={s}
-              className={`w-4 h-1 rounded ${step === s ? 'bg-kirana-500' : 'bg-slate-200'}`}
+              className={`w-4 h-1 rounded ${step === s ? 'bg-kirana-500' : step > s ? 'bg-emerald-500' : 'bg-slate-200'}`}
             />
           ))}
         </div>
+        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+          {step === 1 && 'Step 1 of 3 — WhatsApp Verification'}
+          {step === 2 && 'Step 2 of 3 — Store Information'}
+          {step === 3 && 'Step 3 of 3 — Shop Photos'}
+        </p>
       </div>
 
       {error && (
@@ -335,22 +408,28 @@ const SelfVerification = ({ onVerifySubmitted }) => {
         </div>
       )}
 
-      {/* --- STEP 1: GMAIL / EMAIL OTP CHECK --- */}
+      {/* --- STEP 1: WHATSAPP OTP CHECK --- */}
       {step === 1 && (
         <div className="space-y-4">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left">Step 1: Verify Email Address</h3>
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left">Step 1: Verify WhatsApp Number</h3>
           
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 text-left block">Store Owner Email Address</label>
+          <div className="space-y-1 text-left">
+            <label className="text-xs font-bold text-slate-700 text-left block">WhatsApp Mobile Number</label>
             <div className="flex space-x-2">
-              <input
-                type="email"
-                disabled={emailVerified || otpSent}
-                placeholder="owner@gmail.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-750"
-              />
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold select-none">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  disabled={whatsappVerified || otpSent}
+                  placeholder="9876543210"
+                  maxLength={10}
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value.replace(/\D/g, ''))}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none text-slate-750 font-semibold"
+                />
+              </div>
               {!otpSent && (
                 <button
                   onClick={handleSendOtp}
@@ -363,16 +442,16 @@ const SelfVerification = ({ onVerifySubmitted }) => {
             </div>
           </div>
 
-          {otpSent && !emailVerified && (
+          {otpSent && !whatsappVerified && (
             <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
               <div className="space-y-1 text-left">
-                <label className="text-xs font-bold text-slate-700 text-left block">Enter 4-digit Verification Code</label>
+                <label className="text-xs font-bold text-slate-700 text-left block">Enter 6-digit Verification Code</label>
                 <input
                   type="text"
-                  maxLength="4"
-                  placeholder="XXXX"
+                  maxLength="6"
+                  placeholder="XXXXXX"
                   value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                   className="w-full px-4 py-2.5 bg-white border border-slate-250 rounded-xl text-xs text-center font-bold tracking-widest focus:outline-none"
                 />
               </div>
@@ -449,15 +528,40 @@ const SelfVerification = ({ onVerifySubmitted }) => {
 
           {/* Map Pinning Header & Auto Detect Button */}
           <div className="space-y-2">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-2">
               <label className="text-xs font-bold text-slate-700 block">Pin Shop Location on Map</label>
-              <button
-                type="button"
-                onClick={handleAutoDetect}
-                className="text-[10px] font-bold text-kirana-600 bg-kirana-50 hover:bg-kirana-100 px-2.5 py-1 rounded-lg border border-kirana-200 flex items-center gap-1 transition-all active:scale-[0.98]"
-              >
-                <span>📍</span> Auto-Detect GPS
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newLocked = !mapLocked;
+                    setMapLocked(newLocked);
+                    if (mapRef.current) {
+                      if (newLocked) {
+                        mapRef.current.dragging.disable();
+                        mapRef.current.touchZoom.disable();
+                      } else {
+                        mapRef.current.dragging.enable();
+                        mapRef.current.touchZoom.enable();
+                      }
+                    }
+                  }}
+                  className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1 transition-all active:scale-[0.98] ${
+                    mapLocked 
+                      ? 'text-slate-500 bg-slate-50 border-slate-250' 
+                      : 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                  }`}
+                >
+                  <span>{mapLocked ? '🔒 Map Locked' : '🔓 Map Unlocked'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAutoDetect}
+                  className="text-[10px] font-bold text-kirana-600 bg-kirana-50 hover:bg-kirana-100 px-2.5 py-1 rounded-lg border border-kirana-200 flex items-center gap-1 transition-all active:scale-[0.98]"
+                >
+                  <span>📍</span> Auto-Detect GPS
+                </button>
+              </div>
             </div>
 
             {/* Leaflet Map Pinning Div */}
@@ -510,11 +614,11 @@ const SelfVerification = ({ onVerifySubmitted }) => {
         </div>
       )}
 
-      {/* --- STEP 3: 5 IMAGE UPLOADS --- */}
+      {/* --- STEP 3: 4 IMAGE UPLOADS --- */}
       {step === 3 && (
         <form onSubmit={handleVerificationSubmit} className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left">Step 3: Upload 5 Images</h3>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider text-left">Step 3: Upload 4 Shop Photos</h3>
           </div>
 
           <div className="space-y-2.5">
@@ -538,12 +642,14 @@ const SelfVerification = ({ onVerifySubmitted }) => {
               '4. Grocery Shelves Angle 2',
               'Additional shelves displaying brand stock arrays'
             )}
-            {renderUploaderSlot(
-              'image_additional',
-              '5. Additional Angle / Inside Store',
-              'Side view, back storage, or details'
-            )}
           </div>
+
+          {/* Missing images warning */}
+          {Object.values(images).some(v => !v) && (
+            <p className="text-[10px] text-amber-600 font-semibold text-center">
+              All 4 photos are required before proceeding.
+            </p>
+          )}
 
           <div className="flex space-x-2 pt-2">
             <button
@@ -555,14 +661,24 @@ const SelfVerification = ({ onVerifySubmitted }) => {
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="flex-[2] py-3 bg-gradient-to-r from-kirana-500 to-amber-500 hover:from-kirana-600 hover:to-amber-600 text-slate-950 text-xs font-black rounded-xl shadow-lg active:scale-[0.99] transition-all disabled:opacity-50"
+              disabled={Object.values(images).some(v => !v)}
+              onClick={(e) => {
+                const missing = Object.keys(images).filter(k => !images[k]);
+                if (missing.length > 0) {
+                  setError('All 4 mandatory shop images are required.');
+                  e.preventDefault();
+                  return;
+                }
+              }}
+              className="flex-[2] py-3 bg-slate-900 text-white text-xs font-black rounded-xl shadow-lg active:scale-[0.99] transition-all disabled:opacity-50"
             >
-              {loading ? 'Uploading Images...' : 'Submit Verification'}
+              Submit Application
             </button>
           </div>
         </form>
       )}
+
+
 
     </div>
   );

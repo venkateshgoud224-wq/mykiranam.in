@@ -47,7 +47,7 @@ if (initialShopId || initialOrderId) {
 }
 
 const DashboardContent = () => {
-  const { user, apiUrl } = useAuth();
+  const { user, apiUrl, extraData } = useAuth();
   const { coords, setCoords } = useGeolocation();
 
   // Selected tab state (initialises based on role)
@@ -131,13 +131,19 @@ const DashboardContent = () => {
       { id: 'profile', label: 'Profile', icon: User }
     ];
 
-    const sellerMenuItems = [
+    const isVerifiedSeller = extraData.shop?.verification_status === 'Verified';
+
+    const sellerMenuItems = isVerifiedSeller ? [
       { id: 'seller-new', label: 'New Chittis', icon: Bell },
       { id: 'seller-active', label: 'Active Queue', icon: Layers },
       { id: 'seller-completed', label: 'Completed Log', icon: ShoppingBag },
       { id: 'seller-products', label: 'My Products', icon: Package },
       { id: 'seller-disputes', label: 'Disputes & Trust', icon: Scale },
       { id: 'seller-settings', label: 'Store Config', icon: Settings },
+      { id: 'support', label: 'Help & Support', icon: HelpCircle },
+      { id: 'profile', label: 'Profile', icon: User }
+    ] : [
+      { id: 'seller-active', label: 'Verification Status', icon: ShieldAlert },
       { id: 'support', label: 'Help & Support', icon: HelpCircle },
       { id: 'profile', label: 'Profile', icon: User }
     ];
@@ -180,6 +186,18 @@ const DashboardContent = () => {
   };
 
   const renderMainPanel = () => {
+    // Intercept seller tabs if not verified
+    if (user.role === 'seller' && extraData.shop?.verification_status !== 'Verified') {
+      if (activeTab !== 'profile' && activeTab !== 'support') {
+        return (
+          <SellerDashboard
+            activeTab="seller-active"
+            onTabChange={setActiveTab}
+          />
+        );
+      }
+    }
+
     switch (activeTab) {
       // Customer dashboards
       case 'shops':

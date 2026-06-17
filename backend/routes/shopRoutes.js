@@ -13,6 +13,12 @@ const verificationUploads = upload.fields([
   { name: 'image_additional', maxCount: 1 }
 ]);
 
+// Define multi-upload fields for KYC identity documents
+const kycUploads = upload.fields([
+  { name: 'aadhaar_image', maxCount: 1 },
+  { name: 'pan_image', maxCount: 1 }
+]);
+
 // Public route to list verified shops
 router.get('/', shopController.getShops);
 
@@ -28,13 +34,18 @@ router.patch('/settings', authMiddleware, shopController.updateShopSettings);
 router.post('/payment', authMiddleware, upload.single('qr_code_image'), shopController.updateShopPayment);
 router.post('/banner', authMiddleware, upload.single('image_banner'), shopController.updateShopBanner);
 
+const verifiedSellerMiddleware = require('../middleware/verifiedSellerMiddleware');
+
 // OTP Phone Verification Confirm
 router.post('/verify-otp', authMiddleware, shopController.verifyOtp);
 
 // Upload 5 verification images and submit shop for Under Review status
 router.post('/verify', authMiddleware, verificationUploads, shopController.verifyShop);
 
+// Submit KYC identity verification details (Aadhaar + PAN + bank details)
+router.post('/kyc', authMiddleware, kycUploads, shopController.submitSellerKyc);
+
 // Premium Seller Analytics
-router.get('/premium-analytics', authMiddleware, shopController.getPremiumAnalytics);
+router.get('/premium-analytics', authMiddleware, verifiedSellerMiddleware, shopController.getPremiumAnalytics);
 
 module.exports = router;

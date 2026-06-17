@@ -110,13 +110,13 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
             </div>
             <h3 className="font-extrabold text-slate-900 text-base">Verification Application Pending</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Your uploaded 5 mandatory shop images and store parameters are currently **Under Review** by the Kiranam admin panel.
+              Your uploaded 4 mandatory shop images and store parameters are currently **Under Review** by the Kiranam admin panel.
             </p>
             <p className="text-[10px] text-slate-400 italic">
               Unverified shops remain hidden from customer searches and cannot receive orders. We will notify you once approved.
             </p>
             <button
-              onClick={refreshProfile}
+              onClick={() => refreshProfile()}
               className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold"
             >
               Refresh Status
@@ -141,14 +141,14 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
         )}
 
         {/* Pending & Rejected Application workflows */}
-        {(verification_status === 'Pending' || verification_status === 'Rejected') && (
+        {(!verification_status || verification_status === 'Pending' || verification_status === 'Rejected' || verification_status === 'Not Verified') && (
           <div className="space-y-4">
             {verification_status === 'Rejected' && (
               <div className="p-4 bg-crimson/10 border border-crimson/20 rounded-2xl flex items-start space-x-3 text-xs text-crimson max-w-md mx-auto text-left">
                 <FileWarning className="w-5 h-5 flex-shrink-0 mt-0.5" />
                 <div>
                   <strong className="font-bold">Application Rejected by Admin:</strong>
-                  <p className="mt-1">Please review the checklist, verify your mobile OTP, re-upload the 5 mandatory pictures, and resubmit.</p>
+                  <p className="mt-1">Please review the checklist, verify your mobile OTP, re-upload the 4 mandatory pictures, and resubmit.</p>
                 </div>
               </div>
             )}
