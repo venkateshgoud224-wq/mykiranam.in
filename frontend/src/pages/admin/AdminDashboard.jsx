@@ -187,6 +187,29 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleUnsuspendCustomer = async (customerId) => {
+    if (!window.confirm("Are you sure you want to unsuspend this customer and reset their trust score to 100?")) return;
+    try {
+      const response = await fetch(`${apiUrl}/admin/customers/${customerId}/unsuspend`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        alert(data.message || 'Customer unsuspended successfully.');
+        fetchTrustData();
+      } else {
+        alert(data.error || 'Failed to unsuspend customer.');
+      }
+    } catch (err) {
+      console.error('Error unsuspending customer:', err);
+      alert('Network error unsuspending customer.');
+    }
+  };
+
   const fetchSellerKyc = async (shopId) => {
     setKycLoading(true);
     setSellerKyc(null);
@@ -653,22 +676,42 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-              <h3 className="font-extrabold text-slate-900 text-sm mb-4">High Risk Customers</h3>
-              <div className="space-y-3 h-64 overflow-y-auto pr-2">
-                {trustData?.highRiskCustomers?.length > 0 ? trustData.highRiskCustomers.map(cust => (
-                  <div key={cust.id} className="flex items-center space-x-3 p-3 bg-amber-50 border border-amber-100 rounded-2xl">
-                    <div className="w-8 h-8 rounded-full bg-amber-200 text-amber-800 font-black flex items-center justify-center text-xs">
-                      {cust.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <span className="block text-xs font-bold text-slate-800">{cust.name} ({cust.phone})</span>
-                      <span className="block text-[9px] text-slate-600">Trust Score: {cust.trust_score} • Cancels: {cust.cancellations}</span>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="text-center text-xs text-slate-400 py-10">No high risk customers</div>
-                )}
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-sm mb-4">Customer Trust & Suspensions</h3>
+                <div className="space-y-3 h-64 overflow-y-auto pr-2">
+                  {trustData?.highRiskCustomers?.length > 0 ? trustData.highRiskCustomers.map(cust => {
+                    const isSuspended = cust.suspension_end_date && new Date(cust.suspension_end_date) > new Date();
+                    return (
+                      <div key={cust.id} className="flex justify-between items-center p-3 bg-amber-50/50 border border-amber-100 rounded-2xl gap-3">
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <div className={`w-8 h-8 rounded-full ${isSuspended ? 'bg-red-100 text-red-800' : 'bg-amber-200 text-amber-800'} font-black flex items-center justify-center text-xs flex-shrink-0`}>
+                            {cust.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="block text-xs font-bold text-slate-800 truncate">{cust.name} ({cust.phone})</span>
+                            <span className="block text-[9px] text-slate-655 font-medium">
+                              Trust Score: <strong className={cust.trust_score < 50 ? 'text-red-600' : 'text-slate-700'}>{cust.trust_score}%</strong> • Cancels: {cust.cancellations}
+                            </span>
+                            {isSuspended && (
+                              <span className="inline-block mt-0.5 px-1.5 py-0.2 bg-red-100 text-red-700 text-[8px] font-black rounded font-mono">
+                                Suspended until {new Date(cust.suspension_end_date).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleUnsuspendCustomer(cust.id)}
+                          className="px-2.5 py-1.5 bg-slate-900 text-white hover:bg-slate-950 rounded-xl text-[10px] font-bold transition-all flex-shrink-0"
+                        >
+                          Unsuspend & Reset
+                        </button>
+                      </div>
+                    );
+                  }) : (
+                    <div className="text-center text-xs text-slate-400 py-10">No customer suspension or warning logs</div>
+                  )}
+                </div>
               </div>
             </div>
             

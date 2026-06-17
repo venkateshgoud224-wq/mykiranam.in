@@ -217,11 +217,11 @@ const getTrustDashboard = async (req, res) => {
     `);
 
     const highRiskCustomers = await db.query(`
-      SELECT u.id, u.name, u.phone, ct.trust_score, ct.cancellations 
+      SELECT u.id, u.name, u.phone, ct.trust_score, ct.cancellations, ct.suspension_end_date 
       FROM customer_trust ct 
       JOIN users u ON ct.customer_id = u.id 
-      WHERE ct.trust_score < 50 
-      ORDER BY ct.trust_score ASC LIMIT 5
+      WHERE ct.trust_score < 100 OR (ct.suspension_end_date IS NOT NULL AND ct.suspension_end_date > CURRENT_TIMESTAMP)
+      ORDER BY ct.trust_score ASC LIMIT 20
     `);
 
     const topSellers = await db.query(`
@@ -554,6 +554,41 @@ const getSellerKyc = async (req, res) => {
   }
 };
 
+// Remove customer suspension & reset trust metrics to 100
+const unsuspendCustomer = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const isMock = db.getIsMock && db.getIsMock();
+    if (!isMock) {
+      await db.query(
+        `UPDATE customer_trust 
+         SET suspension_end_date = NULL, 
+             cancellations = 0, 
+             no_show_count = 0, 
+             trust_score = 100, 
+             active_order_limit = 2 
+         WHERE customer_id = $1`,
+        [id]
+      );
+    } else {
+      const mockDb = db.getMockDb();
+      if (mockDb.customer_trust && mockDb.customer_trust[id]) {
+        mockDb.customer_trust[id].suspension_end_date = null;
+        mockDb.customer_trust[id].cancellations = 0;
+        mockDb.customer_trust[id].no_show_count = 0;
+        mockDb.customer_trust[id].trust_score = 100;
+        mockDb.customer_trust[id].active_order_limit = 2;
+        db.saveMockDb();
+      }
+    }
+
+    return res.status(200).json({ message: 'Customer suspension removed and trust metrics reset successfully.' });
+  } catch (err) {
+    console.error('Error unsuspending customer:', err);
+    return res.status(500).json({ error: 'Server error unsuspending customer.' });
+  }
+};
+
 module.exports = {
   getSellersList,
   updateVerificationStatus,
@@ -565,5 +600,6 @@ module.exports = {
   uploadPricesCsv,
   getCustomersList,
   getCompletedOrdersList,
-  getSellerKyc
+  getSellerKyc,
+  unsuspendCustomer
 };

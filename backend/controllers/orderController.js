@@ -111,10 +111,7 @@ const createOrder = async (req, res) => {
     let activeLimit = 2; // default
     if (trustResult.rows.length > 0) {
       const trust = trustResult.rows[0];
-      
-      if (trust.suspension_end_date && new Date(trust.suspension_end_date) > new Date()) {
-        return res.status(403).json({ error: `Your account is suspended until ${new Date(trust.suspension_end_date).toLocaleDateString()} due to policy violations.` });
-      }
+      // Note: Suspension is no longer blocked on order creation. Suspended users will be required to pay a security deposit instead.
       activeLimit = trust.active_order_limit || 2;
     }
 
@@ -929,12 +926,14 @@ const confirmOrder = async (req, res) => {
     }
 
     if (payment_method === 'Pay During Pickup') {
-      const trustResult = await db.query(`SELECT COALESCE(cancellations, 0) as cancellations FROM customer_trust WHERE customer_id = $1`, [order.customer_id]);
+      const trustResult = await db.query(`SELECT COALESCE(cancellations, 0) as cancellations, suspension_end_date FROM customer_trust WHERE customer_id = $1`, [order.customer_id]);
       const cancellations = trustResult.rows[0]?.cancellations || 0;
-      if (cancellations >= 3) {
+      const suspensionEndDate = trustResult.rows[0]?.suspension_end_date;
+      const isSuspended = suspensionEndDate && new Date(suspensionEndDate) > new Date();
+      if (cancellations >= 3 || isSuspended) {
         const depositCheck = await db.query(`SELECT 1 FROM commitment_payments WHERE order_id = $1 AND status = 'paid'`, [id]);
         if (depositCheck.rows.length === 0) {
-          return res.status(400).json({ error: 'Customers with 3 or more cancellations must pay a ₹50 security deposit via PhonePe to use Pay During Pickup.' });
+          return res.status(400).json({ error: 'Suspended customers or customers with 3 or more cancellations must pay a ₹50 security deposit via PhonePe to use Pay During Pickup.' });
         }
       }
     }

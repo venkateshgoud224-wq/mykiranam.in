@@ -44,6 +44,9 @@ router.post('/upload-prices', upload.single('file'), adminController.uploadPrice
 // Fetch customers list
 router.get('/customers', adminController.getCustomersList);
 
+// Remove customer suspension & reset trust metrics
+router.post('/customers/:id/unsuspend', adminController.unsuspendCustomer);
+
 // Fetch completed/cancelled orders list
 router.get('/completed-orders', adminController.getCompletedOrdersList);
 

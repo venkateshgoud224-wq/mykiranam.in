@@ -1575,9 +1575,10 @@ const mockQuery = async (text, params = []) => {
           order.payment_method = params[1];
           order.payment_status = params[2];
           order.payment_proof_image = params[3] || null;
-        } else if (normalizedText.includes("payment_status = 'paid'") && normalizedText.includes("order_status = 'confirmed'")) {
-          order.order_status = 'Confirmed';
-          syncStatusTimestamp(order, 'Confirmed');
+        } else if (normalizedText.includes("payment_status = 'paid'") && (normalizedText.includes("order_status = 'confirmed'") || normalizedText.includes("order_status = 'packing started'"))) {
+          const targetStatus = normalizedText.includes("order_status = 'packing started'") ? 'Packing Started' : 'Confirmed';
+          order.order_status = targetStatus;
+          syncStatusTimestamp(order, targetStatus);
           order.payment_status = 'Paid';
           order.payment_method = params[0] || 'PhonePe UPI';
           order.cashfree_order_id = params[1] || null;

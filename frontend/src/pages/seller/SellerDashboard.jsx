@@ -170,7 +170,10 @@ const SellerDashboard = ({ activeTab, onTabChange }) => {
     'Confirmed',
     'Packing Started',
     'Packing Completed',
-    'Ready For Pickup'
+    'Ready For Pickup',
+    'PAYMENT_SUBMITTED',
+    'PAYMENT_VERIFIED',
+    'PENDING_PAYMENT'
   ].includes(o.order_status));
   const completedHistory = orders.filter(o => ['Delivered', 'Cancelled'].includes(o.order_status));
 

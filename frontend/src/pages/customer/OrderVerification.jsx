@@ -32,7 +32,9 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const [revisionTags, setRevisionTags] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
   const cancellationsCount = Number(order.cancellations !== undefined ? order.cancellations : (extraData?.trustMetrics?.cancellations || 0));
-  const isSecurityDepositRequired = cancellationsCount >= 3;
+  const suspensionEndDate = extraData?.trustMetrics?.suspension_end_date;
+  const isSuspended = suspensionEndDate && new Date(suspensionEndDate) > new Date();
+  const isSecurityDepositRequired = cancellationsCount >= 3 || isSuspended;
   const needsSecurityDeposit = isSecurityDepositRequired && order.commitment_status !== 'paid' && order.commitment_status !== 'settled';
 
   const saveFulfillmentDetails = async () => {
@@ -1169,7 +1171,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                       </p>
                       {needsSecurityDeposit ? (
                         <p className="text-[11px] text-rose-805 leading-relaxed font-bold bg-white/70 p-2.5 rounded-xl border border-rose-200/50">
-                          ⚠️ Security Deposit Required: Because you have 3 or more cancellations, you must pay a refundable ₹50 security deposit online via PhonePe to confirm this order. This deposit will be credited to the Kiranam platform account.
+                          ⚠️ Security Deposit Required: Because your account is suspended (or you have 3 or more cancellations), you must pay a refundable ₹50 security deposit online via PhonePe to confirm this order. This deposit will be credited to the Kiranam platform account.
                         </p>
                       ) : (
                         <p className="text-[11px] text-amber-800 leading-relaxed font-bold bg-white/70 p-2.5 rounded-xl border border-amber-200/50">

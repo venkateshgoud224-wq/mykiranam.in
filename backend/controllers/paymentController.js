@@ -262,11 +262,12 @@ const completeOrderPayment = async (transactionId, orderId, paymentMethod) => {
     // Standard Full Payment confirmed
     const updateRes = await db.query(
       `UPDATE orders 
-       SET order_status = 'Confirmed',
+       SET order_status = 'Packing Started',
            payment_status = 'Paid', 
            payment_method = $1, 
            cashfree_order_id = $2, 
            confirmed_at = CURRENT_TIMESTAMP,
+           packing_started_at = CURRENT_TIMESTAMP,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $3 RETURNING *`,
       [paymentMethod || 'PhonePe UPI', transactionId, targetOrderId]
@@ -294,6 +295,21 @@ const completeOrderPayment = async (transactionId, orderId, paymentMethod) => {
       const notificationEngine = require('../services/notificationEngine');
 
       socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
+
+      const message = `Customer paid for Order #${order.custom_order_id || order.id} online via ${paymentMethod || 'PhonePe UPI'}!`;
+      await notificationEngine.dispatchNotification(
+        order.seller_user_id,
+        'Order Confirmed',
+        message,
+        'order_confirmed',
+        {
+          orderId: order.id,
+          customOrderId: order.custom_order_id,
+          shopName: order.shop_name,
+          paymentMethod: paymentMethod || 'PhonePe UPI'
+        }
+      );
+
       await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id, originalStatus);
     } catch (notifErr) {
       console.error('Error sending notifications in paymentController:', notifErr);
