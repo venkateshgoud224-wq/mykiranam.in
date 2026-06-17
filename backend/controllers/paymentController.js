@@ -1,6 +1,57 @@
 const crypto = require('crypto');
 const db = require('../config/db');
 
+// In-memory token cache for PhonePe V2 (OAuth)
+let phonepeAuthToken = null;
+let tokenExpiresAt = 0;
+
+/**
+ * Retrieves a new OAuth token or reuses the cached one if still valid.
+ */
+const getPhonePeToken = async (env, clientId, clientSecret) => {
+  // If token is active and has at least 1 minute of life left, reuse it
+  if (phonepeAuthToken && Date.now() < (tokenExpiresAt - 60000)) {
+    return phonepeAuthToken;
+  }
+
+  const url = env === 'PROD' 
+    ? 'https://api.phonepe.com/apis/identity-manager/v1/oauth/token' 
+    : 'https://api-preprod.phonepe.com/apis/pg-sandbox/v1/oauth/token';
+
+  const params = new URLSearchParams();
+  params.append('client_id', clientId);
+  params.append('client_secret', clientSecret);
+  params.append('client_version', '1');
+  params.append('grant_type', 'client_credentials');
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: params.toString()
+  });
+
+  const textData = await response.text();
+  let data;
+  try {
+    data = JSON.parse(textData);
+  } catch (e) {
+    throw new Error('Invalid non-JSON response from PhonePe Identity Manager: ' + textData.substring(0, 200));
+  }
+
+  if (!response.ok || !data.access_token) {
+    throw new Error('Failed to generate PhonePe Auth Token. ' + (data.message || JSON.stringify(data)));
+  }
+
+  phonepeAuthToken = data.access_token;
+  // expires_in is in seconds, typically 3600 (1 hour). We convert to milliseconds.
+  const expiresInMs = (data.expires_in || 3600) * 1000;
+  tokenExpiresAt = Date.now() + expiresInMs;
+
+  return phonepeAuthToken;
+};
+
 const createPhonePeOrder = async (req, res) => {
   const { amount, receipt, order_id, redirect_url, is_security_deposit } = req.body;
 
@@ -22,13 +73,12 @@ const createPhonePeOrder = async (req, res) => {
   }
 
   try {
-    const merchantId = process.env.PHONEPE_MERCHANT_ID;
-    const saltKey = process.env.PHONEPE_SALT_KEY;
-    const saltIndex = process.env.PHONEPE_SALT_INDEX || '1';
+    const clientId = process.env.PHONEPE_CLIENT_ID;
+    const clientSecret = process.env.PHONEPE_CLIENT_SECRET;
     const env = process.env.PHONEPE_ENV || 'UAT';
 
-    if (!merchantId || !saltKey) {
-      return res.status(500).json({ error: 'PhonePe PG Credentials missing. Please add PHONEPE_MERCHANT_ID and PHONEPE_SALT_KEY to .env' });
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({ error: 'PhonePe V2 Credentials missing. Please add PHONEPE_CLIENT_ID and PHONEPE_CLIENT_SECRET to .env' });
     }
 
     const amountInPaise = finalAmount;
@@ -41,44 +91,35 @@ const createPhonePeOrder = async (req, res) => {
     // Append transaction ID so frontend can verify it on redirect
     finalRedirectUrl += (finalRedirectUrl.includes('?') ? '&' : '?') + `transactionId=${merchantTransactionId}`;
 
-    const callbackUrl = `https://mykiranam.in/api/payment/phonepe/webhook`;
+    // 1. Fetch OAuth Token
+    const token = await getPhonePeToken(env, clientId, clientSecret);
 
-    // 1. Build V1 Payload
+    // 2. Build V2 Payload
     const payload = {
-      merchantId: merchantId,
-      merchantTransactionId: merchantTransactionId,
-      merchantUserId: `user_${req.user?.id || Date.now()}`,
+      merchantOrderId: merchantTransactionId,
       amount: amountInPaise,
-      redirectUrl: finalRedirectUrl,
-      redirectMode: 'REDIRECT',
-      callbackUrl: callbackUrl,
-      mobileNumber: req.user?.phone || '9999999999',
-      paymentInstrument: {
-        type: 'PAY_PAGE'
+      paymentFlow: {
+        type: "PG_CHECKOUT",
+        merchantUrls: {
+            redirectUrl: finalRedirectUrl
+        }
       }
     };
 
-    const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64');
-    const stringToHash = base64Payload + '/pg/v1/pay' + saltKey;
-    const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
-    const xVerify = sha256 + '###' + saltIndex;
-
     const url = env === 'PROD' 
-      ? 'https://api.phonepe.com/apis/hermes/pg/v1/pay' 
-      : 'https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1/pay';
+      ? 'https://api.phonepe.com/apis/pg/checkout/v2/pay' 
+      : 'https://api-preprod.phonepe.com/apis/pg-sandbox/checkout/v2/pay';
 
     const options = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-VERIFY': xVerify
+        'Authorization': `O-Bearer ${token}`
       },
-      body: JSON.stringify({
-        request: base64Payload
-      })
+      body: JSON.stringify(payload)
     };
 
-    // 2. Initiate Payment
+    // 3. Initiate Payment
     const response = await fetch(url, options);
     const textData = await response.text();
     let data;
@@ -89,7 +130,11 @@ const createPhonePeOrder = async (req, res) => {
       return res.status(502).json({ error: 'PhonePe API returned an invalid response', details: textData.substring(0, 200) });
     }
 
-    let redirectTargetUrl = data.data && data.data.instrumentResponse && data.data.instrumentResponse.redirectInfo && data.data.instrumentResponse.redirectInfo.url;
+    // PhonePe V2 typically returns redirectUrl in the root payload directly without a 'success' boolean.
+    // Sometimes it may also return state = 'PENDING' or similar.
+    let redirectTargetUrl = data.redirectUrl 
+      || (data.data && data.data.redirectUrl) 
+      || (data.data && data.data.instrumentResponse && data.data.instrumentResponse.redirectInfo && data.data.instrumentResponse.redirectInfo.url);
 
     if (redirectTargetUrl || (data && data.success)) {
       res.status(200).json({
@@ -101,7 +146,7 @@ const createPhonePeOrder = async (req, res) => {
       });
     } else {
       console.error('PhonePe API Error:', data);
-      const errorMessage = data ? (data.message || JSON.stringify(data)) : 'Unknown PhonePe Error';
+      const errorMessage = data ? (typeof data === 'object' ? JSON.stringify(data) : data) : 'Unknown PhonePe Error';
       res.status(400).json({ error: `PhonePe Error: ${errorMessage}`, details: data });
     }
   } catch (error) {
@@ -278,9 +323,8 @@ const verifyPhonePePayment = async (req, res) => {
   try {
     const { order_id, payment_method } = req.body; 
     
-    const merchantId = process.env.PHONEPE_MERCHANT_ID;
-    const saltKey = process.env.PHONEPE_SALT_KEY;
-    const saltIndex = process.env.PHONEPE_SALT_INDEX || '1';
+    const clientId = process.env.PHONEPE_CLIENT_ID;
+    const clientSecret = process.env.PHONEPE_CLIENT_SECRET;
     const env = process.env.PHONEPE_ENV || 'UAT';
     
     const transactionId = req.body.transactionId || req.body.merchantTransactionId || req.body.merchantOrderId;
@@ -289,24 +333,23 @@ const verifyPhonePePayment = async (req, res) => {
       return res.status(400).json({ error: 'Missing transaction details' });
     }
 
-    if (!merchantId || !saltKey) {
-      return res.status(500).json({ error: 'PhonePe PG Credentials missing from .env' });
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({ error: 'PhonePe V2 Client Credentials missing from .env' });
     }
 
-    const stringToHash = `/pg/v1/status/${merchantId}/${transactionId}` + saltKey;
-    const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
-    const xVerify = sha256 + '###' + saltIndex;
+    // 1. Fetch OAuth Token
+    const token = await getPhonePeToken(env, clientId, clientSecret);
 
+    // 2. V2 Status Check
     const url = env === 'PROD' 
-      ? `https://api.phonepe.com/apis/hermes/pg/v1/status/${merchantId}/${transactionId}` 
-      : `https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1/status/${merchantId}/${transactionId}`;
+      ? `https://api.phonepe.com/apis/pg/checkout/v2/order/${transactionId}/status` 
+      : `https://api-preprod.phonepe.com/apis/pg-sandbox/checkout/v2/order/${transactionId}/status`;
 
     const options = {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'X-VERIFY': xVerify,
-        'X-MERCHANT-ID': merchantId
+        'Authorization': `O-Bearer ${token}`
       }
     };
 
@@ -319,7 +362,8 @@ const verifyPhonePePayment = async (req, res) => {
       return res.status(502).json({ error: 'PhonePe Status API returned an invalid response', details: textData.substring(0, 200) });
     }
 
-    if (data && data.success && data.code === 'PAYMENT_SUCCESS') {
+    // As per V2 Checklist: Root-level state parameter determines status
+    if (data && data.state === 'COMPLETED') {
       const isSecurityDeposit = transactionId.startsWith('sec_dep_');
       const targetOrderId = order_id || (isSecurityDeposit ? Number(transactionId.split('_')[2]) : Number(transactionId.split('_')[1]));
 
@@ -327,7 +371,7 @@ const verifyPhonePePayment = async (req, res) => {
       return res.status(200).json({ success: true, message: 'Payment verified successfully' });
     } else {
       console.error('PhonePe verification failed:', data);
-      return res.status(400).json({ success: false, error: 'Payment not successful', status: data.code || 'FAILED', details: data });
+      return res.status(400).json({ success: false, error: 'Payment not successful', status: data.state || 'FAILED', details: data });
     }
   } catch (error) {
     console.error('PhonePe Verification Error:', error.message);
@@ -342,7 +386,7 @@ const handlePhonePeWebhook = async (req, res) => {
   try {
     const xVerify = req.headers['x-verify'];
     const responseBase64 = req.body.response;
-    const saltKey = process.env.PHONEPE_SALT_KEY;
+    const clientSecret = process.env.PHONEPE_CLIENT_SECRET;
     const saltIndex = process.env.PHONEPE_SALT_INDEX || '1';
 
     if (!responseBase64) {
@@ -350,9 +394,9 @@ const handlePhonePeWebhook = async (req, res) => {
     }
 
     // Verify webhook signature authenticity if credentials are set
-    if (xVerify && saltKey) {
+    if (xVerify && clientSecret) {
       const crypto = require('crypto');
-      const dataToHash = responseBase64 + saltKey;
+      const dataToHash = responseBase64 + clientSecret;
       const computedHash = crypto
         .createHash('sha256')
         .update(dataToHash)
