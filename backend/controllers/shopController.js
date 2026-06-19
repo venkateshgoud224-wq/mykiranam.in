@@ -74,6 +74,17 @@ const getShops = async (req, res) => {
 
     const isSpecialUser = userEmail === 'hyperthoughts542@gmail.com' || userEmail === 'hyperthouughts542@gmail.com';
 
+    const isAlwaysVisibleShop = (shop) => {
+      const name = (shop.shop_name || '').toLowerCase();
+      const addr = (shop.address || '').toLowerCase();
+      return name.includes('hyper market') || 
+             name.includes('kondapur') || 
+             name.includes('kondapar') ||
+             addr.includes('hyper market') || 
+             addr.includes('kondapur') || 
+             addr.includes('kondapar');
+    };
+
     let shops = result.rows.map(shop => {
       const distance = calculateDistance(
         customerLat,
@@ -88,7 +99,7 @@ const getShops = async (req, res) => {
     });
 
     if (!isSpecialUser) {
-      shops = shops.filter(s => s.distance <= 5.0);
+      shops = shops.filter(s => s.distance <= 5.0 || isAlwaysVisibleShop(s));
     }
 
     // Apply filters
@@ -99,7 +110,7 @@ const getShops = async (req, res) => {
       shops = shops.filter(s => s.verified === true);
     }
     if (filterNearby === 'true' && !isSpecialUser) {
-      shops = shops.filter(s => s.distance <= 5.0);
+      shops = shops.filter(s => s.distance <= 5.0 || isAlwaysVisibleShop(s));
     }
 
     // Warning level rank penalty helper (Warning 3 & 4 appear lower)

@@ -271,7 +271,7 @@ const DashboardContent = () => {
   };
 
   return (
-    <div className="h-[100dvh] w-screen bg-slate-50 flex flex-col overflow-hidden">
+    <div className="min-h-screen md:h-[100dvh] w-screen bg-slate-50 flex flex-col md:overflow-hidden">
       {/* Top Navbar */}
       <Navbar onSetCoords={setCoords} currentCoords={coords} setActiveTab={setActiveTab} />
 
@@ -281,7 +281,7 @@ const DashboardContent = () => {
         {renderSidebar()}
 
         {/* Content Panel Right */}
-        <main className="flex-1 p-4 sm:p-6 overflow-y-auto w-full pb-20 sm:pb-6">
+        <main className="flex-1 p-4 sm:p-6 md:overflow-y-auto w-full pb-24 md:pb-6">
           {renderMainPanel()}
         </main>
       </div>

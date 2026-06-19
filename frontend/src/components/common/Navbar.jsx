@@ -92,7 +92,7 @@ const Navbar = ({ onSetCoords, currentCoords, setActiveTab }) => {
 
   return (
     <>
-      <header className="z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm safe-top">
+      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm safe-top">
         {/* Container is flex flex-col on mobile, sm:flex-row on desktop */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-3 sm:py-0 sm:h-16 mx-auto max-w-7xl gap-2.5 sm:gap-0">
           
