@@ -8,8 +8,12 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const { token, apiUrl, extraData } = useAuth();
   const isDigital = order.order_type === 'digital';
   
+  const hasSellerPaymentDetails = !!(order.upi_id || order.qr_code_image);
+  
   // States
-  const [paymentMethod, setPaymentMethod] = useState('Manual UPI Payment');
+  const [paymentMethod, setPaymentMethod] = useState(
+    hasSellerPaymentDetails ? 'Manual UPI Payment' : 'Pay During Pickup'
+  );
   const [proofFile, setProofFile] = useState(null);
   const [proofPreview, setProofPreview] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -848,9 +852,6 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                     type="button"
                     onClick={() => {
                       setFulfillmentMethod('Delivery');
-                      if (paymentMethod === 'Pay During Pickup') {
-                        setPaymentMethod('PhonePe');
-                      }
                     }}
                     className={`py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 ${
                       fulfillmentMethod === 'Delivery'
@@ -970,41 +971,30 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                     Select Payment Method
                   </label>
                   <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 gap-1 overflow-x-auto">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('Manual UPI Payment')}
-                      className={`flex-1 min-w-[100px] py-2 px-1 text-center text-[11px] font-bold rounded-xl transition-all ${
-                        paymentMethod === 'Manual UPI Payment'
-                          ? 'bg-white text-slate-900 shadow-sm'
-                          : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      QR Code
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('PhonePe')}
-                      className={`flex-1 min-w-[100px] py-2 px-1 text-center text-[11px] font-bold rounded-xl transition-all ${
-                        paymentMethod === 'PhonePe'
-                          ? 'bg-white text-purple-700 shadow-sm'
-                          : 'text-slate-500 hover:text-purple-600'
-                      }`}
-                    >
-                      PhonePe
-                    </button>
-                    {fulfillmentMethod === 'Pickup' && (
+                    {hasSellerPaymentDetails && (
                       <button
                         type="button"
-                        onClick={() => setPaymentMethod('Pay During Pickup')}
+                        onClick={() => setPaymentMethod('Manual UPI Payment')}
                         className={`flex-1 min-w-[100px] py-2 px-1 text-center text-[11px] font-bold rounded-xl transition-all ${
-                          paymentMethod === 'Pay During Pickup'
+                          paymentMethod === 'Manual UPI Payment'
                             ? 'bg-white text-slate-900 shadow-sm'
                             : 'text-slate-500 hover:text-slate-700'
                         }`}
                       >
-                        Pay at Shop
+                        QR Code
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('Pay During Pickup')}
+                      className={`flex-1 min-w-[100px] py-2 px-1 text-center text-[11px] font-bold rounded-xl transition-all ${
+                        paymentMethod === 'Pay During Pickup'
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-550 hover:text-slate-700'
+                      }`}
+                    >
+                      {fulfillmentMethod === 'Delivery' ? 'Pay on Delivery' : 'Pay at Shop'}
+                    </button>
                   </div>
                 </div>
 
@@ -1152,11 +1142,13 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                 {paymentMethod === 'Pay During Pickup' && (
                   <div className="space-y-4 bg-slate-50/50 p-5 border border-slate-150 rounded-3xl animate-fadeIn">
                     <div className="text-center space-y-1.5">
-                      <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wider">
-                        🏪 Pay at Pickup
+                      <span className="inline-flex px-2 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-805 uppercase tracking-wider">
+                        {fulfillmentMethod === 'Delivery' ? '🛵 Pay on Delivery' : '🏪 Pay at Pickup'}
                       </span>
-                      <p className="text-xs text-slate-600 leading-normal font-semibold">
-                        Pay the full bill amount at the store during pickup.
+                      <p className="text-xs text-slate-650 leading-normal font-semibold">
+                        {fulfillmentMethod === 'Delivery'
+                          ? 'Pay the full bill amount to the delivery partner upon arrival.'
+                          : 'Pay the full bill amount at the store during pickup.'}
                       </p>
                     </div>
 
@@ -1164,10 +1156,12 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                     <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2 shadow-sm text-left animate-fadeIn">
                       <div className="flex items-center space-x-2 text-amber-855 font-bold text-xs">
                         <AlertCircle className="w-4 h-4 text-amber-600" />
-                        <span>Pickup Commitment & Policy Notice</span>
+                        <span>{fulfillmentMethod === 'Delivery' ? 'Delivery Commitment & Policy Notice' : 'Pickup Commitment & Policy Notice'}</span>
                       </div>
                       <p className="text-[11px] text-slate-700 leading-relaxed font-medium">
-                        Please make sure to pick up your order on time.
+                        {fulfillmentMethod === 'Delivery'
+                          ? 'Please ensure you are available at the delivery location to receive your order.'
+                          : 'Please make sure to pick up your order on time.'}
                       </p>
                       {needsSecurityDeposit ? (
                         <p className="text-[11px] text-rose-805 leading-relaxed font-bold bg-white/70 p-2.5 rounded-xl border border-rose-200/50">
@@ -1175,7 +1169,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                         </p>
                       ) : (
                         <p className="text-[11px] text-amber-800 leading-relaxed font-bold bg-white/70 p-2.5 rounded-xl border border-amber-200/50">
-                          ⚠️ Warning: Due to any circumstances if order is not picked, you will be losing profile score. Having 3 or more cancellations will require you to pay a ₹50 security deposit online for future 'Pay During Pickup' orders.
+                          ⚠️ Warning: Due to any circumstances if order is not {fulfillmentMethod === 'Delivery' ? 'accepted' : 'picked'}, you will be losing profile score. Having 3 or more cancellations will require you to pay a ₹50 security deposit online for future '{fulfillmentMethod === 'Delivery' ? 'Pay on Delivery' : 'Pay During Pickup'}' orders.
                         </p>
                       )}
                     </div>
@@ -1184,8 +1178,8 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                     {needsSecurityDeposit ? (
                       <div className="bg-white border border-slate-150 rounded-2xl p-3.5 space-y-2 shadow-sm">
                         <div className="flex justify-between items-center text-xs text-slate-655">
-                          <span>Total Bill Amount (Pay at shop):</span>
-                          <span className="font-extrabold text-slate-800">₹{parseFloat(order.amount || 0).toFixed(2)}</span>
+                          <span>Total Bill Amount (Pay {fulfillmentMethod === 'Delivery' ? 'on delivery' : 'at shop'}):</span>
+                          <span className="font-extrabold text-slate-805">₹{parseFloat(order.amount || 0).toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between items-center text-xs border-t border-slate-100 pt-2 text-rose-700 font-extrabold">
                           <span>Refundable Security Deposit to Pay Now:</span>
@@ -1199,7 +1193,7 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                           <span className="font-extrabold text-slate-800">₹{parseFloat(order.amount || 0).toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between items-center text-xs border-t border-slate-100 pt-2 text-slate-800 font-extrabold">
-                          <span>Amount to Pay at Shop:</span>
+                          <span>Amount to Pay {fulfillmentMethod === 'Delivery' ? 'on Delivery' : 'at Shop'}:</span>
                           <span className="text-slate-900 font-black">₹{parseFloat(order.amount || 0).toFixed(2)}</span>
                         </div>
                       </div>
