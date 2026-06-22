@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import ShopReviewsModal from '../../components/customer/ShopReviewsModal';
 import { Search, Star, Clock, MapPin, Compass, AlertCircle, Filter, ArrowUpDown, Award, CheckCircle, Store, TrendingUp, Trophy } from 'lucide-react';
+import { fetchRoadDistanceMatrix } from '../../utils/routing';
 
 const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
   const { token, apiUrl } = useAuth();
@@ -60,11 +61,40 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
       if (response.ok) {
         const data = await response.json();
         setShops(data);
+        if (coords?.latitude && coords?.longitude && data.length > 0) {
+          resolveRoadDistances(coords.latitude, coords.longitude, data);
+        }
       }
     } catch (err) {
       console.error('Error fetching shops:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const resolveRoadDistances = async (userLat, userLng, currentShops) => {
+    try {
+      const destinations = currentShops.map(s => ({
+        id: s.id,
+        latitude: parseFloat(s.latitude),
+        longitude: parseFloat(s.longitude)
+      }));
+      const roadDistances = await fetchRoadDistanceMatrix(userLat, userLng, destinations);
+      setShops(prevShops =>
+        prevShops.map(shop => {
+          const match = roadDistances.find(r => r.id === shop.id);
+          if (match) {
+            return {
+              ...shop,
+              distance: match.distance,
+              isRoad: match.isRoad
+            };
+          }
+          return shop;
+        })
+      );
+    } catch (err) {
+      console.error('Error resolving road distances:', err);
     }
   };
 
@@ -349,7 +379,9 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
                     <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-2xl text-center">
                       <div className="border-r border-slate-200">
                         <span className="block text-[10px] text-slate-455 uppercase font-semibold">Distance</span>
-                        <span className="text-xs font-bold text-slate-800">{shop.distance} km</span>
+                        <span className="text-xs font-bold text-slate-800" title={shop.isRoad ? "Exact driving route distance from your location." : "Straight-line distance (fallback)."}>
+                          {shop.isRoad ? '🚗 ' : ''}{shop.distance} km
+                        </span>
                       </div>
                       <div className="border-r border-slate-200">
                         <span className="block text-[10px] text-slate-455 uppercase font-semibold">Queue Index</span>

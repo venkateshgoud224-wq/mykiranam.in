@@ -7,6 +7,8 @@ import ImageModal from '../../components/common/ImageModal';
 import OrderChat from '../../components/common/OrderChat';
 import ReportComplaintModal from '../../components/customer/ReportComplaintModal';
 import RateExperienceModal from '../../components/customer/RateExperienceModal';
+import { fetchRoadDistanceMatrix } from '../../utils/routing';
+import EditOrderModal from '../../components/customer/EditOrderModal';
 
 const SavingsSummary = ({ order }) => {
   const { apiUrl, token } = useAuth();
@@ -140,6 +142,44 @@ const MyOrders = ({ coords }) => {
   const [reportingOrder, setReportingOrder] = useState(null);
   const [ratingOrder, setRatingOrder] = useState(null);
   const [expandedOrders, setExpandedOrders] = useState({});
+  const [orderRoadDistances, setOrderRoadDistances] = useState({});
+  const [editingOrder, setEditingOrder] = useState(null);
+
+  useEffect(() => {
+    const resolveOrderDistances = async () => {
+      if (!coords?.latitude || !coords?.longitude || orders.length === 0) return;
+      
+      const pickupOrders = orders.filter(o => o.order_status === 'Ready For Pickup');
+      if (pickupOrders.length === 0) return;
+      
+      const destinations = pickupOrders.map(o => ({
+        id: o.id,
+        latitude: parseFloat(o.shop_latitude || 16.8970),
+        longitude: parseFloat(o.shop_longitude || 79.8705)
+      }));
+      
+      const roadDistances = await fetchRoadDistanceMatrix(coords.latitude, coords.longitude, destinations);
+      
+      const newRoadDistances = {};
+      roadDistances.forEach(r => {
+        const d = r.distance;
+        let distStr = '';
+        if (d < 1) {
+          distStr = `${Math.round(d * 1000)} meters`;
+        } else {
+          distStr = `${d.toFixed(1)} km`;
+        }
+        newRoadDistances[r.id] = {
+          distanceStr: distStr,
+          isRoad: r.isRoad
+        };
+      });
+      
+      setOrderRoadDistances(newRoadDistances);
+    };
+    
+    resolveOrderDistances();
+  }, [orders, coords]);
 
   const toggleOrderDetails = (orderId) => {
     setExpandedOrders(prev => ({
@@ -237,6 +277,7 @@ const MyOrders = ({ coords }) => {
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'Bill Uploaded':
       case 'Waiting For Customer Confirmation':
+      case 'PENDING_PAYMENT':
         return 'bg-kirana-100 text-kirana-800 border-kirana-200 animate-pulse';
       case 'Confirmed':
         return 'bg-slate-100 text-slate-800 border-slate-200';
@@ -362,7 +403,7 @@ const MyOrders = ({ coords }) => {
           {displayedOrders.map((order) => {
             const isBillAvailable = order.amount !== null && order.amount !== undefined;
             const hasSelectedPayment = order.payment_method !== null && order.payment_method !== undefined;
-            const isVerificationAwaiting = ['Bill Uploaded', 'Waiting For Customer Confirmation'].includes(order.order_status) && !hasSelectedPayment;
+            const isVerificationAwaiting = ['Bill Uploaded', 'Waiting For Customer Confirmation', 'PENDING_PAYMENT'].includes(order.order_status) && !hasSelectedPayment;
             const isPaymentAwaiting = order.order_status === 'Ready For Pickup' && !hasSelectedPayment;
             const isCancellable = !['Delivered', 'Cancelled'].includes(order.order_status);
             const isExpanded = !!expandedOrders[order.id];
@@ -395,9 +436,16 @@ const MyOrders = ({ coords }) => {
                   const userLng = coords?.longitude;
                   const shopLat = order.shop_latitude ? parseFloat(order.shop_latitude) : null;
                   const shopLng = order.shop_longitude ? parseFloat(order.shop_longitude) : null;
-                  const distanceText = (userLat && userLng && shopLat && shopLng) 
-                    ? calculateDistance(userLat, userLng, shopLat, shopLng) + ' away' 
-                    : null;
+                  
+                  let distanceText = null;
+                  let isRoad = false;
+                  
+                  if (orderRoadDistances[order.id]) {
+                    distanceText = orderRoadDistances[order.id].distanceStr + ' away';
+                    isRoad = orderRoadDistances[order.id].isRoad;
+                  } else if (userLat && userLng && shopLat && shopLng) {
+                    distanceText = calculateDistance(userLat, userLng, shopLat, shopLng) + ' away';
+                  }
 
                   return (
                     <div className="p-4 bg-emerald-50 border border-emerald-250 rounded-2xl space-y-3 shadow-sm text-left animate-fadeIn">
@@ -411,8 +459,8 @@ const MyOrders = ({ coords }) => {
                         <p className="text-slate-500 text-[10px] leading-tight">📍 {order.shop_address || 'Huzurnagar, Nalgonda, Telangana'}</p>
                         <div className="flex gap-4 mt-1">
                           {distanceText && (
-                            <p className="font-extrabold text-emerald-700 flex items-center gap-1 text-[10px]">
-                              <span>🚗</span> {distanceText}
+                            <p className="font-extrabold text-emerald-700 flex items-center gap-1 text-[10px]" title={isRoad ? "Exact driving route distance." : "Straight-line distance (fallback)."}>
+                              <span>{isRoad ? '🚗' : '📍'}</span> {distanceText}
                             </p>
                           )}
                           {order.shop_working_hours && (
@@ -461,16 +509,55 @@ const MyOrders = ({ coords }) => {
                 })()}
 
                 {/* Quick Summary (Always Visible) */}
-                <div className="flex justify-between items-center mt-1 cursor-pointer" onClick={() => toggleOrderDetails(order.id)}>
-                  <div>
+                <div className="flex justify-between items-center mt-1">
+                  <div className="cursor-pointer flex-1" onClick={() => toggleOrderDetails(order.id)}>
                     <span className="block text-[10px] text-slate-400">Total Bill Amount</span>
-                    <span className="font-extrabold text-slate-800 text-sm">
+                    <span className="font-extrabold text-slate-805 text-sm">
                       {order.amount ? `₹${order.amount}` : 'Calculating...'}
                     </span>
                   </div>
-                  <div className="flex items-center text-kirana-600 font-bold text-[11px] bg-kirana-50 hover:bg-kirana-100 px-3 py-1.5 rounded-xl border border-kirana-100 transition-colors">
-                    <span>{isExpanded ? 'Hide Details' : 'Open Details'}</span>
-                    <ChevronDown className={`w-3.5 h-3.5 ml-1 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                  <div className="flex items-center space-x-2">
+                    {!isExpanded && !['Cancelled', 'Delivered'].includes(order.order_status) && (
+                      <>
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const rawPhone = String(order.seller_phone || '');
+                            const cleanPhone = rawPhone.replace(/[^0-9+]/g, '');
+                            if (cleanPhone) {
+                              navigator.clipboard.writeText(cleanPhone).catch(() => {});
+                              window.location.href = `tel:${cleanPhone}`;
+                            } else {
+                              alert("No valid phone number found.");
+                            }
+                          }}
+                          className="p-2 bg-blue-50 text-blue-700 hover:bg-blue-105 rounded-xl transition-all"
+                          title="Call Seller"
+                        >
+                          <Phone className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setChatOrderId(order.id);
+                            setChatShopName(order.shop_name);
+                          }}
+                          className="p-2 bg-purple-50 text-purple-700 hover:bg-purple-105 rounded-xl transition-all"
+                          title="Chat Seller"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                    <button 
+                      onClick={() => toggleOrderDetails(order.id)}
+                      className="flex items-center text-kirana-600 font-bold text-[11px] bg-kirana-50 hover:bg-kirana-100 px-3 py-1.5 rounded-xl border border-kirana-100 transition-colors"
+                    >
+                      <span>{isExpanded ? 'Hide Details' : 'Open Details'}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 ml-1 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                    </button>
                   </div>
                 </div>
 
@@ -552,6 +639,22 @@ const MyOrders = ({ coords }) => {
                   </div>
 
                   <div className="flex items-center space-x-2 ml-auto">
+                    {/* Edit Items Button */}
+                    {!['Delivered', 'Cancelled'].includes(order.order_status) && (
+                      <button
+                        onClick={() => setEditingOrder(order)}
+                        disabled={order.amount !== null && order.amount !== undefined}
+                        className={`px-3.5 py-2 text-xs font-semibold rounded-xl border transition-all flex items-center gap-1 ${
+                          order.amount !== null && order.amount !== undefined
+                            ? 'bg-slate-100 text-slate-450 border-slate-200 cursor-not-allowed opacity-60'
+                            : 'text-slate-700 hover:bg-slate-50 border-slate-200 shadow-sm'
+                        }`}
+                        title={order.amount !== null && order.amount !== undefined ? "Direct editing is disabled after bill generation. Please request revisions via 'Verify Bill'." : "Edit items"}
+                      >
+                        ✏️ Edit Items
+                      </button>
+                    )}
+
                     {/* Cancellation Button */}
                     {isCancellable && (
                       <button
@@ -946,6 +1049,21 @@ const MyOrders = ({ coords }) => {
             alert('Thank you for your feedback!');
             fetchOrders();
           }}
+        />
+      )}
+
+      {/* Edit Order Items Modal */}
+      {editingOrder && (
+        <EditOrderModal
+          order={editingOrder}
+          onClose={() => setEditingOrder(null)}
+          onSuccess={() => {
+            setEditingOrder(null);
+            alert('Order items updated successfully!');
+            fetchOrders();
+          }}
+          apiUrl={apiUrl}
+          token={token}
         />
       )}
     </div>

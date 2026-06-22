@@ -427,7 +427,7 @@ const updateOrderStatus = async (req, res) => {
         return res.status(403).json({ error: 'Unauthorized to modify this order.' });
       }
       
-      const isAwaitingVerification = ['Bill Uploaded', 'Waiting For Customer Confirmation', 'PENDING_PAYMENT'].includes(order.order_status);
+      const isAwaitingVerification = ['Bill Uploaded', 'Waiting For Customer Confirmation', 'PENDING_PAYMENT', 'Waiting For Seller'].includes(order.order_status);
       
       // Awaiting customer verification: customer can reject (Cancelled), or request changes (Waiting For Seller)
       if (isAwaitingVerification) {
@@ -475,6 +475,9 @@ const updateOrderStatus = async (req, res) => {
          SET order_status = $1, 
              notes = $2, 
              item_change_history = $3, 
+             amount = NULL,
+             modified_bill = NULL,
+             modified_item_list = NULL,
              updated_at = CURRENT_TIMESTAMP 
          WHERE id = $4 RETURNING *`,
         [status, historyNotes, typeof item_change_history === 'string' ? item_change_history : JSON.stringify(item_change_history), id]
@@ -1656,6 +1659,202 @@ const verifyUpiPayment = async (req, res) => {
   }
 };
 
+const compareItemLists = (oldList, newList) => {
+  const oldMap = new Map();
+  (oldList || []).forEach(item => {
+    if (!item || !item.name) return;
+    const key = `${item.name.toLowerCase().trim()}_${(item.unit || '').toLowerCase().trim()}`;
+    oldMap.set(key, (oldMap.get(key) || 0) + parseFloat(item.quantity || 1));
+  });
+
+  const newMap = new Map();
+  (newList || []).forEach(item => {
+    if (!item || !item.name) return;
+    const key = `${item.name.toLowerCase().trim()}_${(item.unit || '').toLowerCase().trim()}`;
+    newMap.set(key, (newMap.get(key) || 0) + parseFloat(item.quantity || 1));
+  });
+
+  const added = [];
+  const removed = [];
+  const modified = [];
+
+  // Find added or modified items
+  (newList || []).forEach(item => {
+    if (!item || !item.name) return;
+    const key = `${item.name.toLowerCase().trim()}_${(item.unit || '').toLowerCase().trim()}`;
+    const oldQty = oldMap.get(key);
+    const newQty = parseFloat(item.quantity || 1);
+    if (oldQty === undefined) {
+      added.push(`${item.name} (${item.quantity} ${item.unit || 'unit'})`);
+    } else if (oldQty !== newQty) {
+      modified.push(`${item.name} (qty changed from ${oldQty} to ${newQty} ${item.unit || 'unit'})`);
+    }
+  });
+
+  // Find removed items
+  (oldList || []).forEach(item => {
+    if (!item || !item.name) return;
+    const key = `${item.name.toLowerCase().trim()}_${(item.unit || '').toLowerCase().trim()}`;
+    if (!newMap.has(key)) {
+      removed.push(`${item.name} (${item.quantity} ${item.unit || 'unit'})`);
+    }
+  });
+
+  return { added, removed, modified };
+};
+
+const editOrderItems = async (req, res) => {
+  const { id } = req.params;
+  const { digital_item_list, notes } = req.body;
+  const file = req.file; // new_chitti image
+  const customerId = req.user.id;
+
+  try {
+    // Fetch order details
+    const orderResult = await db.query(
+      `SELECT o.*, s.owner_id as seller_user_id, s.shop_name 
+       FROM orders o 
+       JOIN shops s ON o.shop_id = s.id 
+       WHERE o.id = $1`,
+      [id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    const order = orderResult.rows[0];
+
+    // Auth verification
+    if (Number(order.customer_id) !== Number(customerId)) {
+      return res.status(403).json({ error: 'Unauthorized to edit this order.' });
+    }
+
+    // Check if order is already delivered or cancelled
+    if (['Delivered', 'Cancelled'].includes(order.order_status)) {
+      return res.status(400).json({ error: 'Cannot edit items of a delivered or cancelled order.' });
+    }
+
+    // Check if bill has already been generated (allow if it's waiting for customer to verify/confirm/pay and they are editing via revision)
+    const isWaitingForCustomer = ['Bill Uploaded', 'Waiting For Customer Confirmation', 'PENDING_PAYMENT'].includes(order.order_status);
+    if (order.amount !== null && order.amount !== undefined && !isWaitingForCustomer) {
+      return res.status(400).json({ error: 'Cannot edit items directly after the bill has been generated. Please request a revision instead.' });
+    }
+
+    let originalStatus = order.order_status;
+    let newStatus = originalStatus;
+    // Revert status to Waiting For Seller if it was in any other status
+    if (!['Waiting For Seller'].includes(originalStatus)) {
+      newStatus = 'Waiting For Seller';
+    }
+
+    // Parse new items list if provided
+    let newItems = [];
+    if (digital_item_list) {
+      try {
+        newItems = typeof digital_item_list === 'string' ? JSON.parse(digital_item_list) : digital_item_list;
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid format for digital items list.' });
+      }
+    }
+
+    // Parse old items list
+    let oldItems = [];
+    if (order.digital_item_list) {
+      try {
+        oldItems = JSON.parse(order.digital_item_list);
+      } catch (e) {}
+    }
+
+    // Compare lists
+    const { added, removed, modified } = compareItemLists(oldItems, newItems);
+    
+    // Check if there was any actual change
+    let chittiChanged = false;
+    let chittiUrl = order.original_chitti;
+    if (file) {
+      chittiUrl = await uploadImage(file);
+      chittiChanged = true;
+    }
+
+    const itemsChanged = added.length > 0 || removed.length > 0 || modified.length > 0 || chittiChanged;
+
+    if (!itemsChanged && notes === order.notes) {
+      return res.status(200).json(order); // No changes made
+    }
+
+    // Update in DB
+    const finalDigitalList = digital_item_list ? JSON.stringify(newItems) : order.digital_item_list;
+    
+    // If status reverted, clear amount and modified lists so seller re-bills
+    const clearBilling = newStatus === 'Waiting For Seller' && originalStatus !== 'Waiting For Seller';
+    const amountVal = clearBilling ? null : order.amount;
+    const modifiedBillVal = clearBilling ? null : order.modified_bill;
+    const modifiedListVal = clearBilling ? null : order.modified_item_list;
+
+    const updateRes = await db.query(
+      `UPDATE orders 
+       SET digital_item_list = $1, 
+           original_chitti = $2, 
+           notes = $3, 
+           order_status = $4,
+           amount = $5,
+           modified_bill = $6,
+           modified_item_list = $7,
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $8 RETURNING *`,
+      [finalDigitalList, chittiUrl, notes || order.notes || '', newStatus, amountVal, modifiedBillVal, modifiedListVal, id]
+    );
+
+    const updatedOrder = updateRes.rows[0];
+
+    // Trigger queue count update
+    await updateShopQueueCount(order.shop_id);
+
+    // Notify the Seller
+    let changeSummary = '';
+    if (chittiChanged) {
+      changeSummary += 'Uploaded new handwritten chitti. ';
+    }
+    if (added.length > 0) {
+      changeSummary += `Added: ${added.join(', ')}. `;
+    }
+    if (removed.length > 0) {
+      changeSummary += `Removed: ${removed.join(', ')}. `;
+    }
+    if (modified.length > 0) {
+      changeSummary += `Modified: ${modified.join(', ')}. `;
+    }
+
+    const notifyMessage = `Customer edited Order #${order.custom_order_id || order.id}! ${changeSummary || 'Notes updated.'}`;
+
+    const notificationEngine = require('../services/notificationEngine');
+    await notificationEngine.dispatchNotification(
+      order.seller_user_id,
+      'Order Items Updated',
+      notifyMessage,
+      'order_updated',
+      {
+        orderId: order.id,
+        customOrderId: order.custom_order_id,
+        shopName: order.shop_name,
+        changeSummary: changeSummary.trim()
+      }
+    );
+
+    // Trigger transactional emails
+    await notificationEngine.dispatchOrderTransactionEmails(updatedOrder.id, originalStatus);
+
+    // Emit live status update to socket
+    socketService.emitOrderStatus(updatedOrder, order.customer_id, order.shop_id);
+
+    return res.status(200).json(updatedOrder);
+  } catch (err) {
+    console.error('Edit order items error:', err);
+    return res.status(500).json({ error: 'Server error editing order items.' });
+  }
+};
+
 module.exports = {
   createOrder,
   getOrders,
@@ -1670,5 +1869,6 @@ module.exports = {
   askPayment,
   updateShopQueueCount,
   submitUpiPayment,
-  verifyUpiPayment
+  verifyUpiPayment,
+  editOrderItems
 };

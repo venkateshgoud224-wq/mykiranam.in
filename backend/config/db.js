@@ -1417,7 +1417,8 @@ const mockQuery = async (text, params = []) => {
 
     if (normalizedText.includes('update orders')) {
       let orderId;
-      if (normalizedText.includes('where id = $7')) orderId = params[6];
+      if (normalizedText.includes('where id = $8')) orderId = params[7];
+      else if (normalizedText.includes('where id = $7')) orderId = params[6];
       else if (normalizedText.includes('where id = $5')) orderId = params[4];
       else if (normalizedText.includes('where id = $4')) orderId = params[3];
       else if (normalizedText.includes('where id = $3')) orderId = params[2];
@@ -1441,7 +1442,18 @@ const mockQuery = async (text, params = []) => {
         };
 
         // 1. updateOrderStatus
-        if (normalizedText.includes('order_status = $1') && normalizedText.includes('where id = $2')) {
+        if (normalizedText.includes('digital_item_list = $1') && normalizedText.includes('original_chitti = $2')) {
+          order.digital_item_list = params[0];
+          order.original_chitti = params[1];
+          order.notes = params[2];
+          order.order_status = params[3];
+          order.amount = (params[4] !== null && params[4] !== undefined) ? Number(params[4]) : null;
+          order.modified_bill = params[5] || null;
+          order.modified_item_list = params[6] || null;
+          syncStatusTimestamp(order, params[3]);
+          isMockDbDirty = true;
+        }
+        else if (normalizedText.includes('order_status = $1') && normalizedText.includes('where id = $2')) {
           order.order_status = params[0];
           syncStatusTimestamp(order, params[0]);
           
@@ -1488,6 +1500,9 @@ const mockQuery = async (text, params = []) => {
           order.order_status = params[0]; // $1
           order.notes = params[1];        // $2
           order.item_change_history = params[2]; // $3
+          order.amount = null;
+          order.modified_bill = null;
+          order.modified_item_list = null;
         }
         // 2. uploadBill (Handwritten or Digital)
         else if (normalizedText.includes('modified_item_list = $1') || normalizedText.includes('modified_item_list =')) {

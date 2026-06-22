@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Plus, Trash2, Search, Store, ArrowRight, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Search, Store, ArrowRight, ShieldAlert, Lock } from 'lucide-react';
+import DemoModal from '../../components/common/DemoModal';
 
 const CustomerQuotes = ({ onSelectShop, onBackToShops }) => {
   const { apiUrl, token } = useAuth();
@@ -9,19 +10,24 @@ const CustomerQuotes = ({ onSelectShop, onBackToShops }) => {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showDemo, setShowDemo] = useState(false);
+  const [showComingSoon, setShowComingSoon] = useState(false);
 
   const units = ['kg', 'g', 'L', 'ml', 'unit', 'packet', 'dozen'];
 
   const handleAddItem = () => {
     setItems([...items, { id: Date.now(), name: '', quantity: 1, unit: 'kg' }]);
+    setShowComingSoon(false);
   };
 
   const handleRemoveItem = (id) => {
     setItems(items.filter(item => item.id !== id));
+    setShowComingSoon(false);
   };
 
   const handleChange = (id, field, value) => {
     setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
+    setShowComingSoon(false);
   };
 
   const generateQuotes = async () => {
@@ -29,45 +35,20 @@ const CustomerQuotes = ({ onSelectShop, onBackToShops }) => {
     if (validItems.length === 0) {
       setError('Please add at least one valid item.');
       setQuotes([]);
+      setShowComingSoon(false);
       return;
     }
     
     setError(null);
     setLoading(true);
     setQuotes([]);
+    setShowComingSoon(false);
     
-    try {
-      const response = await fetch(`${apiUrl}/quotes/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          itemsList: validItems.map(item => ({
-            name: item.name,
-            quantity: parseFloat(item.quantity),
-            unit: item.unit
-          }))
-        })
-      });
-      
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate quotes.');
-      }
-      
-      if (data.length === 0) {
-        setError('No shops nearby have historical price data for these items. Try generic terms like sugar, rice, or oil.');
-      } else {
-        setQuotes(data);
-      }
-    } catch (err) {
-      console.error('Error generating quotes:', err);
-      setError(err.message || 'Something went wrong while comparing prices.');
-    } finally {
+    // Simulate price analysis for premium feel
+    setTimeout(() => {
       setLoading(false);
-    }
+      setShowComingSoon(true);
+    }, 800);
   };
 
   return (
@@ -93,6 +74,23 @@ const CustomerQuotes = ({ onSelectShop, onBackToShops }) => {
         <p className="text-xs text-slate-500 mb-5">
           Enter your items below. Our AI Price Engine will analyze recent local market prices and estimate costs across different stores instantly—without bothering sellers!
         </p>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-left">
+          <div className="space-y-0.5">
+            <h4 className="text-[10px] font-black uppercase text-emerald-800 tracking-wider">Want to try a demo first?</h4>
+            <p className="text-[11px] font-semibold text-emerald-700/90 leading-normal">
+              Compare simulated items across mock shops to see how our engine estimates cart pricing.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowDemo(true)}
+            className="flex-shrink-0 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-[10px] font-black tracking-wider uppercase rounded-xl shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center space-x-1"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+            <span>✨ Try Interactive Pricing Demo</span>
+          </button>
+        </div>
 
         <div className="space-y-3">
           {items.map((item, index) => (
@@ -241,13 +239,11 @@ const CustomerQuotes = ({ onSelectShop, onBackToShops }) => {
                       </div>
 
                       <button
-                        onClick={() => {
-                          onSelectShop({ id: quote.shop_id, shop_name: quote.shop_name });
-                        }}
-                        className="flex items-center justify-center space-x-1 bg-kirana-500 hover:bg-kirana-600 text-slate-950 font-bold px-4 py-2 rounded-xl text-sm transition-colors mt-0 sm:mt-2"
+                        disabled
+                        className="flex items-center justify-center space-x-1.5 bg-slate-100 text-slate-400 font-bold px-4 py-2 rounded-xl text-sm cursor-not-allowed border border-slate-200 mt-0 sm:mt-2"
                       >
-                        <span>Order Here</span>
-                        <ArrowRight className="w-4 h-4" />
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Coming Soon</span>
                       </button>
                     </div>
                     
@@ -258,6 +254,48 @@ const CustomerQuotes = ({ onSelectShop, onBackToShops }) => {
           </div>
         );
       })()}
+
+      {showComingSoon && (
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-premium animate-fade-in text-center space-y-6">
+          <div className="relative mx-auto w-16 h-16 flex items-center justify-center bg-gradient-to-tr from-amber-500/10 to-kirana-500/10 rounded-full border border-kirana-200">
+            <span className="absolute inset-0 rounded-full bg-kirana-400/20 animate-ping opacity-75" style={{ animationDuration: '3s' }} />
+            <span className="text-2xl text-kirana-600">✨</span>
+          </div>
+
+          <div className="space-y-2">
+            <div className="inline-flex items-center px-3 py-1 bg-kirana-50 border border-kirana-200 text-kirana-800 text-[10px] font-black uppercase tracking-wider rounded-full">
+              <span>Coming Soon</span>
+            </div>
+            <h3 className="text-lg font-black text-slate-900 tracking-tight">
+              AI Price Comparison Engine
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed max-w-sm mx-auto">
+              Our automated price estimation model is indexing local market rates. Instant quotes and comparisons across nearby shops are coming soon!
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left max-w-sm mx-auto bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div className="flex items-center space-x-2 text-[11px] font-bold text-slate-700">
+              <span className="text-emerald-500">✓</span>
+              <span>No convenience charges</span>
+            </div>
+            <div className="flex items-center space-x-2 text-[11px] font-bold text-slate-700">
+              <span className="text-emerald-500">✓</span>
+              <span>100% price transparency</span>
+            </div>
+            <div className="flex items-center space-x-2 text-[11px] font-bold text-slate-700">
+              <span className="text-emerald-500">✓</span>
+              <span>Verify before you pay</span>
+            </div>
+            <div className="flex items-center space-x-2 text-[11px] font-bold text-slate-700">
+              <span className="text-emerald-500">✓</span>
+              <span>Direct local store pricing</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDemo && <DemoModal onClose={() => setShowDemo(false)} />}
     </div>
   );
 };

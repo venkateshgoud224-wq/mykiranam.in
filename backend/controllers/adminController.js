@@ -589,6 +589,70 @@ const unsuspendCustomer = async (req, res) => {
   }
 };
 
+// 11. Get List of All Orders
+const getAllOrdersList = async (req, res) => {
+  try {
+    const isMock = db.getIsMock && db.getIsMock();
+    if (!isMock) {
+      const result = await db.query(
+        `SELECT 
+          o.*, 
+          s.shop_name, s.address as shop_address, s.rating as shop_rating, s.verification_status as shop_verification_status, s.warning_level as shop_warning_level,
+          u.name as customer_name, u.email as customer_email, u.phone as customer_phone,
+          su.name as seller_name, su.phone as seller_phone, su.whatsapp_number as seller_whatsapp,
+          ct.trust_score as customer_trust_score, ct.cancellations as customer_cancellations, ct.successful_pickups as customer_successful_pickups, ct.total_orders as customer_total_orders,
+          sp.trust_score as seller_trust_score, sp.total_completed_orders as seller_total_completed_orders, sp.total_cancelled_orders as seller_total_cancelled_orders
+         FROM orders o
+         JOIN shops s ON o.shop_id = s.id
+         JOIN users u ON o.customer_id = u.id
+         LEFT JOIN users su ON s.owner_id = su.id
+         LEFT JOIN customer_trust ct ON o.customer_id = ct.customer_id
+         LEFT JOIN seller_performance sp ON o.shop_id = sp.shop_id
+         ORDER BY o.created_at DESC`
+      );
+      return res.status(200).json(result.rows);
+    } else {
+      const orders = db.getMockDb ? db.getMockDb().orders : [];
+      const enriched = orders.map(o => {
+        const shop = db.getMockDb().shops.find(s => s.id === o.shop_id) || {};
+        const customer = db.getMockDb().users.find(u => u.id === o.customer_id) || {};
+        const seller = db.getMockDb().users.find(u => u.id === shop.owner_id) || {};
+        
+        // Mock trust and performance
+        const trust = db.getMockDb().customer_trust ? (db.getMockDb().customer_trust[o.customer_id] || {}) : {};
+        const sellerPerf = (db.getMockDb().seller_performance && db.getMockDb().seller_performance[o.shop_id]) || {};
+
+        return {
+          ...o,
+          shop_name: shop.shop_name || 'Store',
+          shop_address: shop.address || '',
+          shop_rating: shop.rating || 4.0,
+          shop_verification_status: shop.verification_status || 'Verified',
+          shop_warning_level: shop.warning_level || 'None',
+          customer_name: customer.name || 'Customer',
+          customer_email: customer.email || '',
+          customer_phone: customer.phone || '',
+          seller_name: seller.name || 'Seller',
+          seller_phone: seller.phone || '',
+          seller_whatsapp: seller.whatsapp_number || '',
+          customer_trust_score: trust.trust_score !== undefined ? trust.trust_score : 100,
+          customer_cancellations: trust.cancellations || 0,
+          customer_successful_pickups: trust.successful_pickups || 0,
+          customer_total_orders: trust.total_orders || 1,
+          seller_trust_score: sellerPerf.trust_score !== undefined ? sellerPerf.trust_score : 100,
+          seller_total_completed_orders: sellerPerf.total_completed_orders || 0,
+          seller_total_cancelled_orders: sellerPerf.total_cancelled_orders || 0
+        };
+      });
+      enriched.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      return res.status(200).json(enriched);
+    }
+  } catch (err) {
+    console.error('Error fetching admin all orders list:', err);
+    return res.status(500).json({ error: 'Server error retrieving orders.' });
+  }
+};
+
 module.exports = {
   getSellersList,
   updateVerificationStatus,
@@ -601,5 +665,6 @@ module.exports = {
   getCustomersList,
   getCompletedOrdersList,
   getSellerKyc,
-  unsuspendCustomer
+  unsuspendCustomer,
+  getAllOrdersList
 };

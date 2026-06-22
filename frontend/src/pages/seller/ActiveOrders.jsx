@@ -171,13 +171,52 @@ const ActiveOrders = ({ activeOrders, onUpdateStatus }) => {
 
                 {/* Queue flow action controls */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-55">
-                  <button
-                    onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
-                    className="text-xs font-semibold text-slate-550 flex items-center justify-center sm:justify-start space-x-1 hover:text-slate-755 border border-slate-100 sm:border-transparent py-2 sm:py-0 rounded-xl"
-                  >
-                    <span>View Details</span>
-                    <ChevronDown className={`w-4 h-4 transform ${isExpanded ? 'rotate-180' : ''} transition-transform`} />
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                      className="text-xs font-semibold text-slate-550 flex items-center justify-center sm:justify-start space-x-1 hover:text-slate-755 border border-slate-100 sm:border-transparent py-2 sm:py-0 rounded-xl px-2"
+                    >
+                      <span>View Details</span>
+                      <ChevronDown className={`w-4 h-4 transform ${isExpanded ? 'rotate-180' : ''} transition-transform`} />
+                    </button>
+                    {!isExpanded && (
+                      <>
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const phoneNum = order.fulfillment_method === 'Delivery' && order.delivery_phone 
+                              ? order.delivery_phone 
+                              : order.customer_phone;
+                            const rawPhone = String(phoneNum || '');
+                            const cleanPhone = rawPhone.replace(/[^0-9+]/g, '');
+                            if (cleanPhone) {
+                              navigator.clipboard.writeText(cleanPhone).catch(() => {});
+                              window.location.href = `tel:${cleanPhone}`;
+                            } else {
+                              alert("No valid phone number found.");
+                            }
+                          }}
+                          className="p-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-all"
+                          title="Call Customer"
+                        >
+                          <Phone className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setChatOrderId(order.id);
+                            setChatCustomerName(order.customer_name);
+                          }}
+                          className="p-2 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl transition-all"
+                          title="Chat Customer"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
 
                   <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
                     {['Bill Uploaded', 'Waiting For Customer Confirmation', 'PENDING_PAYMENT'].includes(order.order_status) && billingOrderId !== order.id && (

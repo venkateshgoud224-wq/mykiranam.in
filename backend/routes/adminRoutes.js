@@ -50,6 +50,9 @@ router.post('/customers/:id/unsuspend', adminController.unsuspendCustomer);
 // Fetch completed/cancelled orders list
 router.get('/completed-orders', adminController.getCompletedOrdersList);
 
+// Fetch all orders list for admin audit page
+router.get('/orders', adminController.getAllOrdersList);
+
 // Fetch seller KYC details for a specific shop
 router.get('/sellers/:id/kyc', adminController.getSellerKyc);
 

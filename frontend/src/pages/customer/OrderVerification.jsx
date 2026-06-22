@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { ChevronLeft, ArrowRight, Eye, FileText, CheckCircle2, XCircle, AlertCircle, Upload, ThumbsUp, ThumbsDown, RefreshCcw, Download, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ArrowRight, Eye, FileText, CheckCircle2, XCircle, AlertCircle, Upload, ThumbsUp, ThumbsDown, RefreshCcw, Download, AlertTriangle, CheckCircle, Phone, MessageCircle, Trash2, Plus, Coins, HelpCircle, Loader2 } from 'lucide-react';
 import ImageModal from '../../components/common/ImageModal';
 import QRCode from 'react-qr-code';
+import OrderChat from '../../components/common/OrderChat';
 
 const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState }) => {
   const { token, apiUrl, extraData } = useAuth();
@@ -35,6 +36,82 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
   const [revisionNotes, setRevisionNotes] = useState('');
   const [revisionTags, setRevisionTags] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  
+  // Parse existing digital items list (use modified_item_list if available to show latest billed items)
+  let initialItems = [];
+  try {
+    const listToParse = order.modified_item_list || order.digital_item_list;
+    if (listToParse) {
+      const parsed = typeof listToParse === 'string' 
+        ? JSON.parse(listToParse) 
+        : listToParse;
+      initialItems = parsed
+        .filter(item => item.status !== 'removed')
+        .map(item => ({
+          ...item,
+          status: item.status || 'unchanged'
+        }));
+    }
+  } catch (e) {
+    console.error('Error parsing items in OrderVerification', e);
+  }
+
+  const [editItems, setEditItems] = useState(initialItems);
+  const [newChitti, setNewChitti] = useState(null);
+  const [newChittiPreview, setNewChittiPreview] = useState(null);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemQty, setNewItemQty] = useState('');
+  const [newItemUnit, setNewItemUnit] = useState('packet');
+
+  const handleAddItem = (e) => {
+    e.preventDefault();
+    if (!newItemName.trim()) {
+      setError('Item name cannot be empty.');
+      return;
+    }
+    if (!newItemQty || parseFloat(newItemQty) <= 0) {
+      setError('Please specify a valid quantity.');
+      return;
+    }
+
+    const newItem = {
+      id: Date.now(),
+      name: newItemName.trim(),
+      quantity: newItemQty.toString(),
+      unit: newItemUnit,
+      status: 'added'
+    };
+
+    setEditItems([...editItems, newItem]);
+    setNewItemName('');
+    setNewItemQty('');
+    setNewItemUnit('packet');
+    setError('');
+  };
+
+  const handleRemoveItem = (indexToRemove) => {
+    setEditItems(editItems.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleUpdateQty = (index, value) => {
+    const updated = [...editItems];
+    updated[index].quantity = value;
+    setEditItems(updated);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setNewChitti(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewChittiPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const cancellationsCount = Number(order.cancellations !== undefined ? order.cancellations : (extraData?.trustMetrics?.cancellations || 0));
   const suspensionEndDate = extraData?.trustMetrics?.suspension_end_date;
   const isSuspended = suspensionEndDate && new Date(suspensionEndDate) > new Date();
@@ -408,13 +485,50 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
     <div className="w-full bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-premium pb-20 md:pb-6">
       
       {/* Header bar */}
-      <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center space-x-2">
-        <button onClick={onBack} className="p-2 hover:bg-slate-200 rounded-xl text-slate-655 transition-all">
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Order verification</span>
-          <h2 className="text-base font-extrabold text-slate-900">Verify Bill: Order #{order.custom_order_id || order.id}</h2>
+      <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center space-x-2">
+          <button onClick={onBack} className="p-2 hover:bg-slate-200 rounded-xl text-slate-655 transition-all">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Order verification</span>
+            <h2 className="text-base font-extrabold text-slate-900">Verify Bill: Order #{order.custom_order_id || order.id}</h2>
+          </div>
+        </div>
+        
+        {/* Chat & Call Seller Options */}
+        <div className="flex items-center space-x-2 self-end sm:self-center">
+          <button 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const rawPhone = String(order.seller_phone || '');
+              const cleanPhone = rawPhone.replace(/[^0-9+]/g, '');
+              if (cleanPhone) {
+                navigator.clipboard.writeText(cleanPhone).catch(() => {});
+                window.location.href = `tel:${cleanPhone}`;
+              } else {
+                alert("No valid phone number found.");
+              }
+            }}
+            className="flex items-center justify-center space-x-1.5 py-1.5 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-bold text-xs"
+            title="Call Seller"
+          >
+            <Phone className="w-4 h-4" />
+            <span>Call Seller {(() => {
+              const p = String(order.seller_phone || '').replace(/[^0-9+]/g, '');
+              const masked = p.length >= 4 ? p.substring(0, 2) + 'XXXXXX' + p.slice(-2) : p;
+              return masked ? `(${masked})` : '';
+            })()}</span>
+          </button>
+          <button 
+            onClick={() => setChatOpen(true)}
+            className="flex items-center justify-center space-x-1.5 py-1.5 px-3 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl transition-colors font-bold text-xs"
+            title="Chat Seller"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span>Chat Seller</span>
+          </button>
         </div>
       </div>
 
@@ -715,15 +829,19 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
           return (
             <div className="max-w-md mx-auto space-y-5 animate-fadeIn">
               <div className="text-center space-y-2">
-                <span className="text-2xl">📝</span>
+                <div className="w-12 h-12 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center mx-auto shadow-sm text-xl">
+                  📄
+                </div>
                 <h3 className="text-base font-extrabold text-slate-900">Request Bill Changes</h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 max-w-sm mx-auto leading-normal">
                   Select the type of change and state clearly what edits you want. The seller will get an alert and update the pricing sheets.
-                  <strong className="block mt-1 text-kirana-600">Revisions left: {2 - currentRevisionCount}</strong>
                 </p>
+                <div className="text-amber-600 font-extrabold text-xs tracking-wide">
+                  Revisions left: {2 - currentRevisionCount}
+                </div>
               </div>
 
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!revisionNotes.trim()) {
                   setError('Please specify the changes you would like the shop to make.');
@@ -733,88 +851,246 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
                 setLoading(true);
                 setError('');
 
-                fetch(`${apiUrl}/orders/${order.id}/status`, {
-                  method: 'PATCH',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                  },
-                  body: JSON.stringify({
-                    status: 'Waiting For Seller',
-                    reason: revisionNotes,
-                    item_change_history: {
-                      tags: revisionTags || [],
-                      requested_changes: revisionNotes,
-                      revision_count: currentRevisionCount + 1,
-                      timestamp: new Date()
-                    }
-                  })
-                }).then(async (response) => {
-                  if (!response.ok) {
-                    const data = await response.json();
+                try {
+                  // Step 1: Save digital item list & chitti changes
+                  const formData = new FormData();
+                  formData.append('digital_item_list', JSON.stringify(editItems));
+                  formData.append('notes', revisionNotes);
+                  if (newChitti) {
+                    formData.append('new_chitti', newChitti);
+                  }
+
+                  const editRes = await fetch(`${apiUrl}/orders/${order.id}/edit-items`, {
+                    method: 'PUT',
+                    headers: {
+                      'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                  });
+
+                  if (!editRes.ok) {
+                    const data = await editRes.json();
+                    throw new Error(data.error || 'Failed to update order items.');
+                  }
+
+                  // Step 2: Set status to Waiting For Seller & save item_change_history
+                  const statusRes = await fetch(`${apiUrl}/orders/${order.id}/status`, {
+                    method: 'PATCH',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                      status: 'Waiting For Seller',
+                      reason: revisionNotes,
+                      item_change_history: {
+                        tags: revisionTags || [],
+                        requested_changes: revisionNotes,
+                        revision_count: currentRevisionCount + 1,
+                        timestamp: new Date()
+                      }
+                    })
+                  });
+
+                  if (!statusRes.ok) {
+                    const data = await statusRes.json();
                     throw new Error(data.error || 'Failed to submit change request.');
                   }
+
                   onVerifySuccess();
-                }).catch(err => {
+                } catch (err) {
                   setError(err.message || 'Error submitting request.');
                   setLoading(false);
-                });
-              }} className="space-y-4">
+                }
+              }} className="space-y-4 text-left">
                 
+                {/* 1. Revision Tags */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-700">What do you want the seller to do?</label>
+                  <label className="text-xs font-bold text-slate-700 block">What do you want the seller to do?</label>
                   <div className="flex flex-wrap gap-2">
-                    {['🗑️ Remove Item', '➕ Add Item', '🔄 Replace Item', '💰 Reduce Price', '❓ Other'].map(tag => {
-                      const isSelected = (revisionTags || []).includes(tag);
+                    {[
+                      { id: 'Remove Item', tagValue: '🗑️ Remove Item', label: 'Remove Item', icon: Trash2, colorClass: 'text-slate-555', bgClass: 'bg-slate-100' },
+                      { id: 'Add Item', tagValue: '➕ Add Item', label: 'Add Item', icon: Plus, colorClass: 'text-purple-600', bgClass: 'bg-purple-50' },
+                      { id: 'Replace Item', tagValue: '🔄 Replace Item', label: 'Replace Item', icon: RefreshCcw, colorClass: 'text-blue-600', bgClass: 'bg-blue-50' },
+                      { id: 'Reduce Price', tagValue: '💰 Reduce Price', label: 'Reduce Price', icon: Coins, colorClass: 'text-amber-600', bgClass: 'bg-amber-50' },
+                      { id: 'Other', tagValue: '❓ Other', label: 'Other', icon: HelpCircle, colorClass: 'text-rose-500', bgClass: 'bg-rose-50' }
+                    ].map(option => {
+                      const isSelected = (revisionTags || []).includes(option.tagValue);
+                      const IconComponent = option.icon;
                       return (
                         <button
-                          key={tag}
+                          key={option.id}
                           type="button"
                           onClick={() => {
                             const currentTags = revisionTags || [];
                             setRevisionTags(
-                              isSelected ? currentTags.filter(t => t !== tag) : [...currentTags, tag]
+                              isSelected ? currentTags.filter(t => t !== option.tagValue) : [...currentTags, option.tagValue]
                             );
                           }}
-                          className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${
                             isSelected 
-                              ? 'bg-blue-100 text-blue-800 border-blue-300 shadow-sm' 
+                              ? 'bg-blue-50 text-blue-800 border-blue-300 shadow-sm' 
                               : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                           }`}
                         >
-                          {tag}
+                          <span className={`w-5 h-5 flex items-center justify-center rounded-full transition-colors ${
+                            isSelected 
+                              ? 'bg-blue-500 text-white' 
+                              : `${option.bgClass} ${option.colorClass}`
+                          }`}>
+                            <IconComponent className="w-3 h-3" />
+                          </span>
+                          <span>{option.label}</span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
+                {/* 2. Digital Grocery List Section */}
+                <div className="space-y-3 pt-2 border-t border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-700">Digital Grocery List</h4>
+                  
+                  <div className="space-y-2 border border-slate-100 p-3 rounded-2xl bg-slate-50/50 max-h-48 overflow-y-auto">
+                    {editItems.length === 0 ? (
+                      <p className="text-[11px] text-slate-400 italic text-center py-4">
+                        No digital items in this order yet. Add items below!
+                      </p>
+                    ) : (
+                      editItems.map((item, idx) => (
+                        <div key={item.id || idx} className="flex items-center justify-between gap-2 pb-1.5 border-b border-dashed border-slate-200 last:border-0">
+                          <span className="text-xs font-bold text-slate-800 flex-1 truncate">
+                            {idx + 1}. {item.name}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min="0.1"
+                              step="any"
+                              value={item.quantity}
+                              onChange={(e) => handleUpdateQty(idx, e.target.value)}
+                              className="w-14 px-1.5 py-1 text-center bg-white border border-slate-200 rounded-lg text-xs font-bold focus:outline-none"
+                            />
+                            <span className="text-[10px] text-slate-500 font-bold bg-slate-100 border px-1.5 py-1 rounded-lg">
+                              {item.unit}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(idx)}
+                              className="p-1 hover:bg-red-50 text-slate-400 hover:text-crimson rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Inline Add Item Form */}
+                  <div className="grid grid-cols-12 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/50">
+                    <input
+                      type="text"
+                      placeholder="Item name (e.g. Sugar 1kg)"
+                      value={newItemName}
+                      onChange={(e) => setNewItemName(e.target.value)}
+                      className="col-span-6 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none"
+                    />
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="any"
+                      placeholder="Qty"
+                      value={newItemQty}
+                      onChange={(e) => setNewItemQty(e.target.value)}
+                      className="col-span-2 px-2 py-2 text-center bg-white border border-slate-200 rounded-xl text-xs focus:outline-none"
+                    />
+                    <select
+                      value={newItemUnit}
+                      onChange={(e) => setNewItemUnit(e.target.value)}
+                      className="col-span-3 px-2 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none font-semibold text-slate-700"
+                    >
+                      <option value="packet">packet</option>
+                      <option value="kg">kg</option>
+                      <option value="gm">gm</option>
+                      <option value="liter">liter</option>
+                      <option value="ml">ml</option>
+                      <option value="piece">piece</option>
+                      <option value="box">box</option>
+                      <option value="bottle">bottle</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleAddItem}
+                      className="col-span-1 p-2 bg-slate-900 text-white rounded-xl hover:bg-slate-950 flex items-center justify-center transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Chitti File Upload Section */}
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-700">Handwritten Chitti (Optional)</h4>
+                  
+                  <div className="flex gap-4 items-center">
+                    <label className="flex-1 flex flex-col items-center justify-center p-3 border border-dashed border-slate-300 rounded-2xl hover:bg-slate-50 cursor-pointer transition-all">
+                      <Upload className="w-5 h-5 text-slate-400 mb-1" />
+                      <span className="text-[10px] text-slate-550 font-bold text-center">
+                        {newChitti ? newChitti.name : 'Upload new chitti image'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                    
+                    {newChittiPreview && (
+                      <div className="w-16 h-16 rounded-xl border overflow-hidden bg-slate-100 flex-shrink-0">
+                        <img src={newChittiPreview} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. Detailed Instructions Textarea */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">Detailed Instructions</label>
+                  <label className="text-xs font-bold text-slate-700 block">Detailed Instructions</label>
                   <textarea
                     required
                     placeholder="e.g. Please remove the fortune sunflower oil. Also add 2 packets of Maggie if available."
                     value={revisionNotes}
                     onChange={(e) => setRevisionNotes(e.target.value)}
                     rows={4}
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs focus:border-kirana-500 focus:outline-none placeholder-slate-400"
+                    className="w-full px-4 py-3 bg-white border border-amber-400/80 focus:border-kirana-500 focus:ring-1 focus:ring-kirana-500 rounded-2xl text-xs focus:outline-none placeholder-slate-400"
                   />
                 </div>
 
-                <div className="flex space-x-2">
+                {/* 5. Footer Buttons */}
+                <div className="flex space-x-2 pt-1">
                   <button
                     type="button"
                     onClick={() => setViewState('review')}
-                    className="flex-1 py-3 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all"
+                    disabled={loading}
+                    className="flex-1 py-3 text-xs font-bold rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 py-3 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-950 shadow-md transition-all"
+                    className="flex-1 py-3 bg-slate-900 hover:bg-slate-950 text-white text-xs font-bold rounded-2xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
-                    {loading ? 'Submitting request...' : 'Send Request to Shop'}
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      <span>Send Request to Shop</span>
+                    )}
                   </button>
                 </div>
               </form>
@@ -1285,6 +1561,13 @@ const OrderVerification = ({ order, onBack, onVerifySuccess, initialViewState })
         />
       )}
 
+      {chatOpen && (
+        <OrderChat
+          orderId={order.id}
+          otherPartyName={order.shop_name}
+          onClose={() => setChatOpen(false)}
+        />
+      )}
 
     </div>
   );

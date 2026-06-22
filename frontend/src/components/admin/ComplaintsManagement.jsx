@@ -13,9 +13,9 @@ const ComplaintsManagement = () => {
   const [verificationNotes, setVerificationNotes] = useState('');
   const [selectedComplaintId, setSelectedComplaintId] = useState(null);
 
-  const fetchComplaints = async () => {
+  const fetchComplaints = async (isInitial = false) => {
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
       const response = await fetch(`${apiUrl}/admin/complaints`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -28,13 +28,13 @@ const ComplaintsManagement = () => {
     } catch (err) {
       console.error('Error fetching complaints:', err);
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchComplaints();
-    const interval = setInterval(fetchComplaints, 5000);
+    fetchComplaints(true);
+    const interval = setInterval(() => fetchComplaints(false), 5000);
     return () => clearInterval(interval);
   }, []);
 

@@ -468,7 +468,7 @@ const Home = () => {
       <main className="flex-1 flex flex-col items-center justify-center max-w-md w-full mx-auto px-4 z-10 overflow-hidden py-4 sm:py-6">
         
         {/* Sleek Intro block */}
-        <div className="text-center mb-3 space-y-1 flex-shrink-0">
+        <div className="text-center mb-3 space-y-1 flex-shrink-0 flex flex-col items-center">
           <h1 className="text-5xl font-black tracking-tight text-slate-950" style={{fontWeight: 900, letterSpacing: '-0.03em'}}>
             <span style={{color: '#1a1a1a'}}>mykiranam</span><span style={{background: 'linear-gradient(135deg, #d97706, #059669)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text'}}>.in</span>
           </h1>

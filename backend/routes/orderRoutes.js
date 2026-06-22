@@ -39,6 +39,9 @@ router.post('/:id/verify-upi-payment', verifiedSellerMiddleware, orderController
 // Customer updates fulfillment options during payment verification
 router.patch('/:id/fulfillment', orderController.updateOrderFulfillment);
 
+// Customer edits/adds items in an order (till delivered)
+router.put('/:id/edit-items', upload.single('new_chitti'), orderController.editOrderItems);
+
 // Verify OTP to complete delivery
 router.post('/:id/verify-otp', verifiedSellerMiddleware, orderController.verifyOTP);
 

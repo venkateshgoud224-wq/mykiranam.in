@@ -73,10 +73,22 @@ const StorePosterGenerator = ({ shopName, shopId }) => {
           </div>
 
           <div className="z-10 space-y-1 w-full bg-slate-50 py-3 rounded-xl border border-slate-100">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Scan & Search for:</p>
+            <p className="text-[10px] font-bold text-slate-400 tracking-wider">Scan & Search for:</p>
             <h2 className="text-xl font-black text-slate-800 px-2 break-words leading-tight">
               {shopName || 'Your Store Name'}
             </h2>
+          </div>
+
+          <div className="z-10 w-full bg-emerald-50 border border-emerald-100 py-2.5 px-3 rounded-xl text-center">
+            <p className="text-[10px] font-black text-emerald-800 uppercase tracking-wider">
+              Order Online From Our Store
+            </p>
+            <p className="text-[10px] font-black text-emerald-800 uppercase tracking-wider">
+              & Pick At Shop
+            </p>
+            <p className="text-[9px] font-bold text-emerald-600 mt-0.5">
+              (No Home Delivery)
+            </p>
           </div>
 
           <div className="z-10 pt-3 border-t border-slate-100 w-full flex items-center justify-center space-x-1.5 pb-1">

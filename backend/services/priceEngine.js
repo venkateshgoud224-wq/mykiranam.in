@@ -129,7 +129,7 @@ const generateQuotes = async (itemsList, customerId) => {
       [customerId || null, JSON.stringify(itemsList), '[]']
     );
 
-    // 2. Map requested items to Master Products
+    return []; // Return empty array to bypass database shops querying
     const mappedItems = [];
     for (const reqItem of itemsList) {
       const normalizedName = normalizeItemName(reqItem.name || reqItem.itemName);

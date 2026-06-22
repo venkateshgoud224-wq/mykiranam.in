@@ -21,7 +21,11 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
   useEffect(() => {
     if (order) {
       setBillingNotes(order.notes || '');
-      setAmount(order.amount || '');
+      // Clear amount if it is 0 or 0.00 to show the placeholder and avoid confusion
+      const initialAmount = (order.amount !== undefined && order.amount !== null && parseFloat(order.amount) !== 0) 
+        ? order.amount 
+        : '';
+      setAmount(initialAmount);
       setBillFile(null);
       setBillPreview(null);
       setError('');
@@ -31,12 +35,21 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
           const listToParse = order.modified_item_list || order.digital_item_list || '[]';
           const parsed = typeof listToParse === 'string' ? JSON.parse(listToParse) : listToParse;
           setEditableItems(
-            parsed.map(item => ({
-              ...item,
-              price: item.price !== undefined && item.price !== '' ? item.price : (item.mrp !== undefined ? item.mrp : ''),
-              notes: item.notes || '',
-              status: item.status || 'unchanged'
-            }))
+            parsed.map(item => {
+              // Clear price if it is 0 or 0.00 to show the placeholder
+              let initialPrice = '';
+              if (item.price !== undefined && item.price !== '' && parseFloat(item.price) !== 0) {
+                initialPrice = item.price;
+              } else if (item.mrp !== undefined && item.mrp !== '' && parseFloat(item.mrp) !== 0) {
+                initialPrice = item.mrp;
+              }
+              return {
+                ...item,
+                price: initialPrice,
+                notes: item.notes || '',
+                status: item.status || 'unchanged'
+              };
+            })
           );
         } catch (e) {
           console.error(e);
@@ -327,15 +340,20 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
                             <option key={u} value={u}>{u}</option>
                           ))}
                         </select>
-                        <input
-                          type="number"
-                          step="0.01"
-                          required
-                          placeholder="₹ Unit Price"
-                          value={item.price}
-                          onChange={(e) => handleUpdateItemField(item.id, 'price', e.target.value)}
-                          className="px-2 py-1.5 bg-slate-50 border-2 border-kirana-500/35 rounded-lg text-xs font-bold text-slate-900 focus:border-kirana-600 focus:outline-none"
-                        />
+                        <div className="relative rounded-lg shadow-sm">
+                          <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                            <span className="text-slate-500 text-xs font-bold">₹</span>
+                          </div>
+                          <input
+                            type="number"
+                            step="0.01"
+                            required
+                            placeholder="Price"
+                            value={item.price}
+                            onChange={(e) => handleUpdateItemField(item.id, 'price', e.target.value)}
+                            className="w-full pl-5 pr-1 py-1.5 bg-slate-50 border-2 border-kirana-500/35 rounded-lg text-xs font-bold text-slate-900 focus:border-kirana-600 focus:outline-none"
+                          />
+                        </div>
                       </div>
                     )}
 
@@ -388,8 +406,21 @@ const BillingForm = ({ order, onCancel, onSuccess }) => {
               ) : null}
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 block">Grand Total Amount (₹)</label>
-              <input type="number" step="0.01" required value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs" placeholder="e.g. 450.50" />
+              <label className="text-xs font-bold text-slate-700 block">Grand Total Amount</label>
+              <div className="relative rounded-xl shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <span className="text-slate-500 text-sm font-extrabold">₹</span>
+                </div>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-kirana-500 focus:border-kirana-500 outline-none"
+                  placeholder="Enter amount (e.g. 450.50)"
+                />
+              </div>
             </div>
           </>
         )}

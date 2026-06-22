@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { ShoppingBag, Eye, Check, X, BellRing, Clock, Download, ListOrdered, ClipboardList, Store } from 'lucide-react';
+import { ShoppingBag, Eye, Check, X, BellRing, Clock, Download, ListOrdered, ClipboardList, Store, Phone, MessageCircle } from 'lucide-react';
 import BillingForm from './BillingForm';
 import ImageModal from '../../components/common/ImageModal';
+import OrderChat from '../../components/common/OrderChat';
 
 const NewOrders = ({ newOrders, onUpdateStatus, onTabChange, isRevision }) => {
   const { token, apiUrl, user } = useAuth();
@@ -15,6 +16,8 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange, isRevision }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [previewImage, setPreviewImage] = useState(null);
+  const [chatOrderId, setChatOrderId] = useState(null);
+  const [chatCustomerName, setChatCustomerName] = useState('');
 
   const handleAcceptSuccess = async () => {
     // Refresh the order list from parent
@@ -221,6 +224,50 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange, isRevision }) => {
                         {order.fulfillment_method === 'Delivery' ? '🛵 Home Delivery' : '🏪 Shop Pickup'}
                       </span>
                     </div>
+                  </div>
+                  
+                  {/* Communication Actions */}
+                  <div className="grid grid-cols-2 gap-2 mt-3">
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const phoneNum = order.fulfillment_method === 'Delivery' && order.delivery_phone 
+                          ? order.delivery_phone 
+                          : order.customer_phone;
+                        const rawPhone = String(phoneNum || '');
+                        const cleanPhone = rawPhone.replace(/[^0-9+]/g, '');
+                        if (cleanPhone) {
+                          navigator.clipboard.writeText(cleanPhone).catch(() => {});
+                          window.location.href = `tel:${cleanPhone}`;
+                        } else {
+                          alert("No valid phone number found.");
+                        }
+                      }}
+                      className="flex items-center justify-center space-x-1.5 py-1.5 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors font-semibold text-[11px] w-full"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>Call Customer {(() => {
+                        const phoneNum = order.fulfillment_method === 'Delivery' && order.delivery_phone 
+                          ? order.delivery_phone 
+                          : order.customer_phone;
+                        const p = String(phoneNum || '').replace(/[^0-9+]/g, '');
+                        const masked = p.length >= 4 ? p.substring(0, 2) + 'XXXXXX' + p.slice(-2) : p;
+                        return masked ? `(${masked})` : '';
+                      })()}</span>
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setChatOrderId(order.id);
+                        setChatCustomerName(order.customer_name);
+                      }}
+                      className="flex items-center justify-center space-x-1.5 py-1.5 px-3 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl transition-colors font-semibold text-[11px]"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>Chat Customer</span>
+                    </button>
                   </div>
                 </div>
 
@@ -435,6 +482,45 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange, isRevision }) => {
                 )}
               </div>
 
+              {/* Communication Actions */}
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const phoneNum = selectedOrder.fulfillment_method === 'Delivery' && selectedOrder.delivery_phone 
+                      ? selectedOrder.delivery_phone 
+                      : selectedOrder.customer_phone;
+                    const rawPhone = String(phoneNum || '');
+                    const cleanPhone = rawPhone.replace(/[^0-9+]/g, '');
+                    if (cleanPhone) {
+                      navigator.clipboard.writeText(cleanPhone).catch(() => {});
+                      window.location.href = `tel:${cleanPhone}`;
+                    } else {
+                      alert("No valid phone number found.");
+                    }
+                  }}
+                  className="flex items-center justify-center space-x-2 py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-105 rounded-xl transition-colors font-semibold text-xs w-full"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>Call Customer {(() => {
+                    const phoneNum = selectedOrder.fulfillment_method === 'Delivery' && selectedOrder.delivery_phone 
+                      ? selectedOrder.delivery_phone 
+                      : selectedOrder.customer_phone;
+                    const p = String(phoneNum || '').replace(/[^0-9+]/g, '');
+                    const masked = p.length >= 4 ? p.substring(0, 2) + 'XXXXXX' + p.slice(-2) : p;
+                    return masked ? `(${masked})` : '';
+                  })()}</span>
+                </button>
+                <button 
+                  onClick={() => { setChatOrderId(selectedOrder.id); setChatCustomerName(selectedOrder.customer_name); }}
+                  className="flex items-center justify-center space-x-2 py-2 px-3 bg-purple-50 text-purple-700 hover:bg-purple-105 rounded-xl transition-colors font-semibold text-xs"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Chat Customer</span>
+                </button>
+              </div>
+
               {error && <div className="text-crimson text-xs font-semibold">{error}</div>}
 
               {showRejectForm ? (
@@ -503,6 +589,14 @@ const NewOrders = ({ newOrders, onUpdateStatus, onTabChange, isRevision }) => {
         <ImageModal
           imageUrl={previewImage}
           onClose={() => setPreviewImage(null)}
+        />
+      )}
+
+      {chatOrderId && (
+        <OrderChat 
+          orderId={chatOrderId}
+          otherPartyName={chatCustomerName}
+          onClose={() => setChatOrderId(null)}
         />
       )}
     </div>
