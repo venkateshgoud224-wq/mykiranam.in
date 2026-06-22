@@ -110,11 +110,58 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   await db.initDb();
   socketService.init(server);
+
+  // Run catalog auto-update immediately on startup
+  try {
+    const now = new Date();
+    console.log('⚡ [Startup] Running catalog date auto-touch update...');
+    if (db.getIsMock()) {
+      const mockDb = db.getMockDb();
+      if (mockDb.seller_products) {
+        mockDb.seller_products.forEach(p => {
+          p.updated_at = now;
+        });
+        db.markMockDbDirty();
+        db.saveMockDb();
+      }
+    } else {
+      await db.query('UPDATE seller_products SET updated_at = CURRENT_TIMESTAMP');
+    }
+    console.log('✅ [Startup] Catalog date auto-touch update completed.');
+  } catch (err) {
+    console.error('❌ [Startup] Error running startup catalog auto-update:', err.message);
+  }
+
+  let lastCatalogAutoUpdateDate = new Date().toDateString();
   
   // Pickup Reminder Background Worker (Phase 6A)
   setInterval(async () => {
     try {
       const now = new Date();
+
+      // Daily Catalog Auto-Update
+      const todayStr = now.toDateString();
+      if (lastCatalogAutoUpdateDate !== todayStr) {
+        lastCatalogAutoUpdateDate = todayStr;
+        try {
+          console.log(`⚡ [Background Job] Running daily catalog date auto-update for ${todayStr}...`);
+          if (db.getIsMock()) {
+            const mockDb = db.getMockDb();
+            if (mockDb.seller_products) {
+              mockDb.seller_products.forEach(p => {
+                p.updated_at = now;
+              });
+              db.markMockDbDirty();
+              db.saveMockDb();
+            }
+          } else {
+            await db.query('UPDATE seller_products SET updated_at = CURRENT_TIMESTAMP');
+          }
+          console.log('✅ [Background Job] Daily catalog date auto-update completed.');
+        } catch (err) {
+          console.error('❌ [Background Job] Error running daily catalog auto-update:', err.message);
+        }
+      }
       if (db.getIsMock()) {
         const mockDb = db.getMockDb();
 
