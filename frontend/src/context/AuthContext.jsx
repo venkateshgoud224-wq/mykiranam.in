@@ -69,6 +69,7 @@ export const AuthProvider = ({ children }) => {
 
       localStorage.setItem('token', data.token);
       sessionStorage.removeItem('explicit_logout');
+      sessionStorage.setItem('kirana_just_logged_in', 'true');
       setToken(data.token);
       setUser(data.user);
       return data.user;
@@ -109,6 +110,7 @@ export const AuthProvider = ({ children }) => {
       if (!response.ok) throw new Error(data.error || 'Google login failed.');
 
       localStorage.setItem('token', data.token);
+      sessionStorage.setItem('kirana_just_logged_in', 'true');
       setToken(data.token);
       setUser(data.user);
       return data.user;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { useGeolocation } from '../../hooks/useGeolocation';
@@ -10,6 +10,15 @@ const Navbar = ({ onSetCoords, currentCoords, setActiveTab }) => {
   const { unreadCount } = useSocket();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
+
+  // Auto-prompt location modal exactly once right after a successful login
+  useEffect(() => {
+    const justLoggedIn = sessionStorage.getItem('kirana_just_logged_in') === 'true';
+    if (justLoggedIn) {
+      sessionStorage.removeItem('kirana_just_logged_in');
+      setShowLocationModal(true);
+    }
+  }, []);
   
   // GPS diagnostics local state
   const [gpsLoading, setGpsLoading] = useState(false);

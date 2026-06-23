@@ -42,8 +42,8 @@ const checkLocationDuplicate = async (lat, lng, currentShopId = null) => {
 const getShops = async (req, res) => {
   const { lat, lng, sort, filterAvailable, filterVerified, filterNearby } = req.query;
 
-  const customerLat = lat ? parseFloat(lat) : 12.9716;
-  const customerLng = lng ? parseFloat(lng) : 77.5946;
+  const customerLat = lat ? parseFloat(lat) : 16.8970;
+  const customerLng = lng ? parseFloat(lng) : 79.8705;
 
   try {
     // Phase 2 Rule: Query only VERIFIED shops that are not suspended (Warning 5)

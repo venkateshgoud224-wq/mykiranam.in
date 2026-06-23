@@ -189,8 +189,8 @@ const AdminDashboard = () => {
     const L = window.L;
     if (!L) return; // Prevent crash if Leaflet is not yet ready on window
 
-    const initialLat = parseFloat(selectedSeller.latitude) || 12.9716;
-    const initialLng = parseFloat(selectedSeller.longitude) || 77.5946;
+    const initialLat = parseFloat(selectedSeller.latitude) || 16.8970;
+    const initialLng = parseFloat(selectedSeller.longitude) || 79.8705;
 
     if (mapRef.current) {
       mapRef.current.remove();
@@ -723,9 +723,9 @@ const AdminDashboard = () => {
                             <td className="py-4 px-5">
                               {(() => {
                                 const locationToDisplay = hasLocation ? user.location : {
-                                  address: "Bangalore Central, Karnataka (Platform Default)",
-                                  latitude: 12.9716,
-                                  longitude: 77.5946,
+                                  address: "Telangana (Platform Default)",
+                                  latitude: 16.8970,
+                                  longitude: 79.8705,
                                   isDefault: true
                                 };
 

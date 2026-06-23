@@ -42,8 +42,8 @@ const NearbyShops = ({ coords, onSelectShop, onTabChange }) => {
     try {
       setLoading(true);
       const queryParams = new URLSearchParams({
-        lat: coords?.latitude || 12.9716,
-        lng: coords?.longitude || 77.5946,
+        lat: coords?.latitude || 16.8970,
+        lng: coords?.longitude || 79.8705,
         sort: sortBy !== 'default' ? sortBy : '',
         filterAvailable: filterAvailable ? 'true' : 'false',
         filterVerified: filterVerified ? 'true' : 'false',
