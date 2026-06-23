@@ -11,7 +11,15 @@ const AdminDashboard = () => {
   const [analytics, setAnalytics] = useState(null);
   const [trustData, setTrustData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState('analytics'); // analytics | review | verified | logs | trust | complaints | orders
+  const [activeSubTab, setActiveSubTab] = useState('analytics'); // analytics | review | verified | logs | trust | complaints | orders | users
+
+  // Users Directory States
+  const [usersDirectory, setUsersDirectory] = useState({ customers: [], sellers: [], totalCustomers: 0, totalSellers: 0 });
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersSearch, setUsersSearch] = useState('');
+  const [usersRoleFilter, setUsersRoleFilter] = useState('All');
+  const [usersStatusFilter, setUsersStatusFilter] = useState('All');
+  const [selectedUserForMap, setSelectedUserForMap] = useState(null);
   
   // Orders Tab States
   const [orders, setOrders] = useState([]);
@@ -39,6 +47,7 @@ const AdminDashboard = () => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
+  const userMapInstanceRef = useRef(null);
 
 
   const fetchOrders = async () => {
@@ -106,11 +115,31 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchUsersDirectory = async (isInitial = false) => {
+    try {
+      if (isInitial) setUsersLoading(true);
+      const response = await fetch(`${apiUrl}/admin/users-directory`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUsersDirectory(data);
+      }
+    } catch (err) {
+      console.error('Error fetching admin users directory:', err);
+    } finally {
+      if (isInitial) setUsersLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchSellers(true);
     fetchAnalytics();
     fetchTrustData();
     fetchOrders();
+    fetchUsersDirectory(true);
 
     // Set up polling every 3 seconds while on dashboard
     const interval = setInterval(() => {
@@ -118,6 +147,7 @@ const AdminDashboard = () => {
       fetchAnalytics();
       fetchTrustData();
       fetchOrders();
+      fetchUsersDirectory(false);
     }, 3000);
 
     return () => clearInterval(interval);
@@ -185,6 +215,47 @@ const AdminDashboard = () => {
       }
     };
   }, [leafletLoaded, selectedSeller]);
+
+  // Map initialization for Selected User Map Modal
+  useEffect(() => {
+    if (!leafletLoaded || !selectedUserForMap || !selectedUserForMap.location?.latitude) return;
+
+    const L = window.L;
+    if (!L) return;
+
+    const lat = parseFloat(selectedUserForMap.location.latitude);
+    const lng = parseFloat(selectedUserForMap.location.longitude);
+
+    // Timeout to make sure modal container has rendered completely in DOM
+    const timer = setTimeout(() => {
+      const mapDiv = document.getElementById('user-location-map');
+      if (!mapDiv) return;
+
+      if (userMapInstanceRef.current) {
+        userMapInstanceRef.current.remove();
+        userMapInstanceRef.current = null;
+      }
+
+      const userMap = L.map(mapDiv, { scrollWheelZoom: false }).setView([lat, lng], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(userMap);
+
+      L.marker([lat, lng]).addTo(userMap)
+        .bindPopup(`<b>${selectedUserForMap.name}</b><br/>${selectedUserForMap.location.address || ''}`)
+        .openPopup();
+
+      userMapInstanceRef.current = userMap;
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      if (userMapInstanceRef.current) {
+        userMapInstanceRef.current.remove();
+        userMapInstanceRef.current = null;
+      }
+    };
+  }, [leafletLoaded, selectedUserForMap]);
 
   const handleVerifyStatus = async (sellerId, newStatus) => {
     setActionLoading(true);
@@ -271,6 +342,36 @@ const AdminDashboard = () => {
   const pendingApps = sellers.filter(s => s.verification_status === 'Under Review');
   const verifiedList = sellers.filter(s => s.verification_status === 'Verified');
   const logsHistory = sellers.filter(s => ['Rejected', 'Suspended'].includes(s.verification_status));
+
+  // Filtered users for Users Directory
+  const filteredUsers = (() => {
+    const list = [
+      ...(usersDirectory.customers || []).map(c => ({ ...c, role: 'customer' })),
+      ...(usersDirectory.sellers || []).map(s => ({ ...s, role: 'seller' }))
+    ];
+
+    return list.filter(user => {
+      // 1. Search Query Match
+      const searchStr = usersSearch.trim().toLowerCase();
+      const nameMatch = user.name?.toLowerCase().includes(searchStr);
+      const emailMatch = user.email?.toLowerCase().includes(searchStr);
+      const phoneMatch = user.phone?.toLowerCase().includes(searchStr);
+      const shopMatch = user.shop_name?.toLowerCase().includes(searchStr);
+      const matchSearch = !searchStr || nameMatch || emailMatch || phoneMatch || shopMatch;
+
+      // 2. Role Filter Match
+      const matchRole = usersRoleFilter === 'All' || user.role === usersRoleFilter;
+
+      // 3. Status Filter Match
+      const matchStatus = usersStatusFilter === 'All' || 
+                          (usersStatusFilter === 'Active' && user.status === 'Active') ||
+                          (usersStatusFilter === 'Suspended' && (user.status === 'Suspended' || user.status === 'Banned')) ||
+                          (usersStatusFilter === 'Verified' && user.status === 'Verified') ||
+                          (usersStatusFilter === 'Pending' && (user.status === 'Pending' || user.status === 'Under Review'));
+
+      return matchSearch && matchRole && matchStatus;
+    });
+  })();
 
   // Visual metrics summary
   const totalActiveQueues = sellers.reduce((sum, s) => sum + (s.active_orders || 0), 0);
@@ -372,6 +473,16 @@ const AdminDashboard = () => {
         </button>
 
         <button
+          onClick={() => setActiveSubTab('users')}
+          className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
+            activeSubTab === 'users' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <User className="w-3.5 h-3.5 text-indigo-500" />
+          <span className="hidden sm:inline">Users</span>
+        </button>
+
+        <button
           onClick={() => setActiveSubTab('database')}
           className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1 ${
             activeSubTab === 'database' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
@@ -383,9 +494,306 @@ const AdminDashboard = () => {
       </div>
 
       {/* Render applications lists */}
-      {loading && activeSubTab !== 'analytics' ? (
+      {loading && activeSubTab !== 'analytics' && activeSubTab !== 'users' ? (
         <div className="py-12 text-center text-xs font-bold text-slate-400 animate-pulse">
           Retrieving merchant applications directory...
+        </div>
+      ) : activeSubTab === 'users' ? (
+        <div className="space-y-6 animate-fade-in-up">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-black text-slate-900">User Management Directory</h2>
+              <p className="text-sm text-slate-500">Monitor and manage all customers and sellers registered on Kiranam.in.</p>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-2">
+              <button 
+                onClick={() => fetchUsersDirectory(true)} 
+                className="px-4 py-2.5 bg-white border border-slate-200 shadow-sm rounded-xl text-xs font-bold flex items-center space-x-2 text-slate-700 hover:bg-slate-50 transition-all"
+              >
+                <RefreshCcw className="w-4 h-4" /> <span className="hidden sm:inline">Refresh Directory</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Metric cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-5 rounded-3xl shadow-premium border border-indigo-400/20 relative overflow-hidden">
+              <div className="absolute right-4 top-4 bg-white/10 p-2 rounded-2xl">
+                <User className="w-6 h-6 text-white" />
+              </div>
+              <span className="block text-[10px] uppercase font-extrabold tracking-wider text-indigo-100">Total Registered Users</span>
+              <span className="text-3xl font-black mt-2 block">
+                {(usersDirectory.totalCustomers || 0) + (usersDirectory.totalSellers || 0)}
+              </span>
+              <span className="text-[10px] text-indigo-200 mt-1 block">Active on platform</span>
+            </div>
+
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-5 rounded-3xl shadow-premium border border-blue-400/20 relative overflow-hidden">
+              <div className="absolute right-4 top-4 bg-white/10 p-2 rounded-2xl">
+                <UserCheck className="w-6 h-6 text-white" />
+              </div>
+              <span className="block text-[10px] uppercase font-extrabold tracking-wider text-blue-100">Total Customers</span>
+              <span className="text-3xl font-black mt-2 block">
+                {usersDirectory.totalCustomers || 0}
+              </span>
+              <span className="text-[10px] text-blue-200 mt-1 block">Buyers & Order placements</span>
+            </div>
+
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-5 rounded-3xl shadow-premium border border-emerald-400/20 relative overflow-hidden">
+              <div className="absolute right-4 top-4 bg-white/10 p-2 rounded-2xl">
+                <Store className="w-6 h-6 text-white" />
+              </div>
+              <span className="block text-[10px] uppercase font-extrabold tracking-wider text-emerald-100">Total Sellers</span>
+              <span className="text-3xl font-black mt-2 block">
+                {usersDirectory.totalSellers || 0}
+              </span>
+              <span className="text-[10px] text-emerald-200 mt-1 block">Shops & Service providers</span>
+            </div>
+          </div>
+
+          {/* Filters Panel */}
+          <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center gap-3">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Search name, email, phone, shop name..."
+                value={usersSearch}
+                onChange={(e) => setUsersSearch(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs focus:border-indigo-500 focus:outline-none font-semibold text-slate-800"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div>
+                <select
+                  value={usersRoleFilter}
+                  onChange={(e) => setUsersRoleFilter(e.target.value)}
+                  className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs focus:border-indigo-500 focus:outline-none font-bold text-slate-700"
+                >
+                  <option value="All">All Roles</option>
+                  <option value="customer">Customers Only</option>
+                  <option value="seller">Sellers Only</option>
+                </select>
+              </div>
+
+              <div>
+                <select
+                  value={usersStatusFilter}
+                  onChange={(e) => setUsersStatusFilter(e.target.value)}
+                  className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs focus:border-indigo-500 focus:outline-none font-bold text-slate-700"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Active">Active Profile</option>
+                  <option value="Suspended">Suspended Profile</option>
+                  <option value="Verified">Verified Shop (Sellers)</option>
+                  <option value="Pending">Pending Audit (Sellers)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Directory Table */}
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            {usersLoading ? (
+              <div className="py-16 text-center text-xs font-bold text-slate-400 animate-pulse">
+                Loading users database directory...
+              </div>
+            ) : (() => {
+              const list = filteredUsers;
+              if (list.length === 0) {
+                return (
+                  <div className="py-16 text-center text-slate-400 text-xs">
+                    No users match the search queries and filters.
+                  </div>
+                );
+              }
+
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] text-slate-400 uppercase font-black tracking-wider border-b border-slate-100">
+                        <th className="py-3.5 px-5">User</th>
+                        <th className="py-3.5 px-5">Contact Details</th>
+                        <th className="py-3.5 px-5">Profile Status</th>
+                        <th className="py-3.5 px-5">Last Login Time</th>
+                        <th className="py-3.5 px-5">GPS Location</th>
+                        <th className="py-3.5 px-5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 text-xs">
+                      {list.map((user) => {
+                        const isSeller = user.role === 'seller';
+                        const isWhatsappVerified = user.verified_whatsapp;
+                        const isEmailVerified = user.verified_email;
+                        const hasLocation = user.location && user.location.latitude;
+
+                        // Check if active login in last 24h
+                        const wasActive24h = user.last_login && (new Date() - new Date(user.last_login)) < 24 * 60 * 60 * 1000;
+
+                        return (
+                          <tr key={`${user.role}-${user.id}`} className="hover:bg-slate-50/50 transition-colors">
+                            {/* User name & role */}
+                            <td className="py-4 px-5">
+                              <div className="flex items-center space-x-3">
+                                <div className={`w-8.5 h-8.5 rounded-full font-black text-xs flex items-center justify-center border ${
+                                  isSeller ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                                }`}>
+                                  {user.name?.charAt(0).toUpperCase() || 'U'}
+                                </div>
+                                <div>
+                                  <span className="block font-bold text-slate-900">{user.name}</span>
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    <span className={`px-1.5 py-0.2 rounded text-[8px] font-black uppercase tracking-wider ${
+                                      isSeller ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'
+                                    }`}>
+                                      {user.role}
+                                    </span>
+                                    <span className="text-[9px] text-slate-400">ID: #{user.id}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Contact Details */}
+                            <td className="py-4 px-5 space-y-0.5">
+                              <span className="block font-semibold text-slate-700">{user.email}</span>
+                              <div className="flex items-center space-x-1">
+                                <span className="text-slate-500 font-medium">{user.phone || 'No phone number'}</span>
+                                {isWhatsappVerified && (
+                                  <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-600 border border-emerald-100 text-[8px] font-extrabold rounded-full flex items-center gap-0.5">
+                                    WA Verified
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Profile Status */}
+                            <td className="py-4 px-5">
+                              {isSeller ? (
+                                <div className="space-y-1">
+                                  <span className="block font-bold text-slate-700 text-[10px]">{user.shop_name}</span>
+                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
+                                    user.status === 'Verified' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                                    user.status === 'Under Review' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                                    user.status === 'Pending' ? 'bg-slate-100 text-slate-655 border border-slate-200' :
+                                    'bg-rose-100 text-rose-800 border border-rose-250'
+                                  }`}>
+                                    {user.status}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <span className="block text-slate-500 text-[10px] font-medium">{user.customer_level}</span>
+                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
+                                    user.status === 'Active' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                                    'bg-rose-100 text-rose-800 border border-rose-250'
+                                  }`}>
+                                    {user.status}
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Last Login Time */}
+                            <td className="py-4 px-5">
+                              {user.last_login ? (
+                                <div className="flex items-center space-x-1.5">
+                                  {wasActive24h && (
+                                    <span className="relative flex h-2 w-2">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                    </span>
+                                  )}
+                                  <span className="text-slate-600 font-semibold">{new Date(user.last_login).toLocaleString()}</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic">Never logged in</span>
+                              )}
+                            </td>
+
+                            {/* GPS Location */}
+                            <td className="py-4 px-5">
+                              {hasLocation ? (
+                                <div className="max-w-[200px] space-y-1">
+                                  <span className="block text-slate-600 truncate font-semibold" title={user.location.address}>
+                                    {user.location.address}
+                                  </span>
+                                  <button
+                                    onClick={() => setSelectedUserForMap(user)}
+                                    className="text-indigo-600 hover:text-indigo-800 text-[10px] font-extrabold flex items-center gap-0.5 cursor-pointer"
+                                  >
+                                    <MapPin className="w-3 h-3 text-indigo-500" />
+                                    <span>View Pin ({parseFloat(user.location.latitude).toFixed(4)}, {parseFloat(user.location.longitude).toFixed(4)})</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic text-[11px]">
+                                  {isSeller ? 'No shop address pinned' : 'No delivery address recorded'}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="py-4 px-5 text-right">
+                              {isSeller ? (
+                                <button
+                                  onClick={() => {
+                                    // Set as selectedSeller to trigger existing shop audit modal in current code!
+                                    setSelectedSeller({
+                                      id: user.shop_id,
+                                      owner_id: user.id,
+                                      shop_name: user.shop_name,
+                                      address: user.address,
+                                      latitude: user.latitude,
+                                      longitude: user.longitude,
+                                      verification_status: user.verification_status,
+                                      shop_category: user.shop_category,
+                                      working_hours: user.working_hours,
+                                      owner_name: user.name,
+                                      owner_phone: user.phone,
+                                      image_front: user.image_front,
+                                      image_counter: user.image_counter,
+                                      image_inside1: user.image_inside1,
+                                      image_inside2: user.image_inside2,
+                                      image_additional: user.image_additional
+                                    });
+                                    setActiveImageIdx(0);
+                                    setShowRejectForm(false);
+                                    if (user.shop_id) {
+                                      fetchSellerKyc(user.shop_id);
+                                    }
+                                  }}
+                                  className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-950 text-white rounded-lg text-[10px] font-bold transition-all inline-flex items-center gap-0.5 cursor-pointer"
+                                >
+                                  Audit Shop
+                                </button>
+                              ) : (
+                                <>
+                                  {user.status === 'Suspended' ? (
+                                    <button
+                                      onClick={() => handleUnsuspendCustomer(user.id)}
+                                      className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition-all inline-flex items-center gap-0.5 cursor-pointer"
+                                    >
+                                      Unsuspend
+                                    </button>
+                                  ) : (
+                                    <span className="text-slate-400 text-[10px] italic">No action needed</span>
+                                  )}
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
         </div>
       ) : activeSubTab === 'analytics' ? (
         <div className="space-y-6 animate-fade-in-up">
@@ -1713,6 +2121,77 @@ const AdminDashboard = () => {
                 </div>
               )}
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Location Map Modal */}
+      {selectedUserForMap && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setSelectedUserForMap(null)}
+        >
+          <div className="bg-white rounded-3xl p-6 max-w-xl w-full text-slate-800 shadow-premium" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b pb-4 mb-4">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-indigo-600" />
+                  <span>{selectedUserForMap.name}'s Location</span>
+                </h3>
+                <p className="text-xs text-slate-500 capitalize">{selectedUserForMap.role} Location Details</p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setSelectedUserForMap(null)}
+                className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-700 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs">
+                <span className="block text-[9px] text-slate-400 font-bold uppercase mb-1">Recorded Address</span>
+                <p className="font-bold text-slate-800 text-sm">{selectedUserForMap.location?.address || 'No address recorded'}</p>
+                {selectedUserForMap.shop_name && (
+                  <p className="text-[10px] text-slate-500 mt-1 font-semibold">Shop: {selectedUserForMap.shop_name}</p>
+                )}
+              </div>
+
+              {selectedUserForMap.location?.latitude && selectedUserForMap.location?.longitude ? (
+                <>
+                  {/* Read-Only Leaflet Map Container */}
+                  <div className="space-y-1">
+                    <span className="block text-[10px] text-slate-400 font-bold uppercase mb-1">
+                      GPS Coordinates Preview
+                    </span>
+                    <div 
+                      className="w-full h-52 rounded-2xl border border-slate-200 overflow-hidden bg-slate-100 relative" 
+                      style={{ minHeight: '200px' }}
+                    >
+                      <div id="user-location-map" className="w-full h-full z-10" />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs pt-2">
+                    <span className="font-mono text-slate-500">Lat: {selectedUserForMap.location.latitude}, Lng: {selectedUserForMap.location.longitude}</span>
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${selectedUserForMap.location.latitude},${selectedUserForMap.location.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl font-bold transition-all flex items-center gap-1"
+                    >
+                      Open in Google Maps ↗
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <div className="py-8 text-center text-slate-400 text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <AlertCircle className="w-8 h-8 text-slate-355 mx-auto mb-2" />
+                  No GPS coordinates captured for this profile.
+                </div>
+              )}
             </div>
           </div>
         </div>

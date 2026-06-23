@@ -653,6 +653,152 @@ const getAllOrdersList = async (req, res) => {
   }
 };
 
+// Fetch enriched users list (sellers & customers with login time, status, location, and counts)
+const getUsersDirectory = async (req, res) => {
+  try {
+    const isMock = db.getIsMock && db.getIsMock();
+    if (!isMock) {
+      // Fetch customers with their last known delivery location
+      const customersRes = await db.query(
+        `SELECT u.id, u.name, u.email, u.phone, u.verified_whatsapp, u.verified_email, u.created_at, u.last_login,
+                COALESCE(ct.trust_score, 100) as trust_score,
+                COALESCE(ct.customer_level, 'Standard Customer') as customer_level,
+                ct.suspension_end_date,
+                (SELECT o.delivery_address FROM orders o WHERE o.customer_id = u.id AND o.delivery_address IS NOT NULL ORDER BY o.created_at DESC LIMIT 1) as last_address,
+                (SELECT o.delivery_latitude FROM orders o WHERE o.customer_id = u.id AND o.delivery_latitude IS NOT NULL ORDER BY o.created_at DESC LIMIT 1) as last_latitude,
+                (SELECT o.delivery_longitude FROM orders o WHERE o.customer_id = u.id AND o.delivery_longitude IS NOT NULL ORDER BY o.created_at DESC LIMIT 1) as last_longitude
+         FROM users u
+         LEFT JOIN customer_trust ct ON u.id = ct.customer_id
+         WHERE u.role = 'customer'
+         ORDER BY u.created_at DESC`
+      );
+
+      // Fetch sellers with their shop details
+      const sellersRes = await db.query(
+        `SELECT u.id, u.name, u.email, u.phone, u.verified_whatsapp, u.verified_email, u.created_at, u.last_login,
+                s.id as shop_id, s.shop_name, s.address, s.latitude, s.longitude, s.verification_status, s.warning_level, s.suspension_end_date as shop_suspension_end_date,
+                s.working_hours, s.shop_category, s.image_front, s.image_counter, s.image_inside1, s.image_inside2, s.image_additional
+         FROM users u
+         LEFT JOIN shops s ON u.id = s.owner_id
+         WHERE u.role = 'seller'
+         ORDER BY u.created_at DESC`
+      );
+
+      const customers = customersRes.rows.map(c => {
+        const isSuspended = c.suspension_end_date && new Date(c.suspension_end_date) > new Date();
+        return {
+          ...c,
+          status: isSuspended ? 'Suspended' : 'Active',
+          location: c.last_address ? { address: c.last_address, latitude: c.last_latitude, longitude: c.last_longitude } : null
+        };
+      });
+
+      const sellers = sellersRes.rows.map(s => {
+        let status = s.verification_status || 'Pending';
+        if (s.warning_level === 'Suspended' || s.warning_level === 'Banned') {
+          status = s.warning_level;
+        }
+        return {
+          ...s,
+          status,
+          location: s.address ? { address: s.address, latitude: s.latitude, longitude: s.longitude } : null
+        };
+      });
+
+      return res.status(200).json({
+        totalCustomers: customers.length,
+        totalSellers: sellers.length,
+        customers,
+        sellers
+      });
+    } else {
+      // Mock mode
+      const mockDbData = db.getMockDb();
+      const users = mockDbData.users || [];
+      const shops = mockDbData.shops || [];
+      const orders = mockDbData.orders || [];
+      const customerTrust = mockDbData.customer_trust || {};
+
+      const mockCustomers = users.filter(u => u.role === 'customer').map(u => {
+        const trust = customerTrust[u.id] || {};
+        const isSuspended = trust.suspension_end_date && new Date(trust.suspension_end_date) > new Date();
+        
+        // Find last order with delivery info
+        const custOrders = orders.filter(o => o.customer_id === u.id && o.delivery_address);
+        custOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const lastOrder = custOrders[0];
+
+        return {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          phone: u.phone,
+          role: u.role,
+          verified_whatsapp: u.verified_whatsapp || false,
+          verified_email: u.verified_email || false,
+          created_at: u.created_at,
+          last_login: u.last_login,
+          trust_score: trust.trust_score !== undefined ? trust.trust_score : 100,
+          customer_level: trust.customer_level || 'Standard Customer',
+          suspension_end_date: trust.suspension_end_date || null,
+          status: isSuspended ? 'Suspended' : 'Active',
+          location: lastOrder ? {
+            address: lastOrder.delivery_address,
+            latitude: lastOrder.delivery_latitude,
+            longitude: lastOrder.delivery_longitude
+          } : null
+        };
+      });
+
+      const mockSellers = users.filter(u => u.role === 'seller').map(u => {
+        const shop = shops.find(s => s.owner_id === u.id) || {};
+        let status = shop.verification_status || 'Pending';
+        if (shop.warning_level === 'Suspended' || shop.warning_level === 'Banned') {
+          status = shop.warning_level;
+        }
+
+        return {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          phone: u.phone,
+          role: u.role,
+          verified_whatsapp: u.verified_whatsapp || false,
+          verified_email: u.verified_email || false,
+          created_at: u.created_at,
+          last_login: u.last_login,
+          shop_id: shop.id || null,
+          shop_name: shop.shop_name || 'Kirana Store',
+          address: shop.address || null,
+          latitude: shop.latitude || null,
+          longitude: shop.longitude || null,
+          verification_status: shop.verification_status || 'Pending',
+          warning_level: shop.warning_level || 'None',
+          status,
+          location: shop.address ? {
+            address: shop.address,
+            latitude: shop.latitude,
+            longitude: shop.longitude
+          } : null
+        };
+      });
+
+      mockCustomers.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      mockSellers.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      return res.status(200).json({
+        totalCustomers: mockCustomers.length,
+        totalSellers: mockSellers.length,
+        customers: mockCustomers,
+        sellers: mockSellers
+      });
+    }
+  } catch (err) {
+    console.error('Error fetching admin users directory:', err);
+    return res.status(500).json({ error: 'Server error retrieving users directory.' });
+  }
+};
+
 module.exports = {
   getSellersList,
   updateVerificationStatus,
@@ -666,5 +812,6 @@ module.exports = {
   getCompletedOrdersList,
   getSellerKyc,
   unsuspendCustomer,
-  getAllOrdersList
+  getAllOrdersList,
+  getUsersDirectory
 };

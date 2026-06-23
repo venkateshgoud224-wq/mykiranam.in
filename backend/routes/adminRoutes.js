@@ -44,6 +44,9 @@ router.post('/upload-prices', upload.single('file'), adminController.uploadPrice
 // Fetch customers list
 router.get('/customers', adminController.getCustomersList);
 
+// Fetch enriched users list (sellers & customers with login time, status, location, and counts)
+router.get('/users-directory', adminController.getUsersDirectory);
+
 // Remove customer suspension & reset trust metrics
 router.post('/customers/:id/unsuspend', adminController.unsuspendCustomer);
 
