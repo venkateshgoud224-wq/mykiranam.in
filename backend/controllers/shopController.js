@@ -94,7 +94,8 @@ const getShops = async (req, res) => {
       );
       return {
         ...shop,
-        distance: parseFloat(distance.toFixed(2))
+        distance: parseFloat(distance.toFixed(2)),
+        isRoad: false
       };
     });
 
@@ -111,6 +112,40 @@ const getShops = async (req, res) => {
     }
     if (filterNearby === 'true' && !isSpecialUser) {
       shops = shops.filter(s => s.distance <= 5.0 || isAlwaysVisibleShop(s));
+    }
+
+    // Integrate OSRM Table API to calculate exact road/driving distances on backend
+    if (shops.length > 0) {
+      try {
+        const coordsStr = `${customerLng},${customerLat};` + shops.map(s => `${s.longitude},${s.latitude}`).join(';');
+        const url = `https://router.project-osrm.org/table/v1/driving/${coordsStr}?sources=0`;
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 seconds timeout to keep it fast
+
+        const osrmResponse = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (osrmResponse.ok) {
+          const osrmData = await osrmResponse.json();
+          if (osrmData.code === 'Ok' && osrmData.distances && osrmData.distances[0]) {
+            const distances = osrmData.distances[0];
+            shops = shops.map((shop, index) => {
+              const meters = distances[index + 1];
+              if (meters !== null && meters !== undefined) {
+                return {
+                  ...shop,
+                  distance: parseFloat((meters / 1000).toFixed(2)),
+                  isRoad: true
+                };
+              }
+              return shop;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Backend OSRM Table API failed, using straight-line distance fallback:', err.message);
+      }
     }
 
     // Warning level rank penalty helper (Warning 3 & 4 appear lower)
