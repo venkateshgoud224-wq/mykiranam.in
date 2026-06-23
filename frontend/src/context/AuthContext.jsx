@@ -182,6 +182,7 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.setItem('explicit_logout', 'true');
     sessionStorage.removeItem('kirana_activeTab');
     sessionStorage.removeItem('kirana_selectedShop');
+    sessionStorage.removeItem('kirana_adminActiveSubTab');
     setToken(null);
     setUser(null);
     setExtraData({});

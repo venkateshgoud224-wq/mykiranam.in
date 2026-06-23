@@ -11,7 +11,13 @@ const AdminDashboard = () => {
   const [analytics, setAnalytics] = useState(null);
   const [trustData, setTrustData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState('analytics'); // analytics | review | verified | logs | trust | complaints | orders | users
+  const [activeSubTab, setActiveSubTab] = useState(() => {
+    return sessionStorage.getItem('kirana_adminActiveSubTab') || 'analytics';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('kirana_adminActiveSubTab', activeSubTab);
+  }, [activeSubTab]);
 
   // Users Directory States
   const [usersDirectory, setUsersDirectory] = useState({ customers: [], sellers: [], totalCustomers: 0, totalSellers: 0 });

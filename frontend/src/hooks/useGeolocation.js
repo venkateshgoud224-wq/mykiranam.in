@@ -81,6 +81,8 @@ export const useGeolocation = () => {
                 longitude: lon,
                 address: addressName
               })
+            }).then(res => {
+              if (res.ok && refreshProfile) refreshProfile();
             }).catch(err => console.error('Failed to sync customer location:', err));
           }
         }
@@ -118,7 +120,7 @@ export const useGeolocation = () => {
               })
             });
           } else if (user.role === 'customer') {
-            await fetch(`${apiUrl}/auth/location`, {
+            const res = await fetch(`${apiUrl}/auth/location`, {
               method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json',
@@ -130,6 +132,7 @@ export const useGeolocation = () => {
                 address: coords.address
               })
             });
+            if (res.ok && refreshProfile) refreshProfile();
           }
         } catch (err) {
           console.error('Failed to sync cached location on startup:', err);
@@ -163,7 +166,7 @@ export const useGeolocation = () => {
           });
           if (res.ok && refreshProfile) refreshProfile();
         } else if (user.role === 'customer') {
-          await fetch(`${apiUrl}/auth/location`, {
+          const res = await fetch(`${apiUrl}/auth/location`, {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json',
@@ -175,6 +178,7 @@ export const useGeolocation = () => {
               address: name
             })
           });
+          if (res.ok && refreshProfile) refreshProfile();
         }
       } catch (err) {
         console.error('Failed to sync manual location:', err);
