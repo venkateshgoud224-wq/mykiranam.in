@@ -660,10 +660,15 @@ const AdminDashboard = () => {
                             {/* Contact Details */}
                             <td className="py-4 px-5 space-y-0.5">
                               <span className="block font-semibold text-slate-700">{user.email}</span>
-                              <div className="flex items-center space-x-1">
+                              <div className="flex flex-col space-y-0.5">
                                 <span className="text-slate-500 font-medium">{user.phone || 'No phone number'}</span>
+                                {user.whatsapp_number && (
+                                  <span className="text-emerald-600 font-semibold text-[11px] flex items-center">
+                                    WA: {user.whatsapp_number}
+                                  </span>
+                                )}
                                 {isWhatsappVerified && (
-                                  <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-600 border border-emerald-100 text-[8px] font-extrabold rounded-full flex items-center gap-0.5">
+                                  <span className="inline-block self-start px-1.5 py-0.2 bg-emerald-50 text-emerald-600 border border-emerald-100 text-[8px] font-extrabold rounded-full mt-0.5">
                                     WA Verified
                                   </span>
                                 )}
@@ -716,24 +721,37 @@ const AdminDashboard = () => {
 
                             {/* GPS Location */}
                             <td className="py-4 px-5">
-                              {hasLocation ? (
-                                <div className="max-w-[200px] space-y-1">
-                                  <span className="block text-slate-600 truncate font-semibold" title={user.location.address}>
-                                    {user.location.address}
-                                  </span>
-                                  <button
-                                    onClick={() => setSelectedUserForMap(user)}
-                                    className="text-indigo-600 hover:text-indigo-800 text-[10px] font-extrabold flex items-center gap-0.5 cursor-pointer"
-                                  >
-                                    <MapPin className="w-3 h-3 text-indigo-500" />
-                                    <span>View Pin ({parseFloat(user.location.latitude).toFixed(4)}, {parseFloat(user.location.longitude).toFixed(4)})</span>
-                                  </button>
-                                </div>
-                              ) : (
-                                <span className="text-slate-400 italic text-[11px]">
-                                  {isSeller ? 'No shop address pinned' : 'No delivery address recorded'}
-                                </span>
-                              )}
+                              {(() => {
+                                const locationToDisplay = hasLocation ? user.location : {
+                                  address: "Bangalore Central, Karnataka (Platform Default)",
+                                  latitude: 12.9716,
+                                  longitude: 77.5946,
+                                  isDefault: true
+                                };
+
+                                return (
+                                  <div className="max-w-[200px] space-y-1">
+                                    <span 
+                                      className={`block truncate font-semibold ${locationToDisplay.isDefault ? 'text-slate-400 italic' : 'text-slate-600'}`} 
+                                      title={locationToDisplay.address}
+                                    >
+                                      {locationToDisplay.address}
+                                    </span>
+                                    <button
+                                      onClick={() => setSelectedUserForMap({
+                                        ...user,
+                                        location: locationToDisplay
+                                      })}
+                                      className={`text-[10px] font-extrabold flex items-center gap-0.5 cursor-pointer ${
+                                        locationToDisplay.isDefault ? 'text-slate-400 hover:text-slate-500' : 'text-indigo-600 hover:text-indigo-800'
+                                      }`}
+                                    >
+                                      <MapPin className="w-3 h-3" />
+                                      <span>View Pin ({parseFloat(locationToDisplay.latitude).toFixed(4)}, {parseFloat(locationToDisplay.longitude).toFixed(4)})</span>
+                                    </button>
+                                  </div>
+                                );
+                              })()}
                             </td>
 
                             {/* Actions */}
@@ -1803,6 +1821,9 @@ const AdminDashboard = () => {
                   <div className="space-y-1.5">
                     <div className="flex justify-between"><span className="text-slate-500 font-semibold">Name:</span> <span className="font-extrabold text-slate-900">{selectedOrder.customer_name}</span></div>
                     <div className="flex justify-between"><span className="text-slate-500 font-semibold">Phone:</span> <span className="font-bold text-slate-700">{selectedOrder.customer_phone || 'N/A'}</span></div>
+                    {selectedOrder.customer_whatsapp && (
+                      <div className="flex justify-between"><span className="text-slate-500 font-semibold">Whatsapp:</span> <span className="font-bold text-emerald-600">WA: {selectedOrder.customer_whatsapp}</span></div>
+                    )}
                     <div className="flex justify-between"><span className="text-slate-500 font-semibold">Email:</span> <span className="font-bold text-slate-750">{selectedOrder.customer_email || 'N/A'}</span></div>
                     <div className="flex justify-between"><span className="text-slate-500 font-semibold">Trust Level:</span> <span className="font-extrabold text-slate-800">{selectedOrder.customer_level || 'Standard Customer'}</span></div>
                     <div className="flex justify-between">

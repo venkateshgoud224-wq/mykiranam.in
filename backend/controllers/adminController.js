@@ -448,7 +448,7 @@ const getCustomersList = async (req, res) => {
     const isMock = db.getIsMock && db.getIsMock();
     if (!isMock) {
       const result = await db.query(
-        `SELECT u.id, u.name, u.email, u.phone, u.verified_whatsapp, u.verified_email, u.created_at, u.last_login,
+        `SELECT u.id, u.name, u.email, u.phone, u.whatsapp_number, u.verified_whatsapp, u.verified_email, u.created_at, u.last_login,
                 COALESCE(ct.trust_score, 100) as trust_score,
                 COALESCE(ct.customer_level, 'Standard Customer') as customer_level,
                 COALESCE(ct.successful_pickups, 0) as successful_pickups,
@@ -469,6 +469,7 @@ const getCustomersList = async (req, res) => {
           name: u.name,
           email: u.email,
           phone: u.phone,
+          whatsapp_number: u.whatsapp_number,
           verified_whatsapp: u.verified_whatsapp,
           verified_email: u.verified_email,
           created_at: u.created_at,
@@ -598,7 +599,7 @@ const getAllOrdersList = async (req, res) => {
         `SELECT 
           o.*, 
           s.shop_name, s.address as shop_address, s.rating as shop_rating, s.verification_status as shop_verification_status, s.warning_level as shop_warning_level,
-          u.name as customer_name, u.email as customer_email, u.phone as customer_phone,
+          u.name as customer_name, u.email as customer_email, u.phone as customer_phone, u.whatsapp_number as customer_whatsapp,
           su.name as seller_name, su.phone as seller_phone, su.whatsapp_number as seller_whatsapp,
           ct.trust_score as customer_trust_score, ct.cancellations as customer_cancellations, ct.successful_pickups as customer_successful_pickups, ct.total_orders as customer_total_orders,
           sp.trust_score as seller_trust_score, sp.total_completed_orders as seller_total_completed_orders, sp.total_cancelled_orders as seller_total_cancelled_orders
@@ -632,6 +633,7 @@ const getAllOrdersList = async (req, res) => {
           customer_name: customer.name || 'Customer',
           customer_email: customer.email || '',
           customer_phone: customer.phone || '',
+          customer_whatsapp: customer.whatsapp_number || '',
           seller_name: seller.name || 'Seller',
           seller_phone: seller.phone || '',
           seller_whatsapp: seller.whatsapp_number || '',
@@ -660,7 +662,7 @@ const getUsersDirectory = async (req, res) => {
     if (!isMock) {
       // Fetch customers with their last known delivery location
       const customersRes = await db.query(
-        `SELECT u.id, u.name, u.email, u.phone, u.verified_whatsapp, u.verified_email, u.created_at, u.last_login,
+        `SELECT u.id, u.name, u.email, u.phone, u.whatsapp_number, u.verified_whatsapp, u.verified_email, u.created_at, u.last_login,
                 COALESCE(ct.trust_score, 100) as trust_score,
                 COALESCE(ct.customer_level, 'Standard Customer') as customer_level,
                 ct.suspension_end_date,
@@ -675,7 +677,7 @@ const getUsersDirectory = async (req, res) => {
 
       // Fetch sellers with their shop details
       const sellersRes = await db.query(
-        `SELECT u.id, u.name, u.email, u.phone, u.verified_whatsapp, u.verified_email, u.created_at, u.last_login,
+        `SELECT u.id, u.name, u.email, u.phone, u.whatsapp_number, u.verified_whatsapp, u.verified_email, u.created_at, u.last_login,
                 s.id as shop_id, s.shop_name, s.address, s.latitude, s.longitude, s.verification_status, s.warning_level, s.suspension_end_date as shop_suspension_end_date,
                 s.working_hours, s.shop_category, s.image_front, s.image_counter, s.image_inside1, s.image_inside2, s.image_additional
          FROM users u
@@ -733,6 +735,7 @@ const getUsersDirectory = async (req, res) => {
           name: u.name,
           email: u.email,
           phone: u.phone,
+          whatsapp_number: u.whatsapp_number || '',
           role: u.role,
           verified_whatsapp: u.verified_whatsapp || false,
           verified_email: u.verified_email || false,
@@ -762,6 +765,7 @@ const getUsersDirectory = async (req, res) => {
           name: u.name,
           email: u.email,
           phone: u.phone,
+          whatsapp_number: u.whatsapp_number || '',
           role: u.role,
           verified_whatsapp: u.verified_whatsapp || false,
           verified_email: u.verified_email || false,
