@@ -119,7 +119,7 @@ const dispatchNotification = async (userId, title, message, type, metadata = {})
           ? 'Your order has been successfully delivered to your home and marked as delivered.'
           : 'Your order has been successfully collected and marked as delivered.';
 
-        const text = `Thank you for shopping through Kiranam.in!\n\n📦 Order ID: ${orderIdStr}\n🏪 Shop: ${shopName}\n💰 Paid Amount: ₹${amount}\n\n${deliveryStatusText}`;
+        const text = `Thank you for shopping through mykiranam.in!\n\n📦 Order ID: ${orderIdStr}\n🏪 Shop: ${shopName}\n💰 Paid Amount: ₹${amount}\n\n${deliveryStatusText}`;
         waPromise = whatsappService.sendWhatsAppMessage(
           user.whatsapp_number,
           titleText,

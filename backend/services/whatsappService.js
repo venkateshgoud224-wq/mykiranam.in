@@ -179,9 +179,8 @@ const sendCustomerUpdateWhatsApp = async (customerPhone, orderId, eventType, tex
   return sendWhatsAppMessage(customerPhone, `📦 Order Update: ${eventType}`, text);
 };
 
-// ── OTP Verification sender ──────────────────────────────────────────────────
 const sendWhatsAppOTP = async (phone, otp) => {
-  const text = `Your Kiranam.in verification code is:\n\n*${otp}*\n\nThis OTP is valid for 5 minutes. Do not share this code with anyone.`;
+  const text = `Your mykiranam.in verification code is:\n\n*${otp}*\n\nThis OTP is valid for 5 minutes. Do not share this code with anyone.`;
   return sendWhatsAppMessage(phone, '🔐 WhatsApp Verification OTP', text);
 };
 

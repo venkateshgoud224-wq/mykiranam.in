@@ -1760,7 +1760,60 @@ const initDb = async () => {
     await pool.query(schemaSql);
 
     // Admin user seeding removed to prevent dummy data in production
-    
+
+    // Create seller_kyc table and index if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS seller_kyc (
+          id SERIAL PRIMARY KEY,
+          shop_id INTEGER REFERENCES shops(id) ON DELETE CASCADE UNIQUE,
+          seller_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          owner_full_name VARCHAR(150),
+          aadhaar_number VARCHAR(12),
+          pan_number VARCHAR(10),
+          business_type VARCHAR(50) DEFAULT 'Sole Proprietor',
+          gst_number VARCHAR(15),
+          bank_account_number VARCHAR(20),
+          bank_ifsc_code VARCHAR(11),
+          aadhaar_image TEXT,
+          pan_image TEXT,
+          declaration_accepted BOOLEAN DEFAULT false,
+          submitted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_seller_kyc_seller_id ON seller_kyc(seller_id);');
+
+    // Create commitment_payments table if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS commitment_payments (
+          id SERIAL PRIMARY KEY,
+          order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+          amount INT NOT NULL,
+          status VARCHAR(50) NOT NULL,
+          razorpay_payment_id TEXT,
+          cashfree_order_id VARCHAR(255),
+          cashfree_session_id VARCHAR(255),
+          cashfree_payment_id VARCHAR(255),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Add missing commitment payment/fee & cashfree columns to orders
+    await pool.query(`
+      ALTER TABLE orders 
+        ADD COLUMN IF NOT EXISTS traditional_price DECIMAL(10,2) DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS gst_fee DECIMAL(10,2) DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS platform_fee DECIMAL(10,2) DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS surge_fee DECIMAL(10,2) DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS net_commitment DECIMAL(10,2) DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS cashfree_order_id VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS cashfree_session_id VARCHAR(255);
+    `);
+
+    // Add cashfree column to shops
+    await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS cashfree_vendor_id VARCHAR(255);');
+
     // Safely add custom_order_id and transition timestamps to existing database schemas if not present
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS custom_order_id VARCHAR(50);');
     await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS image_banner TEXT;');
