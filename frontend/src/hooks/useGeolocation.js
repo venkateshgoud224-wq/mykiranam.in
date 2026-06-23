@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 // Default Location Coordinates (Telangana)
 export const DEFAULT_COORDS = {
@@ -8,6 +9,7 @@ export const DEFAULT_COORDS = {
 };
 
 export const useGeolocation = () => {
+  const { user, token, apiUrl, refreshProfile } = useAuth();
   const [coords, setCoords] = useState(() => {
     const cached = localStorage.getItem('user_coords');
     return cached ? JSON.parse(cached) : null;
@@ -49,6 +51,39 @@ export const useGeolocation = () => {
         setCoords(newCoords);
         setError(null);
         setLoading(false);
+
+        // Sync automatically fetched coordinates to the backend database
+        if (token && user) {
+          if (user.role === 'seller') {
+            fetch(`${apiUrl}/shops/settings`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                latitude: lat,
+                longitude: lon,
+                address: addressName
+              })
+            }).then(res => {
+              if (res.ok && refreshProfile) refreshProfile();
+            }).catch(err => console.error('Failed to sync shop location:', err));
+          } else if (user.role === 'customer') {
+            fetch(`${apiUrl}/auth/location`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                latitude: lat,
+                longitude: lon,
+                address: addressName
+              })
+            }).catch(err => console.error('Failed to sync customer location:', err));
+          }
+        }
       },
       (err) => {
         console.warn("GPS location failed. Using fallback.", err.message);
@@ -68,11 +103,47 @@ export const useGeolocation = () => {
     }
   }, []);
 
-  const manualSetCoordinates = (latitude, longitude, name = "Custom Location") => {
+  const manualSetCoordinates = async (latitude, longitude, name = "Custom Location") => {
     const customCoords = { latitude, longitude, address: name };
     localStorage.setItem('user_coords', JSON.stringify(customCoords));
     setCoords(customCoords);
     setError(null);
+
+    // Sync manually chosen coordinates to the backend database
+    if (token && user) {
+      try {
+        if (user.role === 'seller') {
+          const res = await fetch(`${apiUrl}/shops/settings`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              latitude,
+              longitude,
+              address: name
+            })
+          });
+          if (res.ok && refreshProfile) refreshProfile();
+        } else if (user.role === 'customer') {
+          await fetch(`${apiUrl}/auth/location`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              latitude,
+              longitude,
+              address: name
+            })
+          });
+        }
+      } catch (err) {
+        console.error('Failed to sync manual location:', err);
+      }
+    }
   };
 
   return {
