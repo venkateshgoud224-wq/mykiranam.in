@@ -100,8 +100,44 @@ export const useGeolocation = () => {
   useEffect(() => {
     if (!coords) {
       fetchLocation();
+    } else if (token && user && coords && coords.address !== 'Telangana') {
+      // Sync cached location to database on startup for returning (old) users
+      const syncCachedLocation = async () => {
+        try {
+          if (user.role === 'seller') {
+            await fetch(`${apiUrl}/shops/settings`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                address: coords.address
+              })
+            });
+          } else if (user.role === 'customer') {
+            await fetch(`${apiUrl}/auth/location`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                address: coords.address
+              })
+            });
+          }
+        } catch (err) {
+          console.error('Failed to sync cached location on startup:', err);
+        }
+      };
+      syncCachedLocation();
     }
-  }, []);
+  }, [token, user]);
 
   const manualSetCoordinates = async (latitude, longitude, name = "Custom Location") => {
     const customCoords = { latitude, longitude, address: name };
