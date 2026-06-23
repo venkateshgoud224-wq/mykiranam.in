@@ -33,8 +33,8 @@ const Navbar = ({ onSetCoords, currentCoords, setActiveTab }) => {
         try {
           const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
           const data = await response.json();
-          if (data && data.address) {
-            addressName = data.address.neighbourhood || data.address.suburb || data.address.city || data.address.town || data.address.village || data.address.county || 'My Real Coordinates';
+          if (data) {
+            addressName = data.display_name || (data.address ? (data.address.neighbourhood || data.address.suburb || data.address.city || data.address.town || data.address.village || data.address.county) : null) || 'My Real Coordinates';
           }
         } catch (error) {
           console.error("Reverse geocoding failed:", error);
@@ -59,6 +59,23 @@ const Navbar = ({ onSetCoords, currentCoords, setActiveTab }) => {
             if (refreshProfile) refreshProfile();
           } catch (err) {
             console.error('Failed to update shop location:', err);
+          }
+        } else if (user && user.role === 'customer') {
+          try {
+            await fetch(`${apiUrl}/auth/location`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                latitude: lat,
+                longitude: lon,
+                address: addressName
+              })
+            });
+          } catch (err) {
+            console.error('Failed to update customer location:', err);
           }
         }
 

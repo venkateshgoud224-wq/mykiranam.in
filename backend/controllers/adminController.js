@@ -666,9 +666,9 @@ const getUsersDirectory = async (req, res) => {
                 COALESCE(ct.trust_score, 100) as trust_score,
                 COALESCE(ct.customer_level, 'Standard Customer') as customer_level,
                 ct.suspension_end_date,
-                (SELECT o.delivery_address FROM orders o WHERE o.customer_id = u.id AND o.delivery_address IS NOT NULL ORDER BY o.created_at DESC LIMIT 1) as last_address,
-                (SELECT o.delivery_latitude FROM orders o WHERE o.customer_id = u.id AND o.delivery_latitude IS NOT NULL ORDER BY o.created_at DESC LIMIT 1) as last_latitude,
-                (SELECT o.delivery_longitude FROM orders o WHERE o.customer_id = u.id AND o.delivery_longitude IS NOT NULL ORDER BY o.created_at DESC LIMIT 1) as last_longitude
+                COALESCE(u.address, (SELECT o.delivery_address FROM orders o WHERE o.customer_id = u.id AND o.delivery_address IS NOT NULL ORDER BY o.created_at DESC LIMIT 1)) as last_address,
+                COALESCE(u.latitude, (SELECT o.delivery_latitude FROM orders o WHERE o.customer_id = u.id AND o.delivery_latitude IS NOT NULL ORDER BY o.created_at DESC LIMIT 1)) as last_latitude,
+                COALESCE(u.longitude, (SELECT o.delivery_longitude FROM orders o WHERE o.customer_id = u.id AND o.delivery_longitude IS NOT NULL ORDER BY o.created_at DESC LIMIT 1)) as last_longitude
          FROM users u
          LEFT JOIN customer_trust ct ON u.id = ct.customer_id
          WHERE u.role = 'customer'
@@ -678,7 +678,11 @@ const getUsersDirectory = async (req, res) => {
       // Fetch sellers with their shop details
       const sellersRes = await db.query(
         `SELECT u.id, u.name, u.email, u.phone, u.whatsapp_number, u.verified_whatsapp, u.verified_email, u.created_at, u.last_login,
-                s.id as shop_id, s.shop_name, s.address, s.latitude, s.longitude, s.verification_status, s.warning_level, s.suspension_end_date as shop_suspension_end_date,
+                s.id as shop_id, s.shop_name, 
+                COALESCE(u.address, s.address) as address, 
+                COALESCE(u.latitude, s.latitude) as latitude, 
+                COALESCE(u.longitude, s.longitude) as longitude, 
+                s.verification_status, s.warning_level, s.suspension_end_date as shop_suspension_end_date,
                 s.working_hours, s.shop_category, s.image_front, s.image_counter, s.image_inside1, s.image_inside2, s.image_additional
          FROM users u
          LEFT JOIN shops s ON u.id = s.owner_id
@@ -730,6 +734,10 @@ const getUsersDirectory = async (req, res) => {
         custOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         const lastOrder = custOrders[0];
 
+        const finalAddress = u.address || (lastOrder && lastOrder.delivery_address) || null;
+        const finalLatitude = u.latitude || (lastOrder && lastOrder.delivery_latitude) || null;
+        const finalLongitude = u.longitude || (lastOrder && lastOrder.delivery_longitude) || null;
+
         return {
           id: u.id,
           name: u.name,
@@ -745,10 +753,10 @@ const getUsersDirectory = async (req, res) => {
           customer_level: trust.customer_level || 'Standard Customer',
           suspension_end_date: trust.suspension_end_date || null,
           status: isSuspended ? 'Suspended' : 'Active',
-          location: lastOrder ? {
-            address: lastOrder.delivery_address,
-            latitude: lastOrder.delivery_latitude,
-            longitude: lastOrder.delivery_longitude
+          location: finalAddress ? {
+            address: finalAddress,
+            latitude: finalLatitude,
+            longitude: finalLongitude
           } : null
         };
       });
@@ -759,6 +767,10 @@ const getUsersDirectory = async (req, res) => {
         if (shop.warning_level === 'Suspended' || shop.warning_level === 'Banned') {
           status = shop.warning_level;
         }
+
+        const finalAddress = u.address || shop.address || null;
+        const finalLatitude = u.latitude || shop.latitude || null;
+        const finalLongitude = u.longitude || shop.longitude || null;
 
         return {
           id: u.id,
@@ -773,16 +785,16 @@ const getUsersDirectory = async (req, res) => {
           last_login: u.last_login,
           shop_id: shop.id || null,
           shop_name: shop.shop_name || 'Kirana Store',
-          address: shop.address || null,
-          latitude: shop.latitude || null,
-          longitude: shop.longitude || null,
+          address: finalAddress,
+          latitude: finalLatitude,
+          longitude: finalLongitude,
           verification_status: shop.verification_status || 'Pending',
           warning_level: shop.warning_level || 'None',
           status,
-          location: shop.address ? {
-            address: shop.address,
-            latitude: shop.latitude,
-            longitude: shop.longitude
+          location: finalAddress ? {
+            address: finalAddress,
+            latitude: finalLatitude,
+            longitude: finalLongitude
           } : null
         };
       });

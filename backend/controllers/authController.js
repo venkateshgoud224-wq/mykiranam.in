@@ -669,6 +669,40 @@ const deleteAccount = async (req, res) => {
   }
 };
 
+// Update User Location (Latitude, Longitude, geocoded Address)
+const updateLocation = async (req, res) => {
+  const { latitude, longitude, address } = req.body;
+  const userId = req.user.id;
+
+  if (latitude === undefined || longitude === undefined) {
+    return res.status(400).json({ error: 'Latitude and longitude coordinates are required.' });
+  }
+
+  try {
+    const isMock = db.getIsMock && db.getIsMock();
+    if (!isMock) {
+      await db.query(
+        'UPDATE users SET latitude = $1, longitude = $2, address = $3 WHERE id = $4',
+        [latitude, longitude, address || null, userId]
+      );
+    } else {
+      const mockDb = db.getMockDb();
+      const user = mockDb.users.find(u => u.id === Number(userId));
+      if (user) {
+        user.latitude = latitude;
+        user.longitude = longitude;
+        user.address = address || null;
+        db.markMockDbDirty();
+      }
+    }
+
+    return res.status(200).json({ message: 'Location updated successfully.' });
+  } catch (err) {
+    console.error('Update location error:', err);
+    return res.status(500).json({ error: 'Server error updating user profile location.' });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -681,6 +715,7 @@ module.exports = {
   verifyWhatsAppOTP,
   forgotPassword,
   resetPassword,
-  deleteAccount
+  deleteAccount,
+  updateLocation
 };
 

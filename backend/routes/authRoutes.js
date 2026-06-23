@@ -12,6 +12,7 @@ router.post('/reset-password', authController.resetPassword);
 
 // Protected routes (require JWT verification)
 router.patch('/role', authMiddleware, authController.updateRole);
+router.patch('/location', authMiddleware, authController.updateLocation);
 router.get('/profile', authMiddleware, authController.getProfile);
 router.patch('/profile/details', authMiddleware, authController.updateProfileDetails);
 router.patch('/profile/settings', authMiddleware, authController.updateSettings);

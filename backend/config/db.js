@@ -1829,6 +1829,11 @@ const initDb = async () => {
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS modified_item_list TEXT;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS item_change_history TEXT;');
     
+    // Add location columns to users table
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS latitude DECIMAL(9,6);');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS longitude DECIMAL(9,6);');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT;');
+    
     // Phase 6A migrations
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_otp VARCHAR(10);');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS otp_generated_at TIMESTAMP WITH TIME ZONE;');
